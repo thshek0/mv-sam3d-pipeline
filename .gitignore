@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+MV-SAM3D/
+Depth-Anything-3/
+checkpoints/
+*.safetensors
+*.bin
+*.glb
+!examples/**/*.glb
+*.mp4
+*.stl
+intermediate/
+/work/
+/output/
+.pytest_cache/
+*.egg-info/

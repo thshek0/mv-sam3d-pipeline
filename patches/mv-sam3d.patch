@@ -1,0 +1,72 @@
+diff --git a/notebook/inference.py b/notebook/inference.py
+index 2fb5553..9606a83 100644
+--- a/notebook/inference.py
++++ b/notebook/inference.py
+@@ -1,11 +1,15 @@
+ # Copyright (c) Meta Platforms, Inc. and affiliates.
+ import os
++import sys
+ 
+-# not ideal to put that here
+-os.environ["CUDA_HOME"] = os.environ["CONDA_PREFIX"]
++# Toolkit from this env only. Do not point CUDA_HOME at a system install.
++if not os.environ.get("CUDA_HOME"):
++    _prefix = os.environ.get("CONDA_PREFIX") or os.path.dirname(
++        os.path.dirname(os.path.realpath(sys.executable))
++    )
++    os.environ["CUDA_HOME"] = _prefix
+ os.environ["LIDRA_SKIP_INIT"] = "true"
+ 
+-import sys
+ from typing import Union, Optional, List, Callable
+ import numpy as np
+ from PIL import Image
+diff --git a/scripts/run_da3.py b/scripts/run_da3.py
+index ed788e8..0b1cf7b 100644
+--- a/scripts/run_da3.py
++++ b/scripts/run_da3.py
+@@ -103,6 +103,23 @@ def pointmap_to_sam3d_format(pointmap: np.ndarray) -> np.ndarray:
+     return pointmap.transpose(2, 0, 1)  # (H, W, 3) -> (3, H, W)
+ 
+ 
++def _checkpoint_dir(path: Path) -> Optional[Path]:
++    """Return a directory that contains DA3 config and weights.
++
++    Hugging Face stores the real files under ``snapshots/<rev>/``, not in the
++    cache repo root.
++    """
++    if (path / "config.json").is_file() and (path / "model.safetensors").is_file():
++        return path
++    snapshots = path / "snapshots"
++    if not snapshots.is_dir():
++        return None
++    for snap in snapshots.iterdir():
++        if (snap / "config.json").is_file() and (snap / "model.safetensors").is_file():
++            return snap
++    return None
++
++
+ def run_da3_inference(
+     image_dir: str,
+     output_dir: str,
+@@ -135,15 +152,17 @@ def run_da3_inference(
+     
+     # Auto-detect model path if not provided
+     if model_path is None:
+-        # Check common locations
++        # Check common locations. The HF hub cache root has no weights;
++        # they live in snapshots/<rev>/.
+         possible_paths = [
+             DA3_ROOT / "checkpoints" / "DA3NESTED-GIANT-LARGE",
+             DA3_ROOT / "checkpoints" / "DA3-GIANT-LARGE",
+             Path.home() / ".cache" / "huggingface" / "hub" / "models--depth-anything--DA3NESTED-GIANT-LARGE",
+         ]
+         for p in possible_paths:
+-            if p.exists():
+-                model_path = str(p)
++            resolved = _checkpoint_dir(p)
++            if resolved is not None:
++                model_path = str(resolved)
+                 break
+         
+         if model_path is None:
