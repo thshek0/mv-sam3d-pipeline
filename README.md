@@ -36,6 +36,10 @@ flowchart LR
 
 ![12-view RGB and masks](examples/gripper/output/crop_preview.png)
 
+**Depth**
+
+![12-view RGB and depth](examples/gripper/output/depth_preview.png)
+
 **Output**
 
 ![Reconstructed gripper](examples/gripper/output/mesh.png)
@@ -51,6 +55,8 @@ examples/gripper/
     images/0.png …     # RGB (stems are 0, 1, 2, … not 00)
     object/0.png …     # RGBA, same names as images/; alpha is the object
   output/
+    crop_preview.png
+    depth_preview.png
     mesh.glb
     mesh.png
 ```

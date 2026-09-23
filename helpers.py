@@ -9,7 +9,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Literal, Sequence
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -538,6 +538,22 @@ def listed_images(images_dir: Path) -> list[Path]:
         images_dir.glob("*.png"),
         key=lambda path: int(path.stem) if path.stem.isdigit() else path.stem,
     )
+
+
+def visualize_depth(
+    npz_path: Path,
+    output: Path,
+    images_dir: Path | None = None,
+    mode: Literal["per_view", "orbit", "both"] = "both",
+) -> list[Path]:
+    """Verify ``da3_output.npz`` and write RGB|depth and/or orbit PNGs.
+
+    Implemented in ``vis``. ``mode`` is ``per_view``, ``orbit``, or ``both``.
+    Per-view uses the same photo | depth grid as ``crop_preview.png``.
+    """
+    from vis import visualize_depth as _visualize_depth
+
+    return _visualize_depth(npz_path, output, images_dir=images_dir, mode=mode)
 
 
 def validate_scene(scene_dir: Path, object_name: str) -> list[Path]:

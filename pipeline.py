@@ -21,6 +21,7 @@ from helpers import (
     run_da3,
     run_mvsam,
     validate_scene,
+    visualize_depth,
 )
 
 
@@ -112,6 +113,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         npz = run_da3(args.da3_python, args.mvsam_root, images_dir, da3_out)
     else:
         raise RuntimeError("Pass --da3-npz or --da3-python (DA3_PYTHON / SAM3D_PYTHON)")
+    visualize_depth(npz, run_dir / "depth_preview.png", images_dir=images_dir, mode="per_view")
     if not args.mvsam_python:
         raise RuntimeError("Pass --mvsam-python or set MVSAM_PYTHON / SAM3D_PYTHON")
     glb = run_mvsam(args.mvsam_python, args.mvsam_root, scene_dir, args.object, npz, args.merge_da3_glb)

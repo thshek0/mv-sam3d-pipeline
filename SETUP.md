@@ -131,7 +131,7 @@ python pipeline.py -i examples/gripper/processed --scene gripper \
   --work-dir ./work --output-dir ./output
 ```
 
-Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gripper/mesh.glb` and `mesh.png`. Missing DA3/npz raises; it does not skip.
+Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gripper/depth_preview.png`, `mesh.glb`, and `mesh.png`. Missing DA3/npz raises; it does not skip.
 
 Optional closed solid + convex parts (CoACD `t=0.05`):
 
