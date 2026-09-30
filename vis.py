@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Sequence
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
-from helpers import _fit_thumb, listed_images
+from helpers import listed_images, write_pair_preview
 
 REQUIRED_KEYS: tuple[str, ...] = (
     "depth",
@@ -28,6 +28,41 @@ ORBIT_VIEWS: tuple[tuple[str, float, float], ...] = (
 )
 MAX_ORBIT_POINTS = 24000
 DEPTH_RECON_ATOL = 1e-3
+
+
+def write_da3_npz(
+    npz_path: Path,
+    depth: np.ndarray,
+    extrinsics: np.ndarray,
+    intrinsics: np.ndarray,
+    image_files: Sequence[Path | str],
+    process_res: int,
+    keep_stems: Sequence[str] | None = None,
+) -> Path:
+    """Write a DA3-style npz. ``Z <= 0`` is stored as NaN in the pointmaps."""
+    depth_n = np.asarray(depth, dtype=np.float32)
+    if depth_n.ndim != 3:
+        raise ValueError(f"depth must be (N, H, W), got {depth_n.shape}")
+    k_n = np.asarray(intrinsics, dtype=np.float32)
+    ext_n = np.asarray(extrinsics, dtype=np.float32)
+    pointmaps = np.stack([depth_to_pointmap(depth_n[i], k_n[i]) for i in range(depth_n.shape[0])], axis=0)
+    pointmaps[depth_n <= 0] = np.nan
+    payload: dict[str, np.ndarray] = {
+        "depth": depth_n,
+        "pointmaps": pointmaps.astype(np.float32),
+        "pointmaps_sam3d": np.transpose(pointmaps, (0, 3, 1, 2)).astype(np.float32),
+        "extrinsics": ext_n,
+        "intrinsics": k_n,
+        "image_files": np.array([str(p) for p in image_files]),
+        "process_res": np.asarray(process_res),
+    }
+    if keep_stems is not None:
+        payload["keep_stems"] = np.array(list(keep_stems))
+    npz_path = npz_path.expanduser()
+    npz_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(npz_path, **payload)
+    print(f"npz → {npz_path} N={depth_n.shape[0]} {depth_n.shape[1]}x{depth_n.shape[2]}", flush=True)
+    return npz_path
 
 
 def depth_to_pointmap(depth: np.ndarray, intrinsics: np.ndarray) -> np.ndarray:
@@ -163,41 +198,104 @@ def _write_per_view(
     images_dir: Path | None,
     out_png: Path,
 ) -> Path:
-    """Write a crop_preview-style grid: photo | depth, 3 pairs per row."""
+    """Write a 3-column photo | depth grid with every view."""
     depth = np.asarray(data["depth"])
     n_view, _, _ = depth.shape
     stems = _view_stems(data, n_view)
-    cols = min(3, max(1, n_view))
-    rows = (n_view + cols - 1) // cols
-    thumb = 280
-    cell_w, cell_h = thumb * 2, thumb
-    grid = Image.new("RGB", (cols * cell_w, rows * cell_h), (14, 14, 16))
-    draw = ImageDraw.Draw(grid)
-    font = ImageFont.load_default()
+    pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
     for i in range(n_view):
-        r, c = divmod(i, cols)
         rgb_path = _file_for_stem(images_dir, stems[i])
         if rgb_path is not None:
             photo = Image.open(rgb_path).convert("RGB")
         else:
             photo = Image.fromarray(_colorize_depth(depth[i]))
         depth_im = Image.fromarray(_colorize_depth(depth[i]))
-        left = _fit_thumb(photo, thumb)
-        right = _fit_thumb(depth_im, thumb)
-        ImageDraw.Draw(left).text((8, thumb - 18), f"{i} photo", fill=(220, 220, 220), font=font)
-        ImageDraw.Draw(right).text((8, thumb - 18), f"{i} depth", fill=(220, 220, 220), font=font)
-        x0, y0 = c * cell_w, r * cell_h
-        grid.paste(left, (x0, y0))
-        grid.paste(right, (x0 + thumb, y0))
-        draw.rectangle((x0, y0, x0 + cell_w - 1, y0 + cell_h - 1), outline=(60, 60, 64))
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    grid.save(out_png)
+        pairs.append((photo, depth_im, f"{i} photo", f"{i} depth"))
+    write_pair_preview(pairs, out_png)
     print(f"depth per-view → {out_png}", flush=True)
     return out_png
 
 
-def _orbit_points(data: dict[str, np.ndarray], images_dir: Path | None) -> tuple[np.ndarray, np.ndarray]:
-    """Subsample camera-frame pointmaps, lift to world, optional RGB colors."""
+def overlay_depth_visibility(rgb: Image.Image, depth: np.ndarray, obj: np.ndarray) -> Image.Image:
+    """Darken the photo; cyan = object and Z>0, red = object and Z=0."""
+    height, width = depth.shape
+    photo = rgb.convert("RGB")
+    if photo.size != (width, height):
+        photo = photo.resize((width, height), Image.Resampling.BILINEAR)
+    arr = np.asarray(photo, dtype=np.float64)
+    out = arr * 0.35
+    valid = obj & np.isfinite(depth) & (depth > 0)
+    miss = obj & (~np.isfinite(depth) | (depth <= 0))
+    out[valid] = 0.25 * arr[valid] + np.array([0.0, 200.0, 220.0])
+    out[miss] = 0.25 * arr[miss] + np.array([220.0, 40.0, 40.0])
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
+def write_depth_visibility_preview(
+    depth: np.ndarray, images: Sequence[Path], mask_dir: Path, out_png: Path,
+) -> Path:
+    """Write a 3-column photo | depth-visibility grid with every view."""
+    n_view = int(np.asarray(depth).shape[0])
+    if len(images) != n_view:
+        raise ValueError(f"{len(images)} RGBs, depth has {n_view} views")
+    pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
+    for i, rgb_path in enumerate(images):
+        z = np.asarray(depth[i])
+        height, width = z.shape
+        rgb = Image.open(rgb_path).convert("RGB")
+        keep = _mask_keep(rgb_path.stem, mask_dir, height, width)
+        obj = keep if keep is not None else np.zeros((height, width), dtype=bool)
+        pairs.append((rgb, overlay_depth_visibility(rgb, z, obj), f"{i} photo", f"{i} vis"))
+    write_pair_preview(pairs, out_png)
+    print(f"depth visibility → {out_png}", flush=True)
+    return out_png
+
+
+def _mask_keep(stem: str, mask_dir: Path | None, height: int, width: int) -> np.ndarray | None:
+    """Boolean HxW object mask (alpha or L > 0), or None if this view has no mask."""
+    if mask_dir is None:
+        return None
+    path = _file_for_stem(mask_dir, stem)
+    if path is None:
+        return None
+    img = Image.open(path)
+    alpha = img.getchannel("A") if img.mode in {"RGBA", "LA"} else img.convert("L")
+    alpha = alpha.resize((width, height), Image.Resampling.NEAREST)
+    return np.asarray(alpha) > 0
+
+
+def _resolve_mask_dir(
+    images_dir: Path | None, mask_dir: Path | None, object_only: bool,
+) -> Path | None:
+    """Object-mask folder for the orbit, or None for the full frame."""
+    if not object_only:
+        return None
+    if mask_dir is not None:
+        if not mask_dir.is_dir():
+            raise FileNotFoundError(mask_dir)
+        return mask_dir
+    if images_dir is None:
+        print("warning: orbit object-only with no --masks / --images; using full frame", flush=True)
+        return None
+    cand = images_dir.parent / "object"
+    if cand.is_dir():
+        return cand
+    print(f"warning: no {cand}; orbit uses full frame", flush=True)
+    return None
+
+
+def _orbit_points(
+    data: dict[str, np.ndarray],
+    images_dir: Path | None,
+    orbit_z_min: float | None,
+    orbit_z_max: float | None,
+    mask_dir: Path | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Subsample camera-frame pointmaps, lift to world, optional RGB colors.
+
+    ``orbit_z_min`` / ``orbit_z_max`` clip camera Z for display only.
+    When ``mask_dir`` is set, only pixels with mask alpha (or L) > 0 are kept.
+    """
     depth = np.asarray(data["depth"])
     pms = np.asarray(data["pointmaps_sam3d"])
     ext = np.asarray(data["extrinsics"])
@@ -210,6 +308,13 @@ def _orbit_points(data: dict[str, np.ndarray], images_dir: Path | None) -> tuple
         xyz = np.transpose(pms[i], (1, 2, 0))[::stride, ::stride].reshape(-1, 3)
         z = depth[i, ::stride, ::stride].reshape(-1)
         keep = np.isfinite(xyz).all(axis=1) & np.isfinite(z) & (z > 0)
+        if orbit_z_min is not None:
+            keep = keep & (z >= orbit_z_min)
+        if orbit_z_max is not None:
+            keep = keep & (z <= orbit_z_max)
+        obj = _mask_keep(stems[i], mask_dir, height, width)
+        if obj is not None:
+            keep = keep & obj[::stride, ::stride].reshape(-1)
         xyz = xyz[keep]
         if xyz.size == 0:
             continue
@@ -221,15 +326,23 @@ def _orbit_points(data: dict[str, np.ndarray], images_dir: Path | None) -> tuple
             pix = rgb[::stride, ::stride].reshape(-1, 3)[keep] / 255.0
             colors.append(pix)
     if not worlds:
-        raise ValueError("no valid depth points to plot")
+        raise ValueError("no valid depth points to plot" + (" in object masks" if mask_dir is not None else ""))
     return np.concatenate(worlds, axis=0), np.concatenate(colors, axis=0)
 
 
-def _write_orbit(data: dict[str, np.ndarray], images_dir: Path | None, out_png: Path) -> Path:
+def _write_orbit(
+    data: dict[str, np.ndarray],
+    images_dir: Path | None,
+    out_png: Path,
+    orbit_z_min: float | None,
+    orbit_z_max: float | None,
+    mask_dir: Path | None = None,
+) -> Path:
     """Write front / side / top scatters of the fused world point cloud."""
-    pts, cols = _orbit_points(data, images_dir)
+    pts, cols = _orbit_points(data, images_dir, orbit_z_min, orbit_z_max, mask_dir=mask_dir)
     lo, hi = pts.min(axis=0), pts.max(axis=0)
     span = np.maximum(hi - lo, 1e-9)
+    hi = lo + span
     fig, axes = plt.subplots(1, len(ORBIT_VIEWS), figsize=(4.2 * len(ORBIT_VIEWS), 4.4), subplot_kw={"projection": "3d"})
     for ax, (title, elev, azim) in zip(np.atleast_1d(axes), ORBIT_VIEWS):
         ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], c=cols, s=0.4, linewidths=0)
@@ -252,15 +365,26 @@ def visualize_depth(
     output: Path,
     images_dir: Path | None = None,
     mode: Literal["per_view", "orbit", "both"] = "both",
+    orbit_z_min: float | None = None,
+    orbit_z_max: float | None = None,
+    mask_dir: Path | None = None,
+    object_only: bool = True,
 ) -> list[Path]:
     """Load ``da3_output.npz``, check it, and write preview PNGs.
 
-    ``per_view`` is a ``crop_preview`` grid (photo | depth, 3 pairs per row).
-    ``orbit`` is front/side/top of the fused world cloud. ``output`` is a PNG
-    path or a directory.
+    ``per_view`` is a 3-column photo | depth grid of every view.
+    ``orbit`` is front/side/top of the fused world cloud, object-mask pixels
+    only by default (``object/`` next to ``images/``, or ``mask_dir``).
+    ``orbit_z_min`` / ``orbit_z_max`` clip camera Z for the orbit only (npz
+    unchanged). When object masks are available, also writes
+    ``depth_visibility_preview.png`` (cyan = object and Z>0, red = object and
+    Z=0). ``output`` is a PNG path or a directory. With ``mode=both``
+    and a PNG ``output``, per-view stays at that path and orbit is
+    ``{stem}_orbit.png``.
     """
     data = load_da3_npz(npz_path)
     verify_da3_npz(data)
+    resolved_masks = _resolve_mask_dir(images_dir, mask_dir, object_only)
     if images_dir is not None:
         n_rgb = len(listed_images(images_dir))
         n_depth = int(np.asarray(data["depth"]).shape[0])
@@ -273,7 +397,7 @@ def visualize_depth(
     output = output.expanduser()
     if output.suffix.lower() == ".png":
         stem = output.with_suffix("")
-        per_path = Path(f"{stem}_per_view.png") if mode == "both" else output
+        per_path = output
         orbit_path = Path(f"{stem}_orbit.png") if mode == "both" else output
         out_dir = output.parent
     else:
@@ -285,7 +409,17 @@ def visualize_depth(
     if mode in ("per_view", "both"):
         written.append(_write_per_view(data, images_dir, per_path))
     if mode in ("orbit", "both"):
-        written.append(_write_orbit(data, images_dir, orbit_path))
+        written.append(_write_orbit(
+            data, images_dir, orbit_path, orbit_z_min, orbit_z_max, mask_dir=resolved_masks,
+        ))
+    if resolved_masks is not None and images_dir is not None:
+        stems = _view_stems(data, int(np.asarray(data["depth"]).shape[0]))
+        vis_images = [_file_for_stem(images_dir, stem) for stem in stems]
+        if all(path is not None for path in vis_images):
+            vis_path = out_dir / "depth_visibility_preview.png"
+            written.append(write_depth_visibility_preview(
+                np.asarray(data["depth"]), vis_images, resolved_masks, vis_path,
+            ))
     return written
 
 
@@ -295,10 +429,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--npz", required=True, type=Path, help="da3_output.npz")
     parser.add_argument("--output", required=True, type=Path, help="PNG path or directory")
     parser.add_argument("--images", type=Path, default=None, help="Folder of RGB stills")
+    parser.add_argument("--masks", type=Path, default=None, help="RGBA object masks (default: sibling object/)")
     parser.add_argument("--mode", choices=("per_view", "orbit", "both"), default="both")
+    parser.add_argument("--orbit-z-min", type=float, default=None, help="Orbit camera-Z clip low (meters)")
+    parser.add_argument("--orbit-z-max", type=float, default=None, help="Orbit camera-Z clip high (meters)")
+    parser.add_argument("--full-orbit", action="store_true", help="Orbit the full frame, ignore object masks")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    visualize_depth(args.npz, args.output, images_dir=args.images, mode=args.mode)
+    visualize_depth(
+        args.npz, args.output, images_dir=args.images, mode=args.mode,
+        orbit_z_min=args.orbit_z_min, orbit_z_max=args.orbit_z_max,
+        mask_dir=args.masks, object_only=not args.full_orbit,
+    )

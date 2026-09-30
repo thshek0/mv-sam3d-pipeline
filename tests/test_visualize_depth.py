@@ -12,7 +12,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from vis import depth_to_pointmap, visualize_depth  # noqa: E402
+from vis import _orbit_points, depth_to_pointmap, load_da3_npz, visualize_depth  # noqa: E402
 
 
 def _tiny_npz(path: Path, images_dir: Path) -> None:
@@ -50,10 +50,36 @@ def test_visualize_depth_writes_both_previews() -> None:
         out = root / "preview.png"
         written = visualize_depth(npz, out, images_dir=images, mode="both")
         names = {path.name for path in written}
-        assert names == {"preview_per_view.png", "preview_orbit.png"}
+        assert names == {"preview.png", "preview_orbit.png"}
         for path in written:
             assert path.is_file()
             assert path.stat().st_size > 0
+
+
+def test_visualize_orbit_object_only_keeps_mask_pixels() -> None:
+    """Orbit drops background pixels when object/ alpha is set."""
+    with tempfile.TemporaryDirectory() as tmp_s:
+        root = Path(tmp_s)
+        npz = root / "da3_output.npz"
+        images = root / "images"
+        masks = root / "object"
+        _tiny_npz(npz, images)
+        masks.mkdir()
+        fg = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+        for y in range(2):
+            for x in range(2):
+                fg.putpixel((x, y), (255, 0, 0, 255))
+        fg.save(masks / "0.png")
+        fg.save(masks / "1.png")
+        data = load_da3_npz(npz)
+        full, _ = _orbit_points(data, images, None, None, mask_dir=None)
+        obj, _ = _orbit_points(data, images, None, None, mask_dir=masks)
+        assert obj.shape[0] < full.shape[0]
+        assert obj.shape[0] == 8
+        written = visualize_depth(npz, root / "preview.png", images_dir=images, mode="orbit")
+        assert written[0].name == "preview.png"
+        assert written[0].is_file()
+        assert written[0].stat().st_size > 0
 
 
 def test_visualize_depth_rejects_bad_pointmaps() -> None:

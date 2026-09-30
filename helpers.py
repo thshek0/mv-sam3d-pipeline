@@ -207,6 +207,10 @@ def write_labelme_masks(src_dir: Path, images: Sequence[Path], mask_dir: Path) -
     return written
 
 
+PREVIEW_COLS = 3
+PREVIEW_THUMB = 280
+
+
 def _fit_thumb(im: Image.Image, thumb: int) -> Image.Image:
     """Return a copy fitted into a ``thumb x thumb`` RGB cell on dark gray."""
     cell = Image.new("RGB", (thumb, thumb), (22, 22, 24))
@@ -216,6 +220,38 @@ def _fit_thumb(im: Image.Image, thumb: int) -> Image.Image:
     y = 8
     cell.paste(work, (x, y))
     return cell
+
+
+def write_pair_preview(
+    pairs: Sequence[tuple[Image.Image, Image.Image, str, str]],
+    out_png: Path,
+    *,
+    thumb: int = PREVIEW_THUMB,
+    cols: int = PREVIEW_COLS,
+) -> Path:
+    """Write a 3-column grid. Each cell is left | right. Every pair is shown."""
+    if cols < 1:
+        raise ValueError(f"cols must be >= 1, got {cols}")
+    if not pairs:
+        raise ValueError("need at least one pair")
+    rows = (len(pairs) + cols - 1) // cols
+    cell_w, cell_h = thumb * 2, thumb
+    grid = Image.new("RGB", (cols * cell_w, rows * cell_h), (14, 14, 16))
+    draw = ImageDraw.Draw(grid)
+    font = ImageFont.load_default()
+    for i, (left_im, right_im, left_lab, right_lab) in enumerate(pairs):
+        r, c = divmod(i, cols)
+        left = _fit_thumb(left_im, thumb)
+        right = _fit_thumb(right_im, thumb)
+        ImageDraw.Draw(left).text((8, thumb - 18), left_lab, fill=(220, 220, 220), font=font)
+        ImageDraw.Draw(right).text((8, thumb - 18), right_lab, fill=(220, 220, 220), font=font)
+        x0, y0 = c * cell_w, r * cell_h
+        grid.paste(left, (x0, y0))
+        grid.paste(right, (x0 + thumb, y0))
+        draw.rectangle((x0, y0, x0 + cell_w - 1, y0 + cell_h - 1), outline=(60, 60, 64))
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    grid.save(out_png)
+    return out_png
 
 
 def composite_rgba(rgba: Image.Image) -> Image.Image:
@@ -231,36 +267,21 @@ def save_mask_preview(
     masks: Sequence[Path],
     out_png: Path,
     copies_dir: Path | None = None,
-    thumb: int = 280,
+    thumb: int = PREVIEW_THUMB,
 ) -> Path:
     """Write a photo | cutout grid and optional per-view RGBA copies."""
     if len(images) != len(masks):
         raise ValueError("images and masks must be the same length")
-    n = len(images)
-    cols = min(3, max(1, n))
-    rows = (n + cols - 1) // cols
-    cell_w, cell_h = thumb * 2, thumb
-    grid = Image.new("RGB", (cols * cell_w, rows * cell_h), (14, 14, 16))
-    draw = ImageDraw.Draw(grid)
-    font = ImageFont.load_default()
     if copies_dir is not None:
         copies_dir.mkdir(parents=True, exist_ok=True)
+    pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
     for i, (rgb_path, mask_path) in enumerate(zip(images, masks)):
-        r, c = divmod(i, cols)
         rgb = Image.open(rgb_path).convert("RGB")
         rgba = Image.open(mask_path).convert("RGBA")
         if copies_dir is not None:
             shutil.copy2(mask_path, copies_dir / mask_path.name)
-        left = _fit_thumb(rgb, thumb)
-        right = _fit_thumb(composite_rgba(rgba), thumb)
-        ImageDraw.Draw(left).text((8, thumb - 18), f"{i} photo", fill=(220, 220, 220), font=font)
-        ImageDraw.Draw(right).text((8, thumb - 18), f"{i} labelme", fill=(220, 220, 220), font=font)
-        x0, y0 = c * cell_w, r * cell_h
-        grid.paste(left, (x0, y0))
-        grid.paste(right, (x0 + thumb, y0))
-        draw.rectangle((x0, y0, x0 + cell_w - 1, y0 + cell_h - 1), outline=(60, 60, 64))
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    grid.save(out_png)
+        pairs.append((rgb, composite_rgba(rgba), f"{i} photo", f"{i} labelme"))
+    write_pair_preview(pairs, out_png, thumb=thumb)
     print(f"labelme preview → {out_png}", flush=True)
     return out_png
 
@@ -545,15 +566,26 @@ def visualize_depth(
     output: Path,
     images_dir: Path | None = None,
     mode: Literal["per_view", "orbit", "both"] = "both",
+    orbit_z_min: float | None = None,
+    orbit_z_max: float | None = None,
+    mask_dir: Path | None = None,
+    object_only: bool = True,
 ) -> list[Path]:
     """Verify ``da3_output.npz`` and write RGB|depth and/or orbit PNGs.
 
     Implemented in ``vis``. ``mode`` is ``per_view``, ``orbit``, or ``both``.
-    Per-view uses the same photo | depth grid as ``crop_preview.png``.
+    Per-view is a 3-column photo | depth grid of every view.
+    Orbit is object-mask pixels by default. Object masks also write
+    ``depth_visibility_preview.png``. ``orbit_z_min`` / ``orbit_z_max``
+    clip camera Z on the orbit only.
     """
     from vis import visualize_depth as _visualize_depth
 
-    return _visualize_depth(npz_path, output, images_dir=images_dir, mode=mode)
+    return _visualize_depth(
+        npz_path, output, images_dir=images_dir, mode=mode,
+        orbit_z_min=orbit_z_min, orbit_z_max=orbit_z_max,
+        mask_dir=mask_dir, object_only=object_only,
+    )
 
 
 def validate_scene(scene_dir: Path, object_name: str) -> list[Path]:
