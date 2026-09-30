@@ -383,6 +383,98 @@ def crop_views_to_masks(images: Sequence[Path], mask_dir: Path, margin: float = 
     print(f"Cropped {len(written)} views to squares", flush=True)
     return written
 
+
+def crop_depth_intrinsics(
+    depth: np.ndarray, k_mat: np.ndarray, cx: int, cy: int, side: int, process_res: int | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Crop depth with the same window as ``crop_square`` and update ``K``.
+
+    Pad with 0 (invalid). If ``process_res`` is set, resize with nearest-neighbor
+    and scale the first two rows of ``K``.
+    """
+    height, width = depth.shape
+    x0 = int(cx - side // 2)
+    y0 = int(cy - side // 2)
+    cropped = np.zeros((side, side), dtype=depth.dtype)
+    src_x0, src_y0 = max(0, x0), max(0, y0)
+    src_x1, src_y1 = min(width, x0 + side), min(height, y0 + side)
+    if src_x1 > src_x0 and src_y1 > src_y0:
+        dst_x0, dst_y0 = src_x0 - x0, src_y0 - y0
+        cropped[dst_y0 : dst_y0 + (src_y1 - src_y0), dst_x0 : dst_x0 + (src_x1 - src_x0)] = depth[
+            src_y0:src_y1, src_x0:src_x1
+        ]
+    k_c = np.asarray(k_mat, dtype=np.float64).copy()
+    k_c[0, 2] -= x0
+    k_c[1, 2] -= y0
+    if process_res is None:
+        return cropped, k_c
+    if process_res < 1:
+        raise ValueError(f"process_res must be positive, got {process_res}")
+    scale = process_res / float(side)
+    resized = np.array(
+        Image.fromarray(cropped.astype(np.float32)).resize((process_res, process_res), Image.Resampling.NEAREST),
+        dtype=np.float32,
+    )
+    k_c[:2, :] *= scale
+    return resized, k_c
+
+
+def crop_views_depth_to_masks(
+    images: Sequence[Path],
+    mask_dir: Path,
+    depths: Sequence[np.ndarray],
+    ks: Sequence[np.ndarray],
+    extrinsics: np.ndarray,
+    npz_path: Path,
+    *,
+    margin: float,
+    process_res: int | None,
+) -> Path:
+    """Crop RGB, masks, depth, and K to the mask square; write a DA3 npz.
+
+    Overwrites files in ``images`` and ``mask_dir``. Extrinsics are unchanged.
+    """
+    from vis import write_da3_npz
+
+    if not (len(images) == len(depths) == len(ks) == np.asarray(extrinsics).shape[0]):
+        raise ValueError("images, depths, K, and extrinsics must have the same N")
+    cropped_depths: list[np.ndarray] = []
+    cropped_ks: list[np.ndarray] = []
+    for rgb_path, depth, k_mat in zip(images, depths, ks):
+        mask_path = mask_dir / rgb_path.name
+        rgb = Image.open(rgb_path)
+        mask_img = Image.open(mask_path) if mask_path.is_file() else None
+        width, height = rgb.size
+        alpha = _mask_alpha(mask_img) if mask_img is not None else None
+        if alpha is not None and np.any(alpha > 0):
+            cx, cy, side = mask_square(alpha > 0, margin=margin)
+        else:
+            cx, cy, side = image_center_square(width, height)
+        rgb_c = crop_square(rgb.convert("RGB"), cx, cy, side, fill=(0, 0, 0))
+        mask_c = None
+        if mask_img is not None:
+            if mask_img.mode == "RGBA":
+                mask_c = crop_square(mask_img.convert("RGBA"), cx, cy, side, fill=(0, 0, 0, 0))
+            else:
+                mask_c = crop_square(mask_img.convert("L"), cx, cy, side, fill=0)
+        depth_c, k_c = crop_depth_intrinsics(np.asarray(depth), k_mat, cx, cy, side, process_res)
+        if process_res is not None:
+            rgb_c = rgb_c.resize((process_res, process_res), Image.Resampling.LANCZOS)
+            if mask_c is not None:
+                mask_c = mask_c.resize((process_res, process_res), Image.Resampling.NEAREST)
+        rgb_c.save(rgb_path)
+        if mask_c is not None and mask_path.is_file():
+            mask_c.save(mask_path)
+        cropped_depths.append(depth_c)
+        cropped_ks.append(k_c)
+        print(f"crop depth {rgb_path.name} side={side} valid={100.0 * (depth_c > 0).mean():.1f}%", flush=True)
+    res = int(cropped_depths[0].shape[0]) if process_res is None else process_res
+    return write_da3_npz(
+        npz_path, np.stack(cropped_depths, axis=0), extrinsics, np.stack(cropped_ks, axis=0),
+        images, process_res=res,
+    )
+
+
 def convert_video_to_frames(
     video: Path, images_dir: Path, *, fps: float, max_frames: int | None = None, ffmpeg: str = "ffmpeg",
 ) -> list[Path]:
@@ -444,6 +536,92 @@ def convert_stills_to_images(src_dir: Path, images_dir: Path, max_side: int = 19
 def ingest_stills(src_dir: Path, images_dir: Path, max_side: int = 1920) -> list[Path]:
     """Alias of ``convert_stills_to_images``."""
     return convert_stills_to_images(src_dir, images_dir, max_side=max_side)
+
+
+def _strip_suffix(name: str, suffix: str) -> str | None:
+    """Return ``name`` without ``suffix`` if it ends with that suffix."""
+    if name.endswith(suffix):
+        return name[: -len(suffix)]
+    return None
+
+
+def intrinsics_from_realsense_meta(meta: dict[str, Any]) -> np.ndarray:
+    """Build a 3x3 pinhole ``K`` from a RealSense camera JSON."""
+    try:
+        fx, fy = float(meta["fx"]), float(meta["fy"])
+        cx, cy = float(meta["cx"]), float(meta["cy"])
+    except KeyError as exc:
+        raise KeyError(f"RealSense JSON missing {exc}") from exc
+    return np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]], dtype=np.float64)
+
+
+def convert_realsense_dump(
+    src_dir: Path,
+    images_dir: Path,
+    *,
+    rgb_suffix: str,
+    depth_suffix: str,
+    meta_suffix: str,
+    labelme_suffix: str | None = None,
+    raw_dir: Path | None = None,
+) -> tuple[list[Path], np.ndarray, np.ndarray, list[str]]:
+    """Load an aligned RealSense dump into numbered RGB, depth (meters), and K.
+
+    Each view is ``{stem}{rgb_suffix}``, ``{stem}{depth_suffix}``, ``{stem}{meta_suffix}``.
+    JSON must contain ``fx``, ``fy``, ``cx``, ``cy``, ``depth_scale_m_per_unit``.
+    RGB and depth must be the same size. ``Z = 0`` is invalid.
+
+    If ``labelme_suffix`` is set, every stem must have that sidecar. ``raw_dir``
+    then gets ``{stem}.png`` + ``{stem}.json`` for ``convert_labelme_to_masks``.
+    """
+    stems = sorted(
+        stem
+        for path in src_dir.iterdir()
+        if path.is_file()
+        for stem in [_strip_suffix(path.name, rgb_suffix)]
+        if stem is not None
+    )
+    if not stems:
+        raise RuntimeError(f"No files ending with {rgb_suffix!r} in {src_dir}")
+    missing: list[str] = []
+    for stem in stems:
+        for name in (f"{stem}{depth_suffix}", f"{stem}{meta_suffix}"):
+            if not (src_dir / name).is_file():
+                missing.append(name)
+        if labelme_suffix is not None and not (src_dir / f"{stem}{labelme_suffix}").is_file():
+            missing.append(f"{stem}{labelme_suffix}")
+    if missing:
+        raise FileNotFoundError(f"Incomplete RealSense views: {', '.join(missing)}")
+    images_dir.mkdir(parents=True, exist_ok=True)
+    for old in images_dir.glob("*"):
+        old.unlink()
+    if raw_dir is not None:
+        if raw_dir.exists():
+            shutil.rmtree(raw_dir)
+        raw_dir.mkdir(parents=True)
+    named: list[Path] = []
+    depths: list[np.ndarray] = []
+    ks: list[np.ndarray] = []
+    for i, stem in enumerate(stems):
+        meta = json.loads((src_dir / f"{stem}{meta_suffix}").read_text())
+        rgb = open_still_rgb(src_dir / f"{stem}{rgb_suffix}")
+        depth_img = Image.open(src_dir / f"{stem}{depth_suffix}")
+        if rgb.size != depth_img.size:
+            raise ValueError(f"{stem}: RGB {rgb.size} != depth {depth_img.size} (need aligned RGB-D)")
+        scale = float(meta["depth_scale_m_per_unit"])
+        depth = np.asarray(depth_img).astype(np.float32) * scale
+        dest = images_dir / f"{i}.png"
+        rgb.save(dest)
+        named.append(dest)
+        depths.append(depth)
+        ks.append(intrinsics_from_realsense_meta(meta))
+        if raw_dir is not None:
+            shutil.copy2(src_dir / f"{stem}{rgb_suffix}", raw_dir / f"{stem}.png")
+            if labelme_suffix is not None:
+                shutil.copy2(src_dir / f"{stem}{labelme_suffix}", raw_dir / f"{stem}.json")
+        print(f"realsense {stem} {rgb.size[0]}x{rgb.size[1]} valid={100.0 * (depth > 0).mean():.1f}%", flush=True)
+    print(f"Ingested {len(named)} RealSense views → {images_dir}", flush=True)
+    return named, np.stack(depths, axis=0), np.stack(ks, axis=0), stems
 
 
 def rembg_masks(rembg_python: str, images: list[Path], mask_dir: Path) -> None:
