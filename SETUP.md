@@ -140,7 +140,7 @@ python pipeline.py -i examples/gripper/processed --scene gripper \
   --work-dir ./work --output-dir ./output --seal --coacd
 ```
 
-`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Video, LabelMe, rembg, and crop are functions in `helpers`, not CLI flags.
+`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Video, stills, LabelMe, rembg, and crop are functions in `helpers`, not CLI flags. `tags.py` (AprilTag → npz), `tsdf.py`, and `da3_posed.py` are optional CLIs. Live tag detect needs OpenCV in `SAM3D_PYTHON`; tests inject detections.
 
 ## 9. Tests
 

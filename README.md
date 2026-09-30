@@ -54,9 +54,10 @@ examples/gripper/
   processed/           # what MV-SAM3D reads
     images/0.png …     # RGB (stems are 0, 1, 2, … not 00)
     object/0.png …     # RGBA, same names as images/; alpha is the object
-  output/
+  output/                 # checked-in example
     crop_preview.png
     depth_preview.png
+    masks_preview.png
     mesh.glb
     mesh.png
 ```
@@ -64,6 +65,14 @@ examples/gripper/
 `processed/` is the scene the CLI reads: one RGB per view in `images/`, one RGBA mask per view in `object/`, same filename, same count. Alpha must have some foreground. `raw/00.png` becomes `images/0.png` after ingest.
 
 A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `processed/` with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
+
+The CLI also writes `depth_preview_orbit.png` (object-only 3-view cloud) and `depth_visibility_preview.png` (cyan = object and Z>0, red = object and Z=0) when masks exist. AprilTag runs write `tags_preview.png`. Dataset stills previews are always **3 columns**. Each cell is a pair (`photo | overlay`). Every view in the dataset is shown. `mesh.png` and `depth_preview_orbit.png` are 3-view 3D stills, not that grid.
+
+Aligned RealSense dumps (`{stem}_rgb.png`, `{stem}_depth.png`, `{stem}.json`, optional `{stem}_rgb.json`) go through `convert_realsense_dump`, then `tags.convert_apriltag_to_da3_npz`, then `crop_views_depth_to_masks`. Pass the cropped npz to `pipeline.py --da3-npz`. The depth orbit PNG (`depth_preview_orbit.png`) is object-mask pixels only by default (`object/` alpha). `visualize_depth(..., orbit_z_min=, orbit_z_max=)` clips that orbit camera Z only; `--full-orbit` plots the whole frame.
+
+`tsdf.py` fuses that same DA3-style npz with Open3D (metric depth, world-to-camera). Optional RGBA masks zero table depth. Pixels with `Z = 0` (empty wells) never update the volume, so holes do not need to be cut in the mask. `--voxel-length`, `--sdf-trunc`, and `--depth-trunc` are required. `--keep-largest` drops flyer components and does not fill holes.
+
+`da3_posed.py` runs Depth Anything 3 with those PnP `w2c` + `K` (`align_to_input_ext_scale`). Pose-free DA3 is still the default in `pipeline.py`. The mesh to download is `mesh.glb`; `mesh.png` is the three-view still.
 
 ## Installation
 
@@ -91,15 +100,11 @@ Writes `work/gripper/` and `output/gripper/mesh.glb`. `-i` is a processed scene 
 python -m pytest tests
 ```
 
-
-
 ## Seal and CoACD
 
 `--seal` keeps the largest connected component, fills holes, and writes `sealed.stl` (one closed solid).
 
 `--coacd` runs `--seal` first, then convex-decomposes at concavity `t=0.05` into `convex_parts/`. That is for multi-body collision; on the gripper the fingers stay separate. Raise `t` if pieces that should be one body are split; lower `t` if pieces that should be separate are fused.
-
-See also [SETUP.md](SETUP.md) and [EXPERIMENTS.md](EXPERIMENTS.md).
 
 ## Citation
 
@@ -129,7 +134,7 @@ See also [SETUP.md](SETUP.md) and [EXPERIMENTS.md](EXPERIMENTS.md).
 }
 ```
 
-
+See also [SETUP.md](SETUP.md) and [EXPERIMENTS.md](EXPERIMENTS.md).
 
 ## License
 
