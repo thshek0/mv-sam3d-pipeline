@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Run MV-SAM3D on a processed scene (``images/`` + RGBA masks).
+"""Compose a processed scene with one depth method, then one mesh method.
 
-Video, stills, LabelMe, rembg, and crop live in ``helpers`` as converters.
-Optional ``--seal`` / ``--coacd``.
+Depth methods: ``da3``, ``da3_posed``, ``rs`` (existing npz), ``rs_da3``,
+``fill_all_holes``. Mesh methods: SAM3D (default) or ``tsdf``.
+Converters stay functions in ``helpers``. Optional ``--seal`` / ``--coacd``.
 """
 
 from __future__ import annotations
@@ -18,11 +19,12 @@ from helpers import (
     DEFAULT_WORK,
     env_python,
     listed_images,
-    run_da3,
-    run_mvsam,
     validate_scene,
-    visualize_depth,
 )
+from methods import depth_da3, depth_da3_posed, depth_rs_da3, mesh_sam3d, mesh_tsdf
+
+DEPTH_METHODS = ("da3", "da3_posed", "rs", "rs_da3", "fill_all_holes")
+MESH_METHODS = ("sam3d", "tsdf")
 
 
 def run_output_dir(out_dir: Path, scene: str) -> Path:
@@ -54,7 +56,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=env_python("MVSAM_PYTHON", "SAM3D_PYTHON"),
         help="Python for MV-SAM3D (or set MVSAM_PYTHON / SAM3D_PYTHON)",
     )
-    parser.add_argument("--da3-npz", type=Path, default=None, help="Existing DA3 npz (skip run_da3)")
+    parser.add_argument("--method", choices=DEPTH_METHODS, default="da3", help="How to build the depth npz")
+    parser.add_argument("--mesh", choices=MESH_METHODS, default="sam3d", help="How to turn that npz into a mesh")
+    parser.add_argument("--da3-npz", type=Path, default=None, help="Existing pose-free or any DA3-style npz")
+    parser.add_argument("--rs-npz", type=Path, default=None, help="RealSense + PnP npz (``rs``, ``rs_da3``)")
+    parser.add_argument("--pose-npz", type=Path, default=None, help="w2c + K for ``da3_posed``")
+    parser.add_argument("--process-res", type=int, default=504, help="DA3 process_res for ``da3_posed``")
+    parser.add_argument("--depth-only", action="store_true", help="Stop after writing the depth npz / previews")
+    parser.add_argument("--voxel-length", type=float, default=0.002)
+    parser.add_argument("--sdf-trunc", type=float, default=0.006)
+    parser.add_argument("--depth-trunc", type=float, default=2.0)
+    parser.add_argument("--keep-largest", action="store_true")
     parser.add_argument("--seal", action="store_true", help="Largest shell + fill holes")
     parser.add_argument("--coacd", action="store_true", help="CoACD t=0.05 (implies --seal)")
     parser.add_argument("--merge-da3-glb", action="store_true", help="Pass --merge_da3_glb to MV-SAM3D")
@@ -88,8 +100,58 @@ def _stage_processed_scene(src: Path, scene_dir: Path, object_name: str) -> None
         shutil.copytree(src / name, dest)
 
 
+def resolve_depth(
+    method: str,
+    *,
+    images_dir: Path,
+    mask_dir: Path,
+    work_dir: Path,
+    run_dir: Path,
+    mvsam_root: Path,
+    da3_python: str | None,
+    da3_npz: Path | None,
+    rs_npz: Path | None,
+    pose_npz: Path | None,
+    process_res: int,
+) -> Path:
+    """Return a DA3-style npz for ``method``. Does not run a mesher."""
+    if method == "da3":
+        if da3_npz is not None:
+            path = da3_npz.expanduser().resolve()
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            return path
+        if not da3_python:
+            raise RuntimeError("Pass --da3-npz or --da3-python (DA3_PYTHON / SAM3D_PYTHON)")
+        return depth_da3(da3_python, mvsam_root, images_dir, work_dir / "da3")
+    if method == "da3_posed":
+        if da3_npz is not None:
+            path = da3_npz.expanduser().resolve()
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            return path
+        if pose_npz is None:
+            raise RuntimeError("da3_posed needs --pose-npz (or pass --da3-npz)")
+        return depth_da3_posed(images_dir, pose_npz, work_dir / "da3_output.npz", process_res)
+    if method == "rs":
+        if rs_npz is None and da3_npz is None:
+            raise RuntimeError("rs needs --rs-npz (or --da3-npz)")
+        path = (rs_npz or da3_npz).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        return path
+    if method in ("rs_da3", "fill_all_holes"):
+        if rs_npz is None or da3_npz is None:
+            raise RuntimeError("rs_da3 / fill_all_holes need --rs-npz and --da3-npz")
+        return depth_rs_da3(
+            rs_npz, da3_npz, images_dir, mask_dir, work_dir / "da3_output.npz",
+            fill_wells=(method == "fill_all_holes"), preview_dir=run_dir,
+        )
+    raise ValueError(f"unknown depth method {method!r}")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Validate a processed scene, then DA3 or npz, then MV-SAM3D. Optional S6/S7."""
+    """Stage a scene, build depth, then SAM3D or TSDF unless ``--depth-only``."""
     args = parse_args(argv)
     src = args.input.expanduser().resolve()
     if not src.exists():
@@ -98,40 +160,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     scene = args.scene or src.name
     scene_dir = (args.work_dir / scene).resolve()
     images_dir = scene_dir / "images"
-    da3_out = scene_dir / "da3"
     run_dir = run_output_dir(args.output_dir.resolve(), scene)
 
-    print(f"scene_dir={scene_dir} src={src} out={run_dir}", flush=True)
+    print(f"scene_dir={scene_dir} src={src} out={run_dir} method={args.method} mesh={args.mesh}", flush=True)
     _stage_processed_scene(src, scene_dir, args.object)
     validate_scene(scene_dir, args.object)
 
-    if args.da3_npz is not None:
-        npz = args.da3_npz.expanduser().resolve()
-        if not npz.is_file():
-            raise FileNotFoundError(npz)
-    elif args.da3_python:
-        npz = run_da3(args.da3_python, args.mvsam_root, images_dir, da3_out)
-    else:
-        raise RuntimeError("Pass --da3-npz or --da3-python (DA3_PYTHON / SAM3D_PYTHON)")
-    visualize_depth(
-        npz, run_dir / "depth_preview.png", images_dir=images_dir, mode="both",
+    npz = resolve_depth(
+        args.method,
+        images_dir=images_dir,
         mask_dir=scene_dir / args.object,
+        work_dir=scene_dir,
+        run_dir=run_dir,
+        mvsam_root=args.mvsam_root,
+        da3_python=args.da3_python,
+        da3_npz=args.da3_npz,
+        rs_npz=args.rs_npz,
+        pose_npz=args.pose_npz,
+        process_res=args.process_res,
     )
-    if not args.mvsam_python:
-        raise RuntimeError("Pass --mvsam-python or set MVSAM_PYTHON / SAM3D_PYTHON")
-    glb = run_mvsam(args.mvsam_python, args.mvsam_root, scene_dir, args.object, npz, args.merge_da3_glb)
-    raw = run_dir / "mesh.glb"
-    shutil.copy2(glb, raw)
-    from post import preview_mesh, seal_mesh, write_coacd
-
-    preview_mesh(raw, run_dir / "mesh.png")
-    if args.seal or args.coacd:
-        closed = seal_mesh(raw)
-        closed.export(run_dir / "sealed.stl")
-        preview_mesh(run_dir / "sealed.stl", run_dir / "sealed.png")
-        if args.coacd:
-            write_coacd(closed, run_dir)
-    print(f"DONE → {raw}", flush=True)
+    if args.depth_only:
+        print(f"DONE depth → {npz}", flush=True)
+        return 0
+    if args.mesh == "tsdf":
+        mesh_tsdf(
+            npz, images_dir, run_dir / "mesh.glb",
+            voxel_length=args.voxel_length, sdf_trunc=args.sdf_trunc, depth_trunc=args.depth_trunc,
+            mask_dir=scene_dir / args.object, keep_largest=args.keep_largest,
+        )
+        print(f"DONE → {run_dir / 'mesh.glb'}", flush=True)
+        return 0
+    mesh_sam3d(
+        scene_dir, args.object, npz, run_dir, args.mvsam_python, args.mvsam_root,
+        merge_da3_glb=args.merge_da3_glb, seal=args.seal, coacd=args.coacd,
+    )
     return 0
 
 
