@@ -1,0 +1,17 @@
+{
+  "visual_preset": "High Accuracy",
+  "color": {
+    "exposure": 156.0,
+    "gain": 76.0,
+    "white_balance": 4600.0,
+    "auto_exposure_priority": 0,
+    "backlight_compensation": 0,
+    "brightness": 16.0
+  },
+  "depth": {
+    "exposure": 33000.0,
+    "gain": 16.0,
+    "emitter_enabled": 1.0,
+    "laser_power": 150.0
+  }
+}
