@@ -74,6 +74,42 @@ Aligned RealSense dumps (`{stem}_rgb.png`, `{stem}_depth.png`, `{stem}.json`, op
 
 `da3_posed.py` runs Depth Anything 3 with those PnP `w2c` + `K` (`align_to_input_ext_scale`). Pose-free DA3 is still the default in `pipeline.py`. The mesh to download is `mesh.glb`; `mesh.png` is the three-view still.
 
+## Depth
+
+How the depth npz can be built. The main pipeline above is unchanged (`da3` is still the default).
+
+```mermaid
+flowchart LR
+  rgb[RGB]
+  rsZ[RealSense Z]
+  tags[AprilTag w2c]
+  da3[da3]
+  posed[da3_posed]
+  rs[rs]
+  rsda3[rs_da3]
+  fill[fill_all_holes]
+  npz[depth npz]
+  rgb --> da3 --> npz
+  rgb --> posed
+  tags --> posed
+  posed --> npz
+  rsZ --> rs
+  tags --> rs
+  rs --> npz
+  rsZ --> rsda3
+  posed --> rsda3
+  rsda3 --> npz
+  rsZ --> fill
+  posed --> fill
+  fill --> npz
+```
+
+- **da3** — pose-free DA3 (default).
+- **da3_posed** — DA3 with AprilTag cameras.
+- **rs** — D415 Z + PnP, as measured.
+- **rs_da3** — RS where `Z>0`; DA3 only on outline misses; wells stay `0`.
+- **fill_all_holes** — DA3 in every RS hole. Plugs wells. Dropped.
+
 ## Installation
 
 The commands below assume the driver venv is active (`source .venv/bin/activate`). That venv is converters, tests, and `--seal` / `--coacd` only.
@@ -105,6 +141,20 @@ python -m pytest tests
 `--seal` keeps the largest connected component, fills holes, and writes `sealed.stl` (one closed solid).
 
 `--coacd` runs `--seal` first, then convex-decomposes at concavity `t=0.05` into `convex_parts/`. That is for multi-body collision; on the gripper the fingers stay separate. Raise `t` if pieces that should be one body are split; lower `t` if pieces that should be separate are fused.
+
+## Runtime
+
+Default gripper path (`da3` → SAM3D), 12 views, **10 repeats**, NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `archive/gripper_timed/` (not the checked-in example).
+
+**Result.** End to end is **138.4 ± 2.0 s** (~11.5 s/view). SAM3D is most of that (**121.5 ± 2.1 s**). DA3 is **11.1 ± 0.2 s** (~0.93 s/view). Depth is repeatable (RMSE vs run 0 ≈ **0.25 mm**). The mesh is not bitwise-identical — SAM3D is generative (~254k faces ± 1k; chamfer vs run 0 ≈ **8.6 mm ± 0.06 mm**) — but the 10 stills are the same gripper.
+
+| Step | Total (s) | Per view (s) |
+|---|---|---|
+| DA3 | 11.1 ± 0.2 | 0.93 ± 0.02 |
+| depth preview | 4.0 ± 0.2 | — |
+| SAM3D | 121.5 ± 2.1 | 10.12 ± 0.18 |
+| `mesh.png` | 1.8 ± 0.3 | — |
+| **end to end** | **138.4 ± 2.0** | **11.5 ± 0.2** |
 
 ## Citation
 

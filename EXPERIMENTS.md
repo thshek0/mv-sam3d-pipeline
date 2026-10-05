@@ -62,7 +62,7 @@ D415 Z is **IR speckle stereo**. RGB is not used for Z.
 - **Dataset:** 21 iPhone stills, LabelMe outer mask. **Method:** A only.
 - **Eliminate:** rembg, video, missing mask.
 - **Try:** SAM3D with a correct silhouette and more well texture.
-- **Result:** **best-looking cups** so far, still a **closed lid**. DA3 is a plate; wells are RGB prior. `output/heater2/`.
+- **Result:** **best-looking cups** so far, still a **closed lid**. DA3 is a plate; wells are RGB prior. `output/heater2_da3/`.
 - **Jump because:** cups look good but are not measured. Next: RealSense so holes in Z can be real.
 
 ### v3 — first D415 (`heater3`)
@@ -70,7 +70,7 @@ D415 Z is **IR speckle stereo**. RGB is not used for Z.
 - **Dataset:** 640×480 RGB-D, tags **on the lid**, 14 LabelMe; B kept **8**. **Method:** A / B / C.
 - **Eliminate:** “we only have DA3 depth.”
 - **Try:** metric stereo vs DA3; C as “use RS and fill gaps.”
-- **Result:** A≈C closed lid. B sparse / ~3×3. C **plugs wells** (same as A). PnP fails when the lid tag is grazing. `output/heater3_{da3,pnp,hybrid}/`.
+- **Result:** A≈C closed lid. B sparse / ~3×3. C **plugs wells** (same as A). PnP fails when the lid tag is grazing. `output/heater3_{da3,rs}/`. Hybrid C is archived.
 - **Jump because:** missing poses (lid-only tags) and a weak stereo preset. Cannot yet blame shiny metal — too many views never posed. Next: tags on the **table**, High Accuracy.
 
 ### v4 — High Accuracy + table tags (`heater4`)
@@ -78,7 +78,7 @@ D415 Z is **IR speckle stereo**. RGB is not used for Z.
 - **Dataset:** 640×480, High Accuracy, laser 150, tags **lid + table**, 17 stills, B **16/17**. Color often blown white. **Method:** A / B.
 - **Eliminate:** dropped PnP; “maybe RS never sees the 5×5.”
 - **Try:** hold pose, ask whether **lid** stereo works.
-- **Result:** **RS depth does show 5×5** on overhead frames. SAM3D still irregular pits + cable. Grazing/side views have dead Z and vote a solid box. `output/heater4_{da3,pnp}/`.
+- **Result:** **RS depth does show 5×5** on overhead frames. SAM3D still irregular pits + cable. Grazing/side views have dead Z and vote a solid box. `output/heater4_{da3,rs}/`.
 - **Jump because:** lid holes are in RS; the mesh fill is SAM3D, not “RS is useless everywhere.” Remaining dataset confounds: 640, clipped RGB, too many side shots. Next: 1280, darker color, mostly overhead.
 
 ### v5 — 1280 overhead (`heater5`)
@@ -86,7 +86,7 @@ D415 Z is **IR speckle stereo**. RGB is not used for Z.
 - **Dataset:** 1280×720, High Accuracy, laser 150, color exp **80**, tags lid+table, **12/12 posed**, paper scraps in some wells. **Method:** A / B on the same LabelMe.
 - **Eliminate:** resolution, blown white, missing poses.
 - **Try:** cleaner lid RGB and Z, same object.
-- **Result:** A nicer regular grid (RGB again). B honest 5×5 in depth, paper lumps in the mesh. Views 4 and 6 almost empty Z. RGB of v7/v11 **shows the chassis**; RS on those walls is still `Z=0`. `output/heater5_{da3,pnp}/`.
+- **Result:** A nicer regular grid (RGB again). B honest 5×5 in depth, paper lumps in the mesh. Views 4 and 6 almost empty Z. RGB of v7/v11 **shows the chassis**; RS on those walls is still `Z=0`. `output/heater5_{da3,rs}/`.
 - **Jump because:** capture is now “good enough” to freeze. Further jumps are **methods on this same 12-view set**, so we do not mix in a new camera day.
 
 ### v5 methods (same dataset)
@@ -104,7 +104,7 @@ SAM 2 could not cut wells (holes not detected; too slow). That is why TSDF is fi
 
 - **Eliminate:** multi-view voting for a closed brick (grazing frames).
 - **Try:** one lid photo you can “see” the 5×5 in.
-- **Result:** regular cups, closed top, invented sides. `output/heater5_da3_v0/`. RGB prior, not RS.
+- **Result:** regular cups, closed top, invented sides. Archived (`archive/heater5_da3_v0/`). RGB prior, not RS.
 
 **DA3 with PnP** — `da3_posed.py` (`w2c` + factory `K`, `align_to_input_ext_scale`).
 
@@ -139,7 +139,7 @@ Video around the object was considered and **not** run: more frames at the same 
 
 ### Next dataset / method
 
-Same heater5 stills first: fused depth (RS where `Z>0`; posed DA3 only on **small** mask holes; large wells stay 0) → TSDF. New capture only if walls must be metric: matte the chassis, face-on, table tags still in view. Do not recapture “more of the same silver at a grazing angle.”
+Same heater5 stills: `output/heater5_rs_da3/` is RS where `Z>0`, posed DA3 only on outline misses (`source.png` / `depth.png`). SAM3D on that depth matched `heater5_da3_posed` and is archived. Next if needed: TSDF on `depth.png`, not another SAM3D. New capture only if walls must be metric: matte the chassis, face-on, table tags still in view. Do not recapture “more of the same silver at a grazing angle.”
 
 ## Best capture so far
 
