@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from time_gripper import depth_rmse, mean_sd, timed  # noqa: E402
+from time_gripper import depth_rmse, mean_sd, timed
 
 
 def test_mean_sd_two_values() -> None:

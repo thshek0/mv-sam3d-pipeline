@@ -6,17 +6,13 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from helpers import (  # noqa: E402
+from helpers import (
     convert_labelme_json_to_rgba,
     convert_labelme_to_masks,
     convert_rembg_to_masks,

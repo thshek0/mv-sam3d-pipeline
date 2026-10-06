@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from pipeline import resolve_depth  # noqa: E402
-from vis import write_da3_npz  # noqa: E402
+from pipeline import resolve_depth
+from vis import write_da3_npz
 
 
 def _tiny_npz(path: Path, images: list[Path], depth: np.ndarray) -> Path:

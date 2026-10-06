@@ -18,7 +18,7 @@ from helpers import DEFAULT_MVSAM, env_python, listed_images, run_da3, run_mvsam
 from helpers import visualize_depth
 from post import load_triangle_mesh, preview_mesh
 
-REPO = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "examples/gripper/processed"
 OUT = REPO / "archive/gripper_timed"
 T = TypeVar("T")

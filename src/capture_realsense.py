@@ -17,7 +17,7 @@ from typing import Any, Sequence
 import cv2
 import numpy as np
 
-REPO = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parents[1]
 VideoMode = tuple[int, int, int]
 
 DEFAULT_LOCK = REPO / "env" / "camera_lock.json"

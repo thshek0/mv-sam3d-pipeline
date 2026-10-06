@@ -2,7 +2,18 @@
 
 Converters run in this repo’s `.venv` (Pillow, tests). rembg, DA3, and MV-SAM3D are **optional** other envs. Point them with env vars; there are no machine-specific paths in this repo.
 
-Weights, clones, and `.venv` are gitignored. Leave existing checkpoints on disk; do not delete them.
+Driver scripts are in `src/`. Tests are in `tests/` (`pytest.ini` sets `pythonpath = src`). `env/` is **committed** (pip freezes + `camera_lock.json`). `patches/mv-sam3d.patch` is still required. Weights, clones, and `.venv` are gitignored. Leave existing checkpoints on disk; do not delete them.
+
+```text
+src/pipeline.py           CLI (depth method + mesh method)
+src/methods.py            depth_da3 / da3_posed / rs_da3, mesh_sam3d / mesh_tsdf
+src/helpers.py            ingest, masks, crop, subprocesses
+src/capture_realsense.py  D415 SPACE dump
+src/tags.py src/tsdf.py src/da3_posed.py src/post.py src/vis.py src/time_gripper.py
+env/                      pipeline-venv.txt, GPU/rembg freezes, camera_lock.json
+patches/mv-sam3d.patch    CUDA_HOME + HF snapshots/<rev>
+MV-SAM3D/ Depth-Anything-3/   clones at repo root, not under src/
+```
 
 ## 1. Prereqs
 
@@ -29,7 +40,7 @@ git -C Depth-Anything-3 checkout 3d835ec1a5802d64a8b8b15f817a1ab54809bfe4
 git -C MV-SAM3D apply ../patches/mv-sam3d.patch
 ```
 
-Keep `MV-SAM3D/` and `Depth-Anything-3/` as siblings of `pipeline.py`. `run_da3.py` imports DA3 from `../Depth-Anything-3`. Do **not** clone `facebookresearch/sam-3d-objects`.
+Keep `MV-SAM3D/` and `Depth-Anything-3/` as siblings of `src/` (repo root). `run_da3.py` imports DA3 from `../Depth-Anything-3`. Do **not** clone `facebookresearch/sam-3d-objects`.
 
 The patch sets `CUDA_HOME` from the env prefix (never `/usr/local/cuda*`) and resolves DA3 Hugging Face weights under `snapshots/<rev>/`.
 
@@ -127,7 +138,7 @@ Processed scene in `examples/gripper/processed` (`images/` + `object/`). Use rep
 
 ```bash
 source .venv/bin/activate
-python pipeline.py -i examples/gripper/processed --scene gripper \
+python src/pipeline.py -i examples/gripper/processed --scene gripper \
   --work-dir ./work --output-dir ./output
 ```
 
@@ -136,25 +147,27 @@ Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gr
 Optional closed solid + convex parts (CoACD `t=0.05`):
 
 ```bash
-python pipeline.py -i examples/gripper/processed --scene gripper \
+python src/pipeline.py -i examples/gripper/processed --scene gripper \
   --work-dir ./work --output-dir ./output --seal --coacd
 ```
 
-`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Video, stills, LabelMe, rembg, and crop are functions in `helpers`. Depth/mesh recipes are functions in `methods` (`depth_da3`, `depth_da3_posed`, `depth_rs_da3`, `mesh_sam3d`, `mesh_tsdf`). `pipeline.py --method` is `da3` (default), `da3_posed`, `rs`, `rs_da3`, or `fill_all_holes`; `--mesh` is `sam3d` (default) or `tsdf`. `tags.py`, `tsdf.py`, `da3_posed.py`, and `capture_realsense.py` remain thin CLIs. Live tag detect needs OpenCV in `SAM3D_PYTHON`; tests inject detections.
+`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Video, stills, LabelMe, rembg, and crop are functions in `helpers`. Depth/mesh recipes are functions in `methods` (`depth_da3`, `depth_da3_posed`, `depth_rs_da3`, `mesh_sam3d`, `mesh_tsdf`). `src/pipeline.py --method` is `da3` (default), `da3_posed`, `rs`, `rs_da3`, or `fill_all_holes`; `--mesh` is `sam3d` (default) or `tsdf`. `src/tags.py`, `src/tsdf.py`, `src/da3_posed.py`, and `src/capture_realsense.py` remain thin CLIs. Live tag detect needs OpenCV in `SAM3D_PYTHON`; tests inject detections.
 
 D415 capture needs `pyrealsense2` on the camera machine (not the repo `.venv`):
 
 ```bash
-python capture_realsense.py
+python src/capture_realsense.py
 ```
 
-SPACE writes `{stem}_rgb.png` / `{stem}_depth.png` / `{stem}.json` under `input/captures_*`. Lock file is `env/camera_lock.json` (High Accuracy, laser 150). `1/2` exposure, `3/4` brightness, `9/0` gain, `Q` quit. No camera: `python capture_realsense.py --self-test --out /tmp/rs_self_test` writes a synthetic dump and ingests it.
+SPACE writes `{stem}_rgb.png` / `{stem}_depth.png` / `{stem}.json` under `input/captures_*`. Lock file is `env/camera_lock.json` (High Accuracy, laser 150). `1/2` exposure, `3/4` brightness, `9/0` gain, `Q` quit. No camera: `python src/capture_realsense.py --self-test --out /tmp/rs_self_test` writes a synthetic dump and ingests it.
 
 ## 9. Tests
 
 ```bash
 python -m pytest tests
 ```
+
+`pythonpath = src` is set in `pytest.ini`. Unset `SAM3D_PYTHON` / `DA3_PYTHON` / `MVSAM_PYTHON` if those point at a real reconstruct (tests must stay offline).
 
 ## 10. Versions that ran
 

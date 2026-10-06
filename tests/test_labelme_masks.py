@@ -5,24 +5,20 @@ from __future__ import annotations
 import base64
 import io
 import json
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from helpers import (  # noqa: E402
+from helpers import (
     labelme_json_for_stills,
     mask_from_labelme,
     resize_mask_to_rgb,
     rgba_from_labelme,
     write_labelme_masks,
 )
-from helpers import ingest_stills  # noqa: E402
+from helpers import ingest_stills
 
 
 def _crop_png_b64(arr: np.ndarray) -> str:

@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from capture_realsense import (  # noqa: E402
+from capture_realsense import (
     DEFAULT_LOCK,
     parse_args,
     ranked_stream_pairs,
@@ -21,7 +17,7 @@ from capture_realsense import (  # noqa: E402
     write_capture_dump,
     _rs,
 )
-from helpers import convert_realsense_dump  # noqa: E402
+from helpers import convert_realsense_dump
 
 
 def test_ranked_stream_pairs_prefers_same_size_then_fps() -> None:

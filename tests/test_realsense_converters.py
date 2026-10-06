@@ -3,23 +3,19 @@
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from helpers import (  # noqa: E402
+from helpers import (
     convert_realsense_dump,
     crop_depth_intrinsics,
     crop_views_depth_to_masks,
 )
-from tags import convert_apriltag_to_da3_npz  # noqa: E402
-from vis import _orbit_points, load_da3_npz, visualize_depth, write_da3_npz  # noqa: E402
+from tags import convert_apriltag_to_da3_npz
+from vis import _orbit_points, load_da3_npz, visualize_depth, write_da3_npz
 
 
 def _identity_pose(_det: object, _world: object, _k: object) -> np.ndarray:

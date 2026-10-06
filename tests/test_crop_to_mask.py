@@ -2,16 +2,10 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from helpers import crop_pair_to_mask, image_center_square, mask_square  # noqa: E402
+from helpers import crop_pair_to_mask, image_center_square, mask_square
 
 
 def test_mask_square_uses_bbox_center() -> None:

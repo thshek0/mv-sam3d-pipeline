@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from tsdf import apply_mask_to_depth, keep_largest_triangle_component, tsdf_from_da3_npz  # noqa: E402
-from vis import write_da3_npz  # noqa: E402
+from tsdf import apply_mask_to_depth, keep_largest_triangle_component, tsdf_from_da3_npz
+from vis import write_da3_npz
 
 
 def test_apply_mask_to_depth_zeros_background() -> None:

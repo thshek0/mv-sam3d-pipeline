@@ -10,7 +10,7 @@ import numpy as np
 
 from helpers import listed_images
 
-REPO = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parents[1]
 DA3_ROOT = REPO / "Depth-Anything-3"
 MVSAM_RUNNER = REPO / "MV-SAM3D" / "scripts" / "run_da3.py"
 

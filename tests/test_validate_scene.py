@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from helpers import validate_scene  # noqa: E402
+from helpers import validate_scene
 
 
 def test_validate_scene_accepts_matching_rgba() -> None:
