@@ -255,6 +255,12 @@ def _c2w(ext: np.ndarray) -> np.ndarray:
     return np.linalg.inv(w2c)
 
 
+def default_apriltag_dict() -> int:
+    """``DICT_APRILTAG_16h5`` (the lab tags)."""
+    cv2 = _require_cv2()
+    return int(cv2.aruco.DICT_APRILTAG_16h5)
+
+
 def _identity_w2c() -> np.ndarray:
     """3x4 identity world-to-camera (reference view)."""
     return np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], dtype=np.float64)
