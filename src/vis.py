@@ -11,9 +11,25 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from helpers import listed_images, write_pair_preview
+from helpers import (
+    DEPTH_SUMMARY_COLS,
+    DEPTH_SUMMARY_MAX_VIEWS,
+    SUMMARY_CELL,
+    _legend_font,
+    append_color_legend,
+    listed_images,
+    write_pair_preview,
+    write_subdir_summary,
+    write_summary_grid,
+)
+
+VALID_LEGEND: tuple[tuple[tuple[int, int, int], str], ...] = (
+    ((0, 200, 220), "valid (Z>0)"),
+    ((220, 40, 40), "invalid (Z=0)"),
+)
+DEPTH_DISPLAY_RANGE_M: tuple[float, float] = (0.2, 3.0)
 
 REQUIRED_KEYS: tuple[str, ...] = (
     "depth",
@@ -38,6 +54,7 @@ def write_da3_npz(
     image_files: Sequence[Path | str],
     process_res: int,
     keep_stems: Sequence[str] | None = None,
+    extras: dict[str, np.ndarray] | None = None,
 ) -> Path:
     """Write a DA3-style npz. ``Z <= 0`` is stored as NaN in the pointmaps."""
     depth_n = np.asarray(depth, dtype=np.float32)
@@ -58,6 +75,8 @@ def write_da3_npz(
     }
     if keep_stems is not None:
         payload["keep_stems"] = np.array(list(keep_stems))
+    if extras:
+        payload.update(extras)
     npz_path = npz_path.expanduser()
     npz_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(npz_path, **payload)
@@ -179,18 +198,90 @@ def _view_stems(data: dict[str, np.ndarray], n_view: int) -> list[str]:
     return [Path(str(name)).stem for name in data["image_files"]]
 
 
-def _colorize_depth(depth: np.ndarray) -> np.ndarray:
-    """Map a depth plane to an RGB uint8 image (turbo)."""
+def depth_range_m(depth: np.ndarray) -> tuple[float, float] | None:
+    """Min/max of valid depth in meters. ``Z = 0`` is invalid."""
+    z = np.asarray(depth)
+    valid = np.isfinite(z) & (z > 0)
+    if not np.any(valid):
+        return None
+    return float(z[valid].min()), float(z[valid].max())
+
+
+def _colorize_depth(
+    depth: np.ndarray, vmin: float | None = None, vmax: float | None = None,
+) -> np.ndarray:
+    """Map a depth plane to an RGB uint8 image (turbo). ``vmin``/``vmax`` are meters."""
     valid = np.isfinite(depth) & (depth > 0)
     plane = np.zeros(depth.shape, dtype=np.float64)
     if np.any(valid):
-        lo, hi = float(depth[valid].min()), float(depth[valid].max())
+        lo = float(depth[valid].min()) if vmin is None else float(vmin)
+        hi = float(depth[valid].max()) if vmax is None else float(vmax)
         span = max(hi - lo, 1e-9)
-        plane[valid] = (depth[valid] - lo) / span
+        plane[valid] = np.clip((depth[valid] - lo) / span, 0.0, 1.0)
     cmap = plt.get_cmap("turbo")
     rgb = (cmap(plane)[..., :3] * 255).astype(np.uint8)
     rgb[~valid] = 20
     return rgb
+
+
+def turbo_colorbar_strip(width: int, lo_m: float, hi_m: float, *, bar_h: int = 56) -> Image.Image:
+    """Turbo ramp labeled in meters, same bar as the depthmap boards."""
+    canvas = Image.new("RGB", (width, bar_h), (14, 14, 16))
+    draw = ImageDraw.Draw(canvas)
+    font = _legend_font()
+    left, right, title = f"{lo_m:.2f} m", f"{hi_m:.2f} m", "depth (m)"
+    left_box = draw.textbbox((0, 0), left, font=font)
+    right_box = draw.textbbox((0, 0), right, font=font)
+    title_box = draw.textbbox((0, 0), title, font=font)
+    left_w = left_box[2] - left_box[0]
+    right_w = right_box[2] - right_box[0]
+    pad = 10
+    strip_h = 18
+    strip_y = (bar_h - strip_h) // 2 + 6
+    x0 = pad + left_w + 8
+    x1 = width - pad - right_w - 8
+    if x1 <= x0 + 8:
+        x0, x1 = pad, width - pad
+    ramp_w = max(x1 - x0, 1)
+    cmap = plt.get_cmap("turbo")
+    ramp = (cmap(np.linspace(0.0, 1.0, ramp_w))[..., :3] * 255).astype(np.uint8)
+    strip = np.repeat(ramp[None, :, :], strip_h, axis=0)
+    canvas.paste(Image.fromarray(strip, mode="RGB"), (x0, strip_y))
+    ty = strip_y + (strip_h - (left_box[3] - left_box[1])) // 2
+    draw.text((pad, ty), left, fill=(220, 220, 220), font=font)
+    draw.text((x1 + 8, ty), right, fill=(220, 220, 220), font=font)
+    draw.text(((width - (title_box[2] - title_box[0])) // 2, 2), title, fill=(180, 180, 180), font=font)
+    return canvas
+
+
+def append_turbo_colorbar(image: Image.Image, lo_m: float, hi_m: float, *, bar_h: int = 56) -> Image.Image:
+    """Pad a turbo colorbar above ``image``, labeled in meters."""
+    rgb = image.convert("RGB")
+    bar = turbo_colorbar_strip(rgb.width, lo_m, hi_m, bar_h=bar_h)
+    canvas = Image.new("RGB", (rgb.width, rgb.height + bar_h), (14, 14, 16))
+    canvas.paste(bar, (0, 0))
+    canvas.paste(rgb, (0, bar_h))
+    return canvas
+
+
+def write_depthmap_preview(
+    depth: np.ndarray, images: Sequence[Path], out_png: Path, *, label: str = "depthmap",
+) -> Path:
+    """Write photo | turbo depthmap with one shared meter scale and a colorbar."""
+    z = np.asarray(depth)
+    n_view = int(z.shape[0])
+    if len(images) != n_view:
+        raise ValueError(f"{len(images)} RGBs, depth has {n_view} views")
+    vmin, vmax = DEPTH_DISPLAY_RANGE_M
+    pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
+    for i, rgb_path in enumerate(images):
+        photo = Image.open(rgb_path).convert("RGB")
+        cmap = Image.fromarray(_colorize_depth(z[i], vmin=vmin, vmax=vmax))
+        pairs.append((photo, cmap, f"{i} photo", f"{i} {label}"))
+    write_pair_preview(pairs, out_png)
+    append_turbo_colorbar(Image.open(out_png), vmin, vmax).save(out_png)
+    print(f"depthmap → {out_png} range=({vmin}, {vmax})", flush=True)
+    return out_png
 
 
 def _write_per_view(
@@ -202,16 +293,18 @@ def _write_per_view(
     depth = np.asarray(data["depth"])
     n_view, _, _ = depth.shape
     stems = _view_stems(data, n_view)
+    vmin, vmax = DEPTH_DISPLAY_RANGE_M
     pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
     for i in range(n_view):
         rgb_path = _file_for_stem(images_dir, stems[i])
+        cmap = _colorize_depth(depth[i], vmin=vmin, vmax=vmax)
         if rgb_path is not None:
             photo = Image.open(rgb_path).convert("RGB")
         else:
-            photo = Image.fromarray(_colorize_depth(depth[i]))
-        depth_im = Image.fromarray(_colorize_depth(depth[i]))
-        pairs.append((photo, depth_im, f"{i} photo", f"{i} depth"))
+            photo = Image.fromarray(cmap)
+        pairs.append((photo, Image.fromarray(cmap), f"{i} photo", f"{i} depthmap"))
     write_pair_preview(pairs, out_png)
+    append_turbo_colorbar(Image.open(out_png), vmin, vmax).save(out_png)
     print(f"depth per-view → {out_png}", flush=True)
     return out_png
 
@@ -245,10 +338,139 @@ def write_depth_visibility_preview(
         rgb = Image.open(rgb_path).convert("RGB")
         keep = _mask_keep(rgb_path.stem, mask_dir, height, width)
         obj = keep if keep is not None else np.zeros((height, width), dtype=bool)
-        pairs.append((rgb, overlay_depth_visibility(rgb, z, obj), f"{i} photo", f"{i} vis"))
+        pairs.append((rgb, overlay_depth_visibility(rgb, z, obj), f"{i} photo", f"{i} valid"))
     write_pair_preview(pairs, out_png)
+    append_color_legend(Image.open(out_png), VALID_LEGEND).save(out_png)
     print(f"depth visibility → {out_png}", flush=True)
     return out_png
+
+
+def write_capture_depth_boards(
+    out_dir: Path,
+    images: Sequence[Path],
+    mask_dir: Path,
+    rs_depth: np.ndarray | None = None,
+    da3_posed_depth: np.ndarray | None = None,
+    hybrid_depth: np.ndarray | None = None,
+) -> list[Path]:
+    """Write shared ``rs_`` / ``da3_posed_`` / ``hybrid_`` depth boards.
+
+    No ``hybrid_valid``: after fill-all that board is almost all valid. Use
+    ``rs_valid.png`` for holes and ``hybrid_source_map.png`` for who filled.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    if rs_depth is not None:
+        written.append(write_depthmap_preview(rs_depth, images, out_dir / "rs_depthmap.png", label="RS"))
+        written.append(write_depth_visibility_preview(rs_depth, images, mask_dir, out_dir / "rs_valid.png"))
+    if da3_posed_depth is not None:
+        written.append(
+            write_depthmap_preview(da3_posed_depth, images, out_dir / "da3_posed_depthmap.png", label="da3_posed"),
+        )
+        written.append(
+            write_depth_visibility_preview(da3_posed_depth, images, mask_dir, out_dir / "da3_posed_valid.png"),
+        )
+    if hybrid_depth is not None:
+        written.append(write_depthmap_preview(hybrid_depth, images, out_dir / "hybrid_depthmap.png", label="hybrid"))
+    return written
+
+
+def write_depth_summary(
+    images: Sequence[Path],
+    out_png: Path,
+    *,
+    da3_posed: np.ndarray | None = None,
+    rs: np.ndarray | None = None,
+    hybrid: np.ndarray | None = None,
+    max_views: int = DEPTH_SUMMARY_MAX_VIEWS,
+) -> Path:
+    """One row per view (at most ``max_views``): photo | da3_posed | RS | hybrid.
+
+    A missing depth stack is a blank column. All depth columns share 0.2–3 m.
+    """
+    if max_views < 1:
+        raise ValueError(f"max_views must be >= 1, got {max_views}")
+    n_view = min(len(images), max_views)
+    if n_view < 1:
+        raise ValueError("need at least one image")
+    vmin, vmax = DEPTH_DISPLAY_RANGE_M
+    stacks = {"da3_posed": da3_posed, "rs": rs, "hybrid": hybrid}
+
+    def _cell(name: str, index: int) -> Image.Image | None:
+        stack = stacks[name]
+        if stack is None or index >= stack.shape[0]:
+            return None
+        return Image.fromarray(_colorize_depth(stack[index], vmin=vmin, vmax=vmax))
+
+    rows: list[list[Image.Image | None]] = []
+    labels: list[str] = []
+    for i in range(n_view):
+        photo = Image.open(images[i]).convert("RGB")
+        rows.append([photo, _cell("da3_posed", i), _cell("rs", i), _cell("hybrid", i)])
+        labels.append(Path(images[i]).stem)
+    bar = turbo_colorbar_strip(SUMMARY_CELL[0], vmin, vmax)
+    headers: list[Image.Image | None] = [None]
+    for name in ("da3_posed", "rs", "hybrid"):
+        headers.append(None if stacks[name] is None else bar)
+    return write_summary_grid(
+        out_png, DEPTH_SUMMARY_COLS, labels, rows, header_images=headers,
+    )
+
+
+def write_dataset_outputs(
+    dataset_dir: Path,
+    images: Sequence[Path],
+    mask_dir: Path,
+    *,
+    rs_npz: Path | None = None,
+    da3_posed_npz: Path | None = None,
+    hybrid_npz: Path | None = None,
+    write_source_map: bool = True,
+) -> list[Path]:
+    """Write shared depth boards, optional source map, and mesh/depth summaries."""
+    def _depth(path: Path | None) -> np.ndarray | None:
+        if path is None or not path.is_file():
+            return None
+        raw = np.load(path)
+        if "depth" not in raw.files:
+            raise ValueError(f"{path} has no depth")
+        z = np.asarray(raw["depth"], dtype=np.float32)
+        if z.ndim != 3:
+            raise ValueError(f"{path} depth must be (N, H, W), got {z.shape}")
+        return z
+
+    rs_z = _depth(rs_npz)
+    posed_z = _depth(da3_posed_npz)
+    hy_z = _depth(hybrid_npz)
+    written = write_capture_depth_boards(
+        dataset_dir, images, mask_dir,
+        rs_depth=rs_z, da3_posed_depth=posed_z, hybrid_depth=hy_z,
+    )
+    if (
+        write_source_map
+        and rs_npz is not None
+        and hybrid_npz is not None
+        and rs_npz.is_file()
+        and hybrid_npz.is_file()
+        and mask_dir.is_dir()
+    ):
+        from methods import write_hybrid_source_map
+
+        written.append(
+            write_hybrid_source_map(
+                rs_npz, hybrid_npz, Path(images[0]).parent, mask_dir,
+                dataset_dir / "hybrid_source_map.png",
+            )
+        )
+    written.append(write_subdir_summary(dataset_dir, "mesh.png"))
+    if rs_z is not None or posed_z is not None or hy_z is not None:
+        written.append(
+            write_depth_summary(
+                images, dataset_dir / "depth_summary.png",
+                da3_posed=posed_z, rs=rs_z, hybrid=hy_z,
+            )
+        )
+    return written
 
 
 def _mask_keep(stem: str, mask_dir: Path | None, height: int, width: int) -> np.ndarray | None:

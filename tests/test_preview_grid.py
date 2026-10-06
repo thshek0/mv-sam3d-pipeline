@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from helpers import PREVIEW_COLS, PREVIEW_THUMB, write_pair_preview  # noqa: E402
-from tags import overlay_tags, save_tag_preview  # noqa: E402
-from vis import write_depth_visibility_preview  # noqa: E402
+from helpers import (
+    DEPTH_SUMMARY_COLS,
+    MESH_SUMMARY_CELL,
+    PREVIEW_COLS,
+    PREVIEW_THUMB,
+    SUMMARY_CELL,
+    reorganize_method_folders,
+    write_pair_preview,
+    write_subdir_summary,
+)
+from vis import write_depth_summary
+from tags import overlay_tags, save_tag_preview
+from vis import write_depth_visibility_preview
 
 
 def test_write_pair_preview_always_three_columns() -> None:
@@ -82,4 +88,52 @@ def test_depth_visibility_preview_is_pairwise() -> None:
         out = root / "depth_visibility_preview.png"
         write_depth_visibility_preview(depth, paths, mask_dir, out)
         im = Image.open(out)
-        assert im.size == (PREVIEW_COLS * PREVIEW_THUMB * 2, PREVIEW_THUMB)
+        assert im.size[0] == PREVIEW_COLS * PREVIEW_THUMB * 2
+        assert im.size[1] > PREVIEW_THUMB
+
+
+def test_subdir_summary_stacks_vertically(tmp_path: Path) -> None:
+    """Two subfolders become two rows, one column."""
+    (tmp_path / "left").mkdir()
+    (tmp_path / "right").mkdir()
+    Image.new("RGB", (24, 12), (200, 20, 20)).save(tmp_path / "left" / "foo.png")
+    Image.new("RGB", (24, 12), (20, 200, 20)).save(tmp_path / "right" / "foo.png")
+    out = write_subdir_summary(tmp_path, "foo.png")
+    image = Image.open(out)
+    assert image.size[1] >= MESH_SUMMARY_CELL[1] * 2
+
+
+def test_depth_summary_is_four_columns_max_six_views(tmp_path: Path) -> None:
+    """Rows are image stems (capped at 6); columns are photo | da3_posed | RS | hybrid."""
+    images = []
+    for i in range(8):
+        path = tmp_path / f"{i}.png"
+        Image.new("RGB", (8, 8), (40, 40, 40)).save(path)
+        images.append(path)
+    rs = np.ones((8, 8, 8), dtype=np.float32)
+    out = write_depth_summary(images, tmp_path / "depth_summary.png", rs=rs, da3_posed=None)
+    image = Image.open(out)
+    assert image.size[0] >= SUMMARY_CELL[0] * len(DEPTH_SUMMARY_COLS)
+    assert image.size[1] >= SUMMARY_CELL[1] * 6
+    assert image.size[1] < SUMMARY_CELL[1] * 8
+
+
+def test_reorganize_method_folders_renames_and_keeps_mesh(tmp_path: Path) -> None:
+    """Old posed/hybrid folders become *_sam3d / *_tsdf; only mesh files stay."""
+    posed = tmp_path / "posed"
+    posed.mkdir()
+    Image.new("RGB", (4, 4), (10, 10, 10)).save(posed / "mesh.png")
+    (posed / "mesh.glb").write_bytes(b"glb")
+    (posed / "depth_preview.png").write_bytes(b"x")
+    leftover = tmp_path / "rs_da3"
+    leftover.mkdir()
+    (leftover / "source.png").write_bytes(b"y")
+    log = reorganize_method_folders(tmp_path)
+    dest = tmp_path / "da3_posed_sam3d"
+    assert dest.is_dir()
+    assert (dest / "mesh.png").is_file()
+    assert (dest / "mesh.glb").is_file()
+    assert not (dest / "depth_preview.png").exists()
+    assert not posed.exists()
+    assert (leftover / "source.png").is_file()
+    assert any("rename posed" in line for line in log)

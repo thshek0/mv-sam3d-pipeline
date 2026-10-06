@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compose a processed scene with one depth method, then one mesh method.
 
-Depth methods: ``da3``, ``da3_posed``, ``rs`` (existing npz), ``rs_da3``,
-``fill_all_holes``. Mesh methods: SAM3D (default) or ``tsdf``.
+Depth methods: ``da3``, ``da3_posed``, ``rs`` (existing npz), ``rs_da3`` /
+``fill_all_holes`` (same fuse: RS then scaled DA3 in holes). Mesh: SAM3D
+(default) or ``tsdf``.
 Converters stay functions in ``helpers``. Optional ``--seal`` / ``--coacd``.
 """
 
@@ -19,19 +20,14 @@ from helpers import (
     DEFAULT_WORK,
     env_python,
     listed_images,
+    method_output_slug,
+    run_output_dir,
     validate_scene,
 )
 from methods import depth_da3, depth_da3_posed, depth_rs_da3, mesh_sam3d, mesh_tsdf
 
 DEPTH_METHODS = ("da3", "da3_posed", "rs", "rs_da3", "fill_all_holes")
 MESH_METHODS = ("sam3d", "tsdf")
-
-
-def run_output_dir(out_dir: Path, scene: str) -> Path:
-    """Return ``output/<scene>/`` and create it."""
-    path = out_dir / scene
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -145,7 +141,7 @@ def resolve_depth(
             raise RuntimeError("rs_da3 / fill_all_holes need --rs-npz and --da3-npz")
         return depth_rs_da3(
             rs_npz, da3_npz, images_dir, mask_dir, work_dir / "da3_output.npz",
-            fill_wells=(method == "fill_all_holes"), preview_dir=run_dir,
+            preview_dir=run_dir,
         )
     raise ValueError(f"unknown depth method {method!r}")
 
@@ -160,9 +156,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     scene = args.scene or src.name
     scene_dir = (args.work_dir / scene).resolve()
     images_dir = scene_dir / "images"
-    run_dir = run_output_dir(args.output_dir.resolve(), scene)
+    slug = method_output_slug(args.method, args.mesh)
+    run_dir = run_output_dir(args.output_dir.resolve(), scene, slug)
 
-    print(f"scene_dir={scene_dir} src={src} out={run_dir} method={args.method} mesh={args.mesh}", flush=True)
+    print(
+        f"scene_dir={scene_dir} src={src} out={run_dir} method={args.method} mesh={args.mesh}",
+        flush=True,
+    )
     _stage_processed_scene(src, scene_dir, args.object)
     validate_scene(scene_dir, args.object)
 

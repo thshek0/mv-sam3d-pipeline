@@ -1,67 +1,29 @@
 """Depth and mesh recipes. Compose these; do not subclass.
 
-Depth: ``depth_da3``, ``depth_da3_posed``, ``depth_rs_da3`` (``fill_wells=`` for
-the old fill-all-holes map). Mesh: ``mesh_sam3d``, ``mesh_tsdf``.
+Depth: ``depth_da3``, ``depth_da3_posed``, ``depth_rs_da3`` (RS, then scaled
+DA3 in every object hole). Mesh: ``mesh_sam3d``, ``mesh_tsdf``.
 """
 
 from __future__ import annotations
 
-from collections import deque
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from helpers import listed_images, run_da3, write_pair_preview
-from vis import _colorize_depth, _mask_keep, overlay_depth_visibility, write_da3_npz
+from helpers import append_color_legend, listed_images, run_da3, write_pair_preview
+from vis import _mask_keep, write_da3_npz, write_depthmap_preview
+
+SOURCE_MAP_LEGEND: tuple[tuple[tuple[int, int, int], str], ...] = (
+    ((0, 200, 220), "RealSense"),
+    ((240, 200, 40), "DA3"),
+)
 
 
-def label_cc(mask: np.ndarray) -> tuple[np.ndarray, int]:
-    """4-connected labels for a boolean mask. Returns ``(labels, n_components)``."""
-    height, width = mask.shape
-    labels = np.zeros((height, width), dtype=np.int32)
-    n_comp = 0
-    for y in range(height):
-        for x in range(width):
-            if not mask[y, x] or labels[y, x] != 0:
-                continue
-            n_comp += 1
-            queue: deque[tuple[int, int]] = deque([(y, x)])
-            labels[y, x] = n_comp
-            while queue:
-                cy, cx = queue.popleft()
-                for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-                    ny, nx = cy + dy, cx + dx
-                    if 0 <= ny < height and 0 <= nx < width and mask[ny, nx] and labels[ny, nx] == 0:
-                        labels[ny, nx] = n_comp
-                        queue.append((ny, nx))
-    return labels, n_comp
-
-
-def classify_miss(obj: np.ndarray, rs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Split object-mask ``Z=0`` into well (enclosed) vs wall (touches mask border)."""
-    miss = obj & (~np.isfinite(rs) | (rs <= 0))
-    labels, n_comp = label_cc(miss)
-    well = np.zeros_like(obj)
-    wall = np.zeros_like(obj)
-    height, width = obj.shape
-    for lab in range(1, n_comp + 1):
-        blob = labels == lab
-        ys, xs = np.nonzero(blob)
-        touches_border = False
-        for y, x in zip(ys, xs):
-            for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
-                ny, nx = y + dy, x + dx
-                if ny < 0 or ny >= height or nx < 0 or nx >= width or not obj[ny, nx]:
-                    touches_border = True
-                    break
-            if touches_border:
-                break
-        if touches_border:
-            wall |= blob
-        else:
-            well |= blob
-    return well, wall
+def rs_valid(depth: np.ndarray) -> np.ndarray:
+    """RealSense valid depth: finite and ``Z > 0``. ``Z = 0`` is invalid."""
+    z = np.asarray(depth)
+    return np.isfinite(z) & (z > 0)
 
 
 def resize_depth(depth: np.ndarray, height: int, width: int) -> np.ndarray:
@@ -70,42 +32,73 @@ def resize_depth(depth: np.ndarray, height: int, width: int) -> np.ndarray:
     return np.array(im.resize((width, height), Image.Resampling.NEAREST), dtype=np.float32)
 
 
-def combine_rs_da3(
-    rs: np.ndarray, da3: np.ndarray, obj: np.ndarray, *, fill_wells: bool = False,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
-    """One view: keep RS, optionally fill wells, copy DA3 onto walls.
+def combine_rs_da3(rs: np.ndarray, da3: np.ndarray, obj: np.ndarray) -> tuple[np.ndarray, float]:
+    """Keep valid RS on the object; fill remaining object pixels with scaled DA3.
 
-    Returns ``(depth, well, wall, scale)``. ``scale`` is median RS/DA3 on overlap.
+    ``scale`` is the median ``RS / DA3`` on pixels where both are valid.
     """
-    well, wall = classify_miss(obj, rs)
-    if fill_wells:
-        wall = wall | well
-        well = np.zeros_like(obj)
-    keep = obj & np.isfinite(rs) & (rs > 0)
-    overlap = keep & np.isfinite(da3) & (da3 > 0)
+    keep = obj & rs_valid(rs)
+    overlap = keep & rs_valid(da3)
     scale = 1.0
     if np.any(overlap):
         scale = float(np.median(rs[overlap] / np.maximum(da3[overlap], 1e-6)))
     out = np.zeros_like(rs)
     out[keep] = rs[keep]
-    out[wall] = da3[wall] * scale
-    return out, well, wall, scale
+    fill = obj & (~keep)
+    out[fill] = da3[fill] * scale
+    return out, scale
 
 
 def overlay_source(
-    rgb: Image.Image, obj: np.ndarray, rs: np.ndarray, well: np.ndarray, wall: np.ndarray,
+    rgb: Image.Image, obj: np.ndarray, rs: np.ndarray, fused: np.ndarray,
 ) -> Image.Image:
-    """Cyan = keep RS, red = leave well empty, yellow = copy DA3."""
+    """Cyan = valid RealSense (Z>0). Yellow = fused pixel whose RS Z was 0.
+
+    ``Z = 0`` is invalid (RealSense). Those pixels stay dim if the fuse left them 0.
+    """
     photo = rgb.convert("RGB")
     if photo.size != (rs.shape[1], rs.shape[0]):
         photo = photo.resize((rs.shape[1], rs.shape[0]), Image.Resampling.BILINEAR)
     arr = np.asarray(photo, dtype=np.float64)
     out = arr * 0.35
-    keep = obj & np.isfinite(rs) & (rs > 0)
+    keep = obj & rs_valid(rs)
+    from_da3 = obj & (~keep) & rs_valid(fused)
     out[keep] = 0.25 * arr[keep] + np.array([0.0, 200.0, 220.0])
-    out[well] = 0.25 * arr[well] + np.array([220.0, 40.0, 40.0])
-    out[wall] = 0.25 * arr[wall] + np.array([240.0, 200.0, 40.0])
+    out[from_da3] = 0.25 * arr[from_da3] + np.array([240.0, 200.0, 40.0])
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
+def write_hybrid_source_map(
+    rs_npz: Path, fused_npz: Path, images_dir: Path, mask_dir: Path, out_png: Path,
+) -> Path:
+    """Write ``hybrid_source_map.png``: photo | source label, plus a color legend.
+
+    Cyan = valid RealSense (Z>0). Yellow = fused pixel whose RS Z was 0.
+    """
+    rs = np.load(rs_npz)
+    fused = np.load(fused_npz)
+    rs_z = np.asarray(rs["depth"], dtype=np.float32)
+    fu_z = np.asarray(fused["depth"], dtype=np.float32)
+    n_view, height, width = rs_z.shape
+    if fu_z.shape[0] != n_view:
+        raise ValueError(f"RS N={n_view} fused N={fu_z.shape[0]}")
+    images = listed_images(images_dir)
+    if len(images) != n_view:
+        raise ValueError(f"{len(images)} RGBs, depth has {n_view} views")
+    fu_full = np.stack([resize_depth(fu_z[i], height, width) for i in range(n_view)], axis=0)
+    pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
+    for i, rgb_path in enumerate(images):
+        obj = _mask_keep(rgb_path.stem, mask_dir, height, width)
+        if obj is None:
+            raise FileNotFoundError(f"missing mask for {rgb_path.name}")
+        rgb = Image.open(rgb_path).convert("RGB")
+        overlay = overlay_source(rgb, obj, rs_z[i], fu_full[i])
+        pairs.append((rgb, overlay, f"{i} photo", f"{i} source map"))
+    write_pair_preview(pairs, out_png)
+    board = append_color_legend(Image.open(out_png), SOURCE_MAP_LEGEND)
+    board.save(out_png)
+    print(f"hybrid source map → {out_png}", flush=True)
+    return out_png
 
 
 def depth_da3(da3_python: str, mvsam_root: Path, images_dir: Path, da3_out: Path) -> Path:
@@ -127,13 +120,9 @@ def depth_rs_da3(
     mask_dir: Path,
     out_npz: Path,
     *,
-    fill_wells: bool = False,
     preview_dir: Path | None = None,
 ) -> Path:
-    """Align posed DA3 onto the RS grid and combine. Writes a DA3-style npz.
-
-    ``fill_wells=False`` leaves enclosed holes at 0. ``True`` is fill-all-holes.
-    """
+    """Keep valid RS; fill remaining object pixels with posed DA3 scaled to RS."""
     rs = np.load(rs_npz)
     da = np.load(da3_npz)
     rs_z = np.asarray(rs["depth"], dtype=np.float32)
@@ -146,30 +135,22 @@ def depth_rs_da3(
         raise ValueError(f"{len(images)} RGBs, depth has {n_view} views")
     da_full = np.stack([resize_depth(da_z[i], height, width) for i in range(n_view)], axis=0)
     combined = np.zeros_like(rs_z)
-    wells: list[np.ndarray] = []
-    walls: list[np.ndarray] = []
     objs: list[np.ndarray] = []
     for i, rgb_path in enumerate(images):
         obj = _mask_keep(rgb_path.stem, mask_dir, height, width)
         if obj is None:
             raise FileNotFoundError(f"missing mask for {rgb_path.name}")
-        depth_i, well, wall, scale = combine_rs_da3(rs_z[i], da_full[i], obj, fill_wells=fill_wells)
+        depth_i, scale = combine_rs_da3(rs_z[i], da_full[i], obj)
         combined[i] = depth_i
-        wells.append(well)
-        walls.append(wall)
         objs.append(obj)
-        print(
-            f"view {i:2d} well={int(well.sum())} wall={int(wall.sum())} scale={scale:.3f} "
-            f"fill_wells={fill_wells}",
-            flush=True,
-        )
+        print(f"view {i:2d} fill={int((obj & ~rs_valid(rs_z[i])).sum())} scale={scale:.3f}", flush=True)
     keep_stems = list(rs["keep_stems"]) if "keep_stems" in rs.files else None
     write_da3_npz(
         out_npz, combined, rs["extrinsics"], rs["intrinsics"], images,
         process_res=width, keep_stems=keep_stems,
     )
     if preview_dir is not None:
-        write_rs_da3_previews(preview_dir, images, objs, rs_z, da_full, combined, wells, walls)
+        write_rs_da3_previews(preview_dir, images, objs, rs_z, da_full, combined)
     return out_npz
 
 
@@ -180,30 +161,21 @@ def write_rs_da3_previews(
     rs_z: np.ndarray,
     da_z: np.ndarray,
     depth: np.ndarray,
-    wells: list[np.ndarray],
-    walls: list[np.ndarray],
 ) -> None:
-    """Write ``rs.png``, ``da3.png``, ``source.png``, ``depth.png``, ``visibility.png``."""
+    """Write shared ``rs_`` / ``da3_posed_`` / ``hybrid_`` depth boards on ``out_dir``."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    pairs_rs: list[tuple[Image.Image, Image.Image, str, str]] = []
-    pairs_da: list[tuple[Image.Image, Image.Image, str, str]] = []
     pairs_src: list[tuple[Image.Image, Image.Image, str, str]] = []
-    pairs_z: list[tuple[Image.Image, Image.Image, str, str]] = []
-    pairs_vis: list[tuple[Image.Image, Image.Image, str, str]] = []
     for i, rgb_path in enumerate(images):
         rgb = Image.open(rgb_path).convert("RGB")
-        pairs_rs.append((rgb, Image.fromarray(_colorize_depth(rs_z[i])), f"{i} photo", f"{i} RS"))
-        pairs_da.append((rgb, Image.fromarray(_colorize_depth(da_z[i])), f"{i} photo", f"{i} DA3"))
         pairs_src.append(
-            (rgb, overlay_source(rgb, objs[i], rs_z[i], wells[i], walls[i]), f"{i} photo", f"{i} source"),
+            (rgb, overlay_source(rgb, objs[i], rs_z[i], depth[i]), f"{i} photo", f"{i} source map"),
         )
-        pairs_z.append((rgb, Image.fromarray(_colorize_depth(depth[i])), f"{i} photo", f"{i} depth"))
-        pairs_vis.append((rgb, overlay_depth_visibility(rgb, depth[i], objs[i]), f"{i} photo", f"{i} vis"))
-    write_pair_preview(pairs_rs, out_dir / "rs.png")
-    write_pair_preview(pairs_da, out_dir / "da3.png")
-    write_pair_preview(pairs_src, out_dir / "source.png")
-    write_pair_preview(pairs_z, out_dir / "depth.png")
-    write_pair_preview(pairs_vis, out_dir / "visibility.png")
+    write_depthmap_preview(rs_z, images, out_dir / "rs_depthmap.png", label="RS")
+    write_depthmap_preview(da_z, images, out_dir / "da3_posed_depthmap.png", label="da3_posed")
+    write_depthmap_preview(depth, images, out_dir / "hybrid_depthmap.png", label="hybrid")
+    src_path = out_dir / "hybrid_source_map.png"
+    write_pair_preview(pairs_src, src_path)
+    append_color_legend(Image.open(src_path), SOURCE_MAP_LEGEND).save(src_path)
 
 
 def mesh_sam3d(

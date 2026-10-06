@@ -14,10 +14,28 @@ from typing import Any, Literal, Sequence
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-REPO = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parents[1]
 DEFAULT_MVSAM = REPO / "MV-SAM3D"
 DEFAULT_WORK = REPO / "work"
 DEFAULT_OUT = REPO / "output"
+
+
+def method_output_slug(depth_method: str, mesh_method: str = "sam3d") -> str:
+    """Folder name under ``output/<dataset>/`` for a depth + mesh pair.
+
+    ``fill_all_holes`` is stored as ``hybrid``. SAM3D appends ``_sam3d``,
+    TSDF appends ``_tsdf``.
+    """
+    depth = "hybrid" if depth_method == "fill_all_holes" else depth_method
+    suffix = "sam3d" if mesh_method == "sam3d" else mesh_method
+    return f"{depth}_{suffix}"
+
+
+def run_output_dir(out_dir: Path, dataset: str, method_slug: str) -> Path:
+    """Return ``output/<dataset>/<method>/`` and create it."""
+    path = out_dir / dataset / method_slug
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def env_python(*names: str) -> str | None:
@@ -252,6 +270,196 @@ def write_pair_preview(
     out_png.parent.mkdir(parents=True, exist_ok=True)
     grid.save(out_png)
     return out_png
+
+
+SUMMARY_CELL = (520, 300)
+MESH_SUMMARY_CELL = (1100, 280)
+MESH_SUMMARY_ORDER: tuple[str, ...] = (
+    "da3_posed_sam3d",
+    "hybrid_sam3d",
+    "da3_sam3d",
+    "rs_sam3d",
+    "da3_posed_tsdf",
+    "hybrid_tsdf",
+    "rs_tsdf",
+)
+METHOD_FOLDER_RENAMES: dict[str, str] = {
+    "posed": "da3_posed_sam3d",
+    "hybrid": "hybrid_sam3d",
+    "posed_tsdf": "da3_posed_tsdf",
+    "da3_posed": "da3_posed_sam3d",
+    "da3": "da3_sam3d",
+    "rs": "rs_sam3d",
+    "tsdf": "rs_tsdf",
+}
+MESH_KEEP_NAMES: frozenset[str] = frozenset({"mesh.glb", "mesh.png", "mesh.stl"})
+DEPTH_SUMMARY_COLS: tuple[str, ...] = ("image", "da3_posed", "rs", "hybrid")
+DEPTH_SUMMARY_MAX_VIEWS = 6
+
+
+def _labeled_cell(
+    image: Image.Image | None, label: str, width: int, height: int,
+) -> Image.Image:
+    """RGB cell with a caption. ``image is None`` draws a blank placeholder."""
+    cell = Image.new("RGB", (width, height), (14, 14, 16))
+    draw = ImageDraw.Draw(cell)
+    font = _legend_font(14)
+    draw.text((8, 6), label, fill=(220, 220, 220), font=font)
+    draw.rectangle((0, 0, width - 1, height - 1), outline=(60, 60, 64))
+    cap = 28
+    if image is None:
+        mid = _legend_font(22)
+        draw.text((8, height // 2 - 8), "—", fill=(80, 80, 84), font=mid)
+        return cell
+    work = image.convert("RGB")
+    work.thumbnail((width - 12, height - cap - 8), Image.Resampling.LANCZOS)
+    x = (width - work.size[0]) // 2
+    y = cap + max(0, (height - cap - work.size[1]) // 2)
+    cell.paste(work, (x, y))
+    return cell
+
+
+def write_summary_grid(
+    out_png: Path,
+    column_labels: Sequence[str],
+    row_labels: Sequence[str],
+    paths: Sequence[Sequence[Path | Image.Image | None]],
+    *,
+    cell: tuple[int, int] = SUMMARY_CELL,
+    header_images: Sequence[Image.Image | None] | None = None,
+) -> Path:
+    """Write a labeled grid. Missing entries are blank cells.
+
+    ``paths[row][col]`` is a path, a PIL image, or ``None``.
+    ``header_images`` is an optional extra strip under each column title
+    (used for the meter colorbar).
+    """
+    n_row, n_col = len(row_labels), len(column_labels)
+    if n_row < 1 or n_col < 1:
+        raise ValueError("need at least one row and one column")
+    if len(paths) != n_row or any(len(row) != n_col for row in paths):
+        raise ValueError("paths must be row_labels × column_labels")
+    if header_images is not None and len(header_images) != n_col:
+        raise ValueError("header_images length must match column_labels")
+    cell_w, cell_h = cell
+    bar_h = 0
+    if header_images:
+        bar_h = max((im.height for im in header_images if im is not None), default=0)
+    head = 36 + bar_h
+    gutter = 120
+    grid = Image.new("RGB", (gutter + n_col * cell_w, head + n_row * cell_h), (10, 10, 12))
+    draw = ImageDraw.Draw(grid)
+    font = _legend_font(16)
+    for c, label in enumerate(column_labels):
+        draw.text((gutter + c * cell_w + 8, 8), label, fill=(220, 220, 220), font=font)
+        if header_images is not None and header_images[c] is not None:
+            grid.paste(header_images[c], (gutter + c * cell_w, 36))
+    for r, label in enumerate(row_labels):
+        draw.text((8, head + r * cell_h + 12), label, fill=(220, 220, 220), font=font)
+        for c, path in enumerate(paths[r]):
+            if isinstance(path, Image.Image):
+                image = path
+            elif path is not None and Path(path).is_file():
+                image = Image.open(path)
+            else:
+                image = None
+            tile = _labeled_cell(image, "", cell_w, cell_h)
+            grid.paste(tile, (gutter + c * cell_w, head + r * cell_h))
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    grid.save(out_png)
+    print(f"summary → {out_png}", flush=True)
+    return out_png
+
+
+def reorganize_method_folders(dataset_dir: Path, *, mesh_only: bool = True) -> list[str]:
+    """Rename mesh folders to ``<depth>_sam3d`` / ``<depth>_tsdf`` and drop previews.
+
+    Does not touch ``rs_da3`` (depth-preview folder, not a mesh). Returns log lines.
+    """
+    dataset_dir = dataset_dir.expanduser()
+    log: list[str] = []
+    if not dataset_dir.is_dir():
+        raise FileNotFoundError(dataset_dir)
+    for old, new in METHOD_FOLDER_RENAMES.items():
+        src, dest = dataset_dir / old, dataset_dir / new
+        if not src.is_dir() or src == dest:
+            continue
+        if dest.exists():
+            log.append(f"keep {new} (already exists, left {old})")
+            continue
+        src.rename(dest)
+        log.append(f"rename {old} → {new}")
+    if mesh_only:
+        skip = {"rs_da3"}
+        for folder in sorted(p for p in dataset_dir.iterdir() if p.is_dir() and p.name not in skip):
+            if not any((folder / name).is_file() for name in MESH_KEEP_NAMES):
+                continue
+            for path in list(folder.iterdir()):
+                if path.name in MESH_KEEP_NAMES or path.is_dir():
+                    continue
+                path.unlink()
+                log.append(f"drop {folder.name}/{path.name}")
+    return log
+
+
+def write_subdir_summary(
+    dataset_dir: Path,
+    filename: str = "mesh.png",
+    out_png: Path | None = None,
+    *,
+    order: Sequence[str] | None = None,
+) -> Path:
+    """Stack ``filename`` from each immediate subfolder, one row per folder."""
+    dataset_dir = dataset_dir.expanduser()
+    preferred = list(order) if order is not None else list(MESH_SUMMARY_ORDER)
+    names = [name for name in preferred if (dataset_dir / name / filename).is_file()]
+    extra = sorted(
+        path.parent.name for path in dataset_dir.glob(f"*/{filename}")
+        if path.parent.name not in names and path.is_file()
+    )
+    names.extend(extra)
+    if not names:
+        raise FileNotFoundError(f"no {filename} under {dataset_dir}/*/")
+    dest = out_png if out_png is not None else dataset_dir / f"{Path(filename).stem}_summary.png"
+    paths = [[dataset_dir / name / filename] for name in names]
+    return write_summary_grid(dest, [Path(filename).stem], names, paths, cell=MESH_SUMMARY_CELL)
+
+
+_LEGEND_FONT = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+
+
+def _legend_font(size: int = 18) -> ImageFont.ImageFont:
+    """DejaVu if present, else Pillow's bitmap default."""
+    if _LEGEND_FONT.is_file():
+        return ImageFont.truetype(str(_LEGEND_FONT), size=size)
+    return ImageFont.load_default()
+
+
+def append_color_legend(
+    image: Image.Image,
+    items: Sequence[tuple[tuple[int, int, int], str]],
+    *,
+    bar_h: int = 56,
+) -> Image.Image:
+    """Pad a legend strip above ``image`` with color swatches and labels."""
+    if not items:
+        raise ValueError("legend needs at least one (color, label) item")
+    rgb = image.convert("RGB")
+    canvas = Image.new("RGB", (rgb.width, rgb.height + bar_h), (14, 14, 16))
+    canvas.paste(rgb, (0, bar_h))
+    draw = ImageDraw.Draw(canvas)
+    font = _legend_font()
+    x = 16
+    y = (bar_h - 22) // 2
+    swatch = 22
+    gap = 28
+    for color, label in items:
+        draw.rectangle((x, y, x + swatch, y + swatch), fill=color, outline=(220, 220, 220))
+        tx, ty = x + swatch + 8, y + 1
+        draw.text((tx, ty), label, fill=(220, 220, 220), font=font)
+        box = draw.textbbox((tx, ty), label, font=font)
+        x = box[2] + gap
+    return canvas
 
 
 def composite_rgba(rgba: Image.Image) -> Image.Image:

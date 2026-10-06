@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from vis import _orbit_points, depth_to_pointmap, load_da3_npz, visualize_depth  # noqa: E402
+from vis import (
+    DEPTH_DISPLAY_RANGE_M,
+    _colorize_depth,
+    _orbit_points,
+    append_turbo_colorbar,
+    depth_range_m,
+    depth_to_pointmap,
+    load_da3_npz,
+    visualize_depth,
+    write_depth_visibility_preview,
+    write_depthmap_preview,
+)
 
 
 def _tiny_npz(path: Path, images_dir: Path) -> None:
@@ -99,3 +106,47 @@ def test_visualize_depth_rejects_bad_pointmaps() -> None:
             assert "pointmaps_sam3d" in str(exc)
         else:
             raise AssertionError("expected ValueError for inconsistent pointmaps")
+
+
+def test_depth_range_m_skips_zero() -> None:
+    """Z=0 is invalid; range is the finite positive min/max in meters."""
+    z = np.array([[[0.0, 1.0], [2.0, np.nan]]], dtype=np.float32)
+    assert depth_range_m(z) == (1.0, 2.0)
+
+
+def test_colorize_clips_to_display_range() -> None:
+    """Values past 3 m map to the same turbo end as 3 m; 0.2 m is the start."""
+    vmin, vmax = DEPTH_DISPLAY_RANGE_M
+    lo = _colorize_depth(np.array([[vmin]], dtype=np.float32), vmin=vmin, vmax=vmax)
+    below = _colorize_depth(np.array([[0.05]], dtype=np.float32), vmin=vmin, vmax=vmax)
+    hi = _colorize_depth(np.array([[vmax]], dtype=np.float32), vmin=vmin, vmax=vmax)
+    clip = _colorize_depth(np.array([[20.0]], dtype=np.float32), vmin=vmin, vmax=vmax)
+    zero = _colorize_depth(np.array([[0.0]], dtype=np.float32), vmin=vmin, vmax=vmax)
+    assert np.array_equal(lo, below)
+    assert not np.array_equal(lo, hi)
+    assert np.array_equal(hi, clip)
+    assert np.array_equal(zero, np.array([[[20, 20, 20]]], dtype=np.uint8))
+
+
+def test_append_turbo_colorbar_labels_meters(tmp_path: Path) -> None:
+    """Colorbar strip is taller than the board."""
+    image = Image.new("RGB", (200, 30), (10, 10, 10))
+    out = append_turbo_colorbar(image, 0.40, 1.80)
+    assert out.size[0] == 200
+    assert out.size[1] > 30
+
+
+def test_depthmap_and_valid_boards_write_legends(tmp_path: Path) -> None:
+    """Depthmap gets a meter bar; valid board is taller than the raw grid."""
+    images = tmp_path / "images"
+    masks = tmp_path / "object"
+    images.mkdir()
+    masks.mkdir()
+    Image.new("RGB", (8, 8), (20, 20, 20)).save(images / "0.png")
+    Image.new("RGBA", (8, 8), (10, 10, 10, 255)).save(masks / "0.png")
+    depth = np.zeros((1, 8, 8), dtype=np.float32)
+    depth[0, 2:6, 2:6] = 1.25
+    d_png = write_depthmap_preview(depth, [images / "0.png"], tmp_path / "d.png")
+    v_png = write_depth_visibility_preview(depth, [images / "0.png"], masks, tmp_path / "v.png")
+    assert Image.open(d_png).size[1] > 256
+    assert Image.open(v_png).size[1] > 256

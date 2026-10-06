@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+from helpers import method_output_slug
+from pipeline import main
+from vis import depth_to_pointmap
 
-from pipeline import main  # noqa: E402
-from vis import depth_to_pointmap  # noqa: E402
+
+def test_method_output_slug_groups_depth_then_mesh() -> None:
+    """``output/<dataset>/<slug>/``: hybrid alias, ``_sam3d`` or ``_tsdf`` suffix."""
+    assert method_output_slug("da3", "sam3d") == "da3_sam3d"
+    assert method_output_slug("da3_posed", "sam3d") == "da3_posed_sam3d"
+    assert method_output_slug("fill_all_holes", "sam3d") == "hybrid_sam3d"
+    assert method_output_slug("rs", "tsdf") == "rs_tsdf"
+    assert method_output_slug("da3_posed", "tsdf") == "da3_posed_tsdf"
+    assert method_output_slug("fill_all_holes", "tsdf") == "hybrid_tsdf"
 
 
 def _write_processed_scene(src: Path) -> None:
@@ -115,7 +122,7 @@ def test_main_writes_depth_preview_before_mvsam() -> None:
             assert "MVSAM" in str(exc) or "SAM3D" in str(exc)
         else:
             raise AssertionError("expected RuntimeError for missing MV-SAM3D")
-        preview = out / "toy" / "depth_preview.png"
+        preview = out / "toy" / "da3_sam3d" / "depth_preview.png"
         assert preview.is_file()
         assert preview.stat().st_size > 0
 

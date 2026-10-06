@@ -1,20 +1,17 @@
-"""RS+DA3 combine: enclosed wells stay empty; fill_wells plugs them."""
+"""RS+DA3 combine: keep valid RS, fill remaining object pixels with scaled DA3."""
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+from PIL import Image
 
-from methods import classify_miss, combine_rs_da3, resize_depth  # noqa: E402
+from helpers import append_color_legend
+from methods import SOURCE_MAP_LEGEND, combine_rs_da3, overlay_source, resize_depth, rs_valid
 
 
 def _lid() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """8x8 object: lid Z=1, 2x2 well, right-edge wall miss, DA3 plate + wall 1.3."""
+    """8x8 object: lid Z=1, 2x2 hole, right-edge miss, DA3 plate + wall 1.3."""
     obj = np.zeros((8, 8), dtype=bool)
     obj[1:7, 1:7] = True
     rs = np.zeros((8, 8), dtype=np.float32)
@@ -27,34 +24,25 @@ def _lid() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return obj, rs, da3
 
 
-def test_classify_miss_splits_well_and_wall() -> None:
-    """An enclosed hole is a well; a miss on the object outline is a wall."""
-    obj, rs, _da3 = _lid()
-    well, wall = classify_miss(obj, rs)
-    assert bool(well[2, 2]) and bool(well[3, 3])
-    assert not bool(well[1, 5])
-    assert bool(wall[1, 5]) and bool(wall[5, 6])
-    assert not bool(wall[2, 2])
-
-
-def test_combine_keeps_well_zero_and_fills_wall() -> None:
-    """Default combine leaves the well at 0 and copies DA3 onto the wall."""
+def test_combine_keeps_rs_and_fills_object_holes() -> None:
+    """Valid RS stays; every object hole gets scaled DA3; background stays 0."""
     obj, rs, da3 = _lid()
-    depth, well, wall, scale = combine_rs_da3(rs, da3, obj, fill_wells=False)
+    depth, scale = combine_rs_da3(rs, da3, obj)
     assert abs(scale - 1.0) < 1e-5
-    assert float(depth[2, 2]) == 0.0
-    assert bool(well[2, 2])
     assert abs(float(depth[1, 2]) - 1.0) < 1e-5
+    assert abs(float(depth[2, 2]) - 1.0) < 1e-5
     assert abs(float(depth[3, 6]) - 1.3) < 1e-5
-    assert bool(wall[3, 6])
+    assert float(depth[0, 0]) == 0.0
 
 
-def test_combine_fill_wells_plugs_the_hole() -> None:
-    """fill_wells copies DA3 into the well (old fill-all-holes)."""
-    obj, rs, da3 = _lid()
-    depth, well, _wall, _scale = combine_rs_da3(rs, da3, obj, fill_wells=True)
-    assert float(depth[2, 2]) == 1.0
-    assert not bool(np.any(well))
+def test_combine_scales_da3_to_rs() -> None:
+    """Overlap median RS/DA3 is applied to filled pixels."""
+    obj = np.ones((2, 2), dtype=bool)
+    rs = np.array([[2.0, 2.0], [0.0, 0.0]], dtype=np.float32)
+    da3 = np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float32)
+    depth, scale = combine_rs_da3(rs, da3, obj)
+    assert abs(scale - 2.0) < 1e-5
+    assert abs(float(depth[1, 0]) - 2.0) < 1e-5
 
 
 def test_resize_depth_nearest() -> None:
@@ -66,3 +54,34 @@ def test_resize_depth_nearest() -> None:
     assert float(out[0, 3]) == 2.0
     assert float(out[3, 0]) == 0.0
     assert float(out[3, 3]) == 3.0
+
+
+def test_rs_valid_treats_zero_as_invalid() -> None:
+    """RealSense writes 0 for invalid depth; only Z>0 counts."""
+    z = np.array([[0.0, 1.2], [np.nan, -0.1]], dtype=np.float32)
+    valid = rs_valid(z)
+    assert bool(valid[0, 1])
+    assert not bool(valid[0, 0])
+    assert not bool(valid[1, 0])
+    assert not bool(valid[1, 1])
+
+
+def test_overlay_source_has_no_third_class() -> None:
+    """Z=0 object pixels stay dim; they are not painted as a third class."""
+    rgb = Image.new("RGB", (2, 2), (80, 80, 80))
+    obj = np.ones((2, 2), dtype=bool)
+    rs = np.array([[1.0, 0.0], [0.0, 0.0]], dtype=np.float32)
+    fused = np.array([[1.0, 1.5], [0.0, 0.0]], dtype=np.float32)
+    out = np.asarray(overlay_source(rgb, obj, rs, fused))
+    assert tuple(out[0, 0]) != (80, 80, 80)
+    assert tuple(int(c) for c in out[0, 1]) != (80, 80, 80)
+    assert out[1, 0, 0] < 50 and out[1, 0, 1] < 50
+
+
+def test_append_color_legend_paints_swatches() -> None:
+    """Legend strip is taller than the board and contains the first swatch color."""
+    image = Image.new("RGB", (120, 20), (10, 10, 10))
+    out = append_color_legend(image, SOURCE_MAP_LEGEND)
+    assert out.size[0] == 120
+    assert out.size[1] > 20
+    assert out.getpixel((27, 28)) == SOURCE_MAP_LEGEND[0][0]
