@@ -20,6 +20,7 @@ from helpers import (
     _legend_font,
     append_color_legend,
     listed_images,
+    valid_depth,
     write_pair_preview,
     write_subdir_summary,
     write_summary_grid,
@@ -97,14 +98,24 @@ def depth_to_pointmap(depth: np.ndarray, intrinsics: np.ndarray) -> np.ndarray:
 
 
 def _as_w2c44(ext: np.ndarray) -> np.ndarray:
-    """Return a 4x4 world-to-camera matrix from (3, 4) or (4, 4)."""
-    if ext.shape == (4, 4):
-        return np.asarray(ext, dtype=np.float64)
-    if ext.shape == (3, 4):
-        mat = np.eye(4, dtype=np.float64)
-        mat[:3, :] = ext
-        return mat
-    raise ValueError(f"extrinsic shape {ext.shape} is not (3, 4) or (4, 4)")
+    """Pad OpenCV w2c ``(3, 4)`` or ``(N, 3, 4)`` to 4x4. ``(4, 4)`` / ``(N, 4, 4)`` pass through."""
+    ext_n = np.asarray(ext, dtype=np.float64)
+    if ext_n.ndim == 2:
+        if ext_n.shape == (4, 4):
+            return ext_n
+        if ext_n.shape == (3, 4):
+            mat = np.eye(4, dtype=np.float64)
+            mat[:3, :] = ext_n
+            return mat
+    elif ext_n.ndim == 3:
+        if ext_n.shape[1:] == (4, 4):
+            return ext_n
+        if ext_n.shape[1:] == (3, 4):
+            out = np.zeros((ext_n.shape[0], 4, 4), dtype=np.float64)
+            out[:, :3, :] = ext_n
+            out[:, 3, 3] = 1.0
+            return out
+    raise ValueError(f"extrinsic shape {ext_n.shape} is not (3, 4), (4, 4), or a stack of those")
 
 
 def camera_to_world(points: np.ndarray, ext: np.ndarray) -> np.ndarray:
@@ -201,7 +212,7 @@ def _view_stems(data: dict[str, np.ndarray], n_view: int) -> list[str]:
 def depth_range_m(depth: np.ndarray) -> tuple[float, float] | None:
     """Min/max of valid depth in meters. ``Z = 0`` is invalid."""
     z = np.asarray(depth)
-    valid = np.isfinite(z) & (z > 0)
+    valid = valid_depth(z)
     if not np.any(valid):
         return None
     return float(z[valid].min()), float(z[valid].max())
@@ -211,7 +222,7 @@ def _colorize_depth(
     depth: np.ndarray, vmin: float | None = None, vmax: float | None = None,
 ) -> np.ndarray:
     """Map a depth plane to an RGB uint8 image (turbo). ``vmin``/``vmax`` are meters."""
-    valid = np.isfinite(depth) & (depth > 0)
+    valid = valid_depth(depth)
     plane = np.zeros(depth.shape, dtype=np.float64)
     if np.any(valid):
         lo = float(depth[valid].min()) if vmin is None else float(vmin)
@@ -317,8 +328,8 @@ def overlay_depth_visibility(rgb: Image.Image, depth: np.ndarray, obj: np.ndarra
         photo = photo.resize((width, height), Image.Resampling.BILINEAR)
     arr = np.asarray(photo, dtype=np.float64)
     out = arr * 0.35
-    valid = obj & np.isfinite(depth) & (depth > 0)
-    miss = obj & (~np.isfinite(depth) | (depth <= 0))
+    valid = obj & valid_depth(depth)
+    miss = obj & (~valid_depth(depth))
     out[valid] = 0.25 * arr[valid] + np.array([0.0, 200.0, 220.0])
     out[miss] = 0.25 * arr[miss] + np.array([220.0, 40.0, 40.0])
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
@@ -355,8 +366,8 @@ def write_capture_depth_boards(
 ) -> list[Path]:
     """Write shared ``rs_`` / ``da3_posed_`` / ``hybrid_`` depth boards.
 
-    No ``hybrid_valid``: after fill-all that board is almost all valid. Use
-    ``rs_valid.png`` for holes and ``hybrid_source_map.png`` for who filled.
+    No hybrid valid board: after fusion almost every object pixel has Z.
+    Use ``rs_valid.png`` for RS holes and ``hybrid_source_map.png`` for source.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []

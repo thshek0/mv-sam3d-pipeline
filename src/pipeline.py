@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Compose a processed scene with one depth method, then one mesh method.
 
-Depth methods: ``da3``, ``da3_posed``, ``rs`` (existing npz), ``rs_da3`` /
-``fill_all_holes`` (same fuse: RS then scaled DA3 in holes). Mesh: SAM3D
-(default) or ``tsdf``.
+Depth methods: ``da3``, ``da3_posed``, ``rs`` (existing npz), ``hybrid``
+(aliases ``rs_da3``, ``fill_all_holes``). Mesh: SAM3D (default) or ``tsdf``.
 Converters stay functions in ``helpers``. Optional ``--seal`` / ``--coacd``.
 """
 
@@ -26,7 +25,7 @@ from helpers import (
 )
 from methods import depth_da3, depth_da3_posed, depth_rs_da3, mesh_sam3d, mesh_tsdf
 
-DEPTH_METHODS = ("da3", "da3_posed", "rs", "rs_da3", "fill_all_holes")
+DEPTH_METHODS = ("da3", "da3_posed", "rs", "hybrid", "rs_da3", "fill_all_holes")
 MESH_METHODS = ("sam3d", "tsdf")
 
 
@@ -102,7 +101,6 @@ def resolve_depth(
     images_dir: Path,
     mask_dir: Path,
     work_dir: Path,
-    run_dir: Path,
     mvsam_root: Path,
     da3_python: str | None,
     da3_npz: Path | None,
@@ -136,13 +134,10 @@ def resolve_depth(
         if not path.is_file():
             raise FileNotFoundError(path)
         return path
-    if method in ("rs_da3", "fill_all_holes"):
+    if method in ("hybrid", "rs_da3", "fill_all_holes"):
         if rs_npz is None or da3_npz is None:
-            raise RuntimeError("rs_da3 / fill_all_holes need --rs-npz and --da3-npz")
-        return depth_rs_da3(
-            rs_npz, da3_npz, images_dir, mask_dir, work_dir / "da3_output.npz",
-            preview_dir=run_dir,
-        )
+            raise RuntimeError("hybrid needs --rs-npz and --da3-npz")
+        return depth_rs_da3(rs_npz, da3_npz, images_dir, mask_dir, work_dir / "da3_output.npz")
     raise ValueError(f"unknown depth method {method!r}")
 
 
@@ -171,7 +166,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         images_dir=images_dir,
         mask_dir=scene_dir / args.object,
         work_dir=scene_dir,
-        run_dir=run_dir,
         mvsam_root=args.mvsam_root,
         da3_python=args.da3_python,
         da3_npz=args.da3_npz,

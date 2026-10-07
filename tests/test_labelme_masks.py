@@ -18,7 +18,7 @@ from helpers import (
     rgba_from_labelme,
     write_labelme_masks,
 )
-from helpers import ingest_stills
+from helpers import convert_stills_to_images
 
 
 def _crop_png_b64(arr: np.ndarray) -> str:
@@ -94,7 +94,7 @@ def test_write_labelme_masks_matches_ingested_size() -> None:
             ],
         }
         (raw / "IMG_0001.json").write_text(json.dumps(payload))
-        frames = ingest_stills(raw, Path(img_s), max_side=10)
+        frames = convert_stills_to_images(raw, Path(img_s), max_side=10)
         masks = write_labelme_masks(raw, frames, Path(mask_s))
         assert [p.name for p in masks] == ["0.png"]
         rgba = Image.open(masks[0])
@@ -141,7 +141,7 @@ def test_write_labelme_masks_follows_exif_display_size() -> None:
             ],
         }
         (raw / "IMG_0001.json").write_text(json.dumps(payload))
-        frames = ingest_stills(raw, Path(img_s), max_side=20)
+        frames = convert_stills_to_images(raw, Path(img_s), max_side=20)
         assert Image.open(frames[0]).size == (10, 20)
         masks = write_labelme_masks(raw, frames, Path(mask_s))
         alpha = np.asarray(Image.open(masks[0]).getchannel("A"))

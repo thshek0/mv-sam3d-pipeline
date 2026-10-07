@@ -29,7 +29,7 @@ def test_resolve_da3_uses_existing_npz() -> None:
         npz = _tiny_npz(root / "a.npz", [images / "0.png"], np.ones((1, 8, 8), dtype=np.float32))
         got = resolve_depth(
             "da3",
-            images_dir=images, mask_dir=root / "object", work_dir=root, run_dir=root,
+            images_dir=images, mask_dir=root / "object", work_dir=root,
             mvsam_root=root, da3_python=None, da3_npz=npz, rs_npz=None, pose_npz=None, process_res=8,
         )
         assert got == npz.resolve()
@@ -42,7 +42,7 @@ def test_resolve_rs_da3_needs_both_npzs() -> None:
         try:
             resolve_depth(
                 "rs_da3",
-                images_dir=root, mask_dir=root, work_dir=root, run_dir=root,
+                images_dir=root, mask_dir=root, work_dir=root,
                 mvsam_root=root, da3_python=None, da3_npz=None, rs_npz=None, pose_npz=None, process_res=8,
             )
         except RuntimeError as exc:

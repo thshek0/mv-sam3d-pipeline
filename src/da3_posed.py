@@ -9,25 +9,11 @@ from pathlib import Path
 import numpy as np
 
 from helpers import listed_images
+from vis import _as_w2c44
 
 REPO = Path(__file__).resolve().parents[1]
 DA3_ROOT = REPO / "Depth-Anything-3"
 MVSAM_RUNNER = REPO / "MV-SAM3D" / "scripts" / "run_da3.py"
-
-
-def _as_w2c44(ext: np.ndarray) -> np.ndarray:
-    """Pad (N, 3, 4) OpenCV w2c to (N, 4, 4)."""
-    ext_n = np.asarray(ext, dtype=np.float64)
-    if ext_n.ndim != 3:
-        raise ValueError(f"extrinsics must be (N, 3, 4) or (N, 4, 4), got {ext_n.shape}")
-    if ext_n.shape[1:] == (4, 4):
-        return ext_n
-    if ext_n.shape[1:] == (3, 4):
-        out = np.zeros((ext_n.shape[0], 4, 4), dtype=np.float64)
-        out[:, :3, :] = ext_n
-        out[:, 3, 3] = 1.0
-        return out
-    raise ValueError(f"extrinsics must be (N, 3, 4) or (N, 4, 4), got {ext_n.shape}")
 
 
 def run_da3_posed(images_dir: Path, pose_npz: Path, output: Path, process_res: int) -> Path:

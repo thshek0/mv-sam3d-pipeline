@@ -63,8 +63,8 @@ def tsdf_from_da3_npz(
     """Fuse metric depth into a TSDF and write a triangle mesh.
 
     Extrinsics are world-to-camera (OpenCV). Depth is meters; ``Z <= 0`` is skipped.
-    Optional RGBA/L masks zero background depth (table). Well pixels with no Z
-    do not carve or fill — they simply never update the volume.
+    Optional RGBA/L masks zero background depth (table). Pixels with ``Z = 0``
+    do not carve or fill — they never update the volume.
     ``keep_largest`` drops flyer components; it does not fill holes.
     """
     if voxel_length <= 0 or sdf_trunc <= 0 or depth_trunc <= 0:

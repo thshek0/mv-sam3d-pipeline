@@ -35,8 +35,8 @@ You still pick `t` per object if 0.05 is wrong; it is a concavity split, not a s
 - **Open3D quadric collapse to 10k faces** as a “look” mesh. Melted flanges and jaws. The reconstructed mesh is the look mesh; we do not decimate it for appearance.
 - **Vertex clustering.** Silhouette looked fine but the mesh was not watertight.
 - **Heater from video + rembg.** Result was a box with fake legs. That is a capture problem (few views, weak texture), not a missing algorithm. Better photos, or marks on the object, before changing the pipeline.
-- **Hybrid C / `fill_all_holes`** (fill every RealSense NaN with scaled DA3). Plugs wells. Same plate as pose-free DA3 on the lid. Do not run it; keep the CLI flag so the negative result is reproducible.
-- **Occupancy / silhouette IoU.** SAM3D lives in a canonical box; tag cameras are camera-0 world. Silhouette search, PCA flips, tag-up yaw, and IoU+depth+chamfer never recovered a real pose. Overlays looked like cabinet blobs. Dropped `src/occupancy.py`. Judge meshes with `mesh.png` and TSDF vs SAM3D, not a 2-D score.
+- **Well vs wall fuse.** Enclosed-hole vs outline-miss was a heater-only rule. Dropped. Public `--method hybrid` is only: keep valid RS, fill remaining object pixels with scaled DA3. On a through-grid that still plugs wells — use `--method rs` + TSDF if holes must stay empty.
+- **Occupancy / silhouette IoU.** SAM3D lives in a canonical box; tag cameras are camera-0 world. Silhouette search never recovered a real pose. Dropped `src/occupancy.py`. Judge meshes with `mesh.png` and TSDF vs SAM3D, not a 2-D score.
 
 ## Heater process
 
@@ -113,14 +113,14 @@ SAM 2 could not cut wells (holes not detected; too slow). That is why TSDF is fi
 
 - **Eliminate:** DA3 guessing cameras (pose-free DA3 on shiny views).
 - **Try:** better **depth image** on metal, metric to tags.
-- **Result:** `depth_vs_rs.png` — DA3 **fills walls** RS leaves empty; wells stay a **100% valid plate**. `output/heater5/da3_posed/depth_preview.png`.
+- **Result:** `depth_vs_rs.png` — DA3 **fills walls** RS leaves empty; wells stay a **100% valid plate**. `output/heater5/da3_posed_sam3d/`.
 - **Isolated:** known pose is not why wells are filled (DA3 is dense by design). Known pose **does** give side depth where RS is blind. That is RGB depth, not D415.
 
 **SAM3D on posed DA3** — `src/pipeline.py --da3-npz work/heater5_da3_posed/da3_output.npz`.
 
 - **Eliminate:** pose-free DA3 as the SAM3D pointmap.
 - **Try:** cleaner box from the better cameras.
-- **Result:** cleaner closed box than v5 A; cups clearer from the side; **lid still closed**. Preview is `mesh.png`; download `mesh.glb`. `output/heater5/da3_posed/`.
+- **Result:** cleaner closed box than v5 A; cups clearer from the side; **lid still closed**. Preview is `mesh.png`; download `mesh.glb`. `output/heater5/da3_posed_sam3d/`.
 
 Video around the object was considered and **not** run: more frames at the same grazing silver angle would still be `Z=0`. That would not isolate shiny-surface stereo.
 
@@ -142,9 +142,9 @@ Video around the object was considered and **not** run: more frames at the same 
 
 ### Next dataset / method
 
-Same heater5 stills: `output/heater5/rs_da3/` is RS where `Z>0`, posed DA3 only on outline misses (`source.png` / `depth.png`). SAM3D on that depth matched `heater5/da3_posed` and is archived. **Still not run on heater5:** TSDF on that `rs_da3` depth. New capture only if walls must be metric: matte the chassis, face-on, table tags still in view. Do not recapture “more of the same silver at a grazing angle.”
+Same heater5 stills: leftover `output/heater5/rs_da3/` is the old wall-only preview dump. Current fuse is `--method hybrid` (folder `hybrid_sam3d` / `hybrid_tsdf`). **Still not run on heater5:** TSDF on RS-only depth if you want holes kept. New capture only if walls must be metric: matte the chassis, face-on, table tags still in view. Do not recapture “more of the same silver at a grazing angle.”
 
-Do not default the public CLI to `da3_posed` (needs tags). Do not archive the `da3` method. Archive fill-all *outputs* if the folder is noisy.
+Do not default the public CLI to `da3_posed` (needs tags). Do not archive the `da3` method.
 
 ## Lab captures — TSDF vs SAM3D
 
@@ -160,7 +160,7 @@ Same five sets. TSDF at voxel 0.002, sdf 0.006, depth-trunc 2, `--keep-largest`.
 
 **1606 RS TSDF** is the reconstruction to put next to SAM3D’s closed L-box: measured shell, no fake fill, jagged, chassis incomplete. Posed/hybrid TSDF is DA3 painting a plate, then fusion — same failure as fill-all, without SAM3D.
 
-`rs_da3` is the best **depth map** when you have stereo and tags and want holes kept. It is not always the best **mesh**. SAM3D on `rs_da3` still closed the heater lid.
+`--method rs` is the best **depth map** when you have stereo and tags and want holes kept. Hybrid fills those holes. SAM3D on hybrid/posed DA3 still closed the heater lid.
 
 ## Best capture so far
 

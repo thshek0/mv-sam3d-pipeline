@@ -8,11 +8,14 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Callable, Sequence, TypeVar
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+T = TypeVar("T")
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_MVSAM = REPO / "MV-SAM3D"
@@ -23,12 +26,44 @@ DEFAULT_OUT = REPO / "output"
 def method_output_slug(depth_method: str, mesh_method: str = "sam3d") -> str:
     """Folder name under ``output/<dataset>/`` for a depth + mesh pair.
 
-    ``fill_all_holes`` is stored as ``hybrid``. SAM3D appends ``_sam3d``,
-    TSDF appends ``_tsdf``.
+    ``hybrid``, ``fill_all_holes``, and ``rs_da3`` share the ``hybrid`` slug.
+    SAM3D appends ``_sam3d``, TSDF appends ``_tsdf``.
     """
-    depth = "hybrid" if depth_method == "fill_all_holes" else depth_method
+    depth = "hybrid" if depth_method in {"hybrid", "fill_all_holes", "rs_da3"} else depth_method
     suffix = "sam3d" if mesh_method == "sam3d" else mesh_method
     return f"{depth}_{suffix}"
+
+
+def valid_depth(depth: np.ndarray) -> np.ndarray:
+    """Finite and ``Z > 0``. ``Z = 0`` is invalid."""
+    z = np.asarray(depth)
+    return np.isfinite(z) & (z > 0)
+
+
+def timed(fn: Callable[[], T]) -> tuple[T, float]:
+    """Run ``fn`` once and return ``(result, wall_seconds)``."""
+    t0 = time.perf_counter()
+    out = fn()
+    return out, time.perf_counter() - t0
+
+
+def mean_sd(values: Sequence[float]) -> tuple[float, float]:
+    """Sample mean and sample standard deviation (N-1). One value → sd=0."""
+    arr = np.asarray(values, dtype=np.float64)
+    if arr.size == 0:
+        raise ValueError("need at least one value")
+    mean = float(arr.mean())
+    sd = 0.0 if arr.size < 2 else float(arr.std(ddof=1))
+    return mean, sd
+
+
+def depth_rmse(a: np.ndarray, b: np.ndarray) -> float:
+    """RMSE on pixels where both depths are finite and ``Z > 0``."""
+    valid = valid_depth(a) & valid_depth(b)
+    if not np.any(valid):
+        return float("nan")
+    diff = np.asarray(a, dtype=np.float64)[valid] - np.asarray(b, dtype=np.float64)[valid]
+    return float(np.sqrt(np.mean(diff * diff)))
 
 
 def run_output_dir(out_dir: Path, dataset: str, method_slug: str) -> Path:
@@ -713,11 +748,6 @@ def convert_video_to_frames(
     return named
 
 
-def extract_frames(ffmpeg: str, video: Path, images_dir: Path, fps: float, max_frames: int | None = None) -> list[Path]:
-    """Alias of ``convert_video_to_frames`` (positional ffmpeg first)."""
-    return convert_video_to_frames(video, images_dir, fps=fps, max_frames=max_frames, ffmpeg=ffmpeg)
-
-
 def convert_stills_to_images(src_dir: Path, images_dir: Path, max_side: int = 1920) -> list[Path]:
     """Copy stills as ``0.png``, ``1.png``, … with EXIF applied and long edge capped."""
     srcs = still_image_paths(src_dir)
@@ -739,11 +769,6 @@ def convert_stills_to_images(src_dir: Path, images_dir: Path, max_side: int = 19
         print(f"still {src.name} {w}x{h} -> {dest.name} {im.size[0]}x{im.size[1]}", flush=True)
     print(f"Ingested {len(named)} stills → {images_dir}", flush=True)
     return named
-
-
-def ingest_stills(src_dir: Path, images_dir: Path, max_side: int = 1920) -> list[Path]:
-    """Alias of ``convert_stills_to_images``."""
-    return convert_stills_to_images(src_dir, images_dir, max_side=max_side)
 
 
 def _strip_suffix(name: str, suffix: str) -> str | None:
@@ -917,11 +942,6 @@ def run_mvsam(
     return hits[-1]
 
 
-def convert_labelme_json_to_rgba(json_path: Path, rgb: Image.Image) -> Image.Image:
-    """Alias of ``rgba_from_labelme`` (one JSON + one RGB → one RGBA)."""
-    return rgba_from_labelme(json_path, rgb)
-
-
 def convert_labelme_to_masks(src_dir: Path, images: Sequence[Path], mask_dir: Path) -> list[Path]:
     """Write RGBA masks that pair 1:1 with ingested frames (folder API)."""
     return write_labelme_masks(src_dir, images, mask_dir)
@@ -944,33 +964,6 @@ def listed_images(images_dir: Path) -> list[Path]:
     return sorted(
         images_dir.glob("*.png"),
         key=lambda path: int(path.stem) if path.stem.isdigit() else path.stem,
-    )
-
-
-def visualize_depth(
-    npz_path: Path,
-    output: Path,
-    images_dir: Path | None = None,
-    mode: Literal["per_view", "orbit", "both"] = "both",
-    orbit_z_min: float | None = None,
-    orbit_z_max: float | None = None,
-    mask_dir: Path | None = None,
-    object_only: bool = True,
-) -> list[Path]:
-    """Verify ``da3_output.npz`` and write RGB|depth and/or orbit PNGs.
-
-    Implemented in ``vis``. ``mode`` is ``per_view``, ``orbit``, or ``both``.
-    Per-view is a 3-column photo | depth grid of every view.
-    Orbit is object-mask pixels by default. Object masks also write
-    ``depth_visibility_preview.png``. ``orbit_z_min`` / ``orbit_z_max``
-    clip camera Z on the orbit only.
-    """
-    from vis import visualize_depth as _visualize_depth
-
-    return _visualize_depth(
-        npz_path, output, images_dir=images_dir, mode=mode,
-        orbit_z_min=orbit_z_min, orbit_z_max=orbit_z_max,
-        mask_dir=mask_dir, object_only=object_only,
     )
 
 

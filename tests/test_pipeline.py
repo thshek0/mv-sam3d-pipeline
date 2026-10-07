@@ -17,7 +17,9 @@ def test_method_output_slug_groups_depth_then_mesh() -> None:
     """``output/<dataset>/<slug>/``: hybrid alias, ``_sam3d`` or ``_tsdf`` suffix."""
     assert method_output_slug("da3", "sam3d") == "da3_sam3d"
     assert method_output_slug("da3_posed", "sam3d") == "da3_posed_sam3d"
+    assert method_output_slug("hybrid", "sam3d") == "hybrid_sam3d"
     assert method_output_slug("fill_all_holes", "sam3d") == "hybrid_sam3d"
+    assert method_output_slug("rs_da3", "sam3d") == "hybrid_sam3d"
     assert method_output_slug("rs", "tsdf") == "rs_tsdf"
     assert method_output_slug("da3_posed", "tsdf") == "da3_posed_tsdf"
     assert method_output_slug("fill_all_holes", "tsdf") == "hybrid_tsdf"
@@ -99,8 +101,8 @@ def _one_view_npz(path: Path, images_dir: Path) -> None:
     )
 
 
-def test_main_writes_depth_preview_before_mvsam() -> None:
-    """``--da3-npz`` writes ``depth_preview.png`` then fails without MV-SAM3D."""
+def test_main_fails_without_mvsam_and_keeps_method_folder_mesh_only() -> None:
+    """``--da3-npz`` fails without MV-SAM3D and does not write depth boards in the mesh folder."""
     with tempfile.TemporaryDirectory() as raw_s:
         root = Path(raw_s)
         src = root / "processed"
@@ -122,13 +124,13 @@ def test_main_writes_depth_preview_before_mvsam() -> None:
             assert "MVSAM" in str(exc) or "SAM3D" in str(exc)
         else:
             raise AssertionError("expected RuntimeError for missing MV-SAM3D")
-        preview = out / "toy" / "da3_sam3d" / "depth_preview.png"
-        assert preview.is_file()
-        assert preview.stat().st_size > 0
+        run_dir = out / "toy" / "da3_sam3d"
+        assert not (run_dir / "depth_preview.png").exists()
+        assert not (run_dir / "mesh.glb").exists()
 
 
 if __name__ == "__main__":
     test_main_raises_without_da3_on_processed_scene()
     test_main_rejects_raw_stills()
-    test_main_writes_depth_preview_before_mvsam()
+    test_main_fails_without_mvsam_and_keeps_method_folder_mesh_only()
     print("ok pipeline")

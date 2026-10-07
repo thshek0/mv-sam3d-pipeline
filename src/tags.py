@@ -346,16 +346,19 @@ def convert_apriltag_to_da3_npz(
     Views with no pose are dropped. ``Z <= 0`` becomes NaN in the pointmaps.
 
     Pass ``detections`` to skip OpenCV detect. Pass ``pose_fn`` to skip OpenCV PnP.
-    Otherwise ``dictionary`` and ``refine`` are required for detect, and ``pnp_flags``
+    Detect defaults to ``DICT_APRILTAG_16h5`` and ``refine=False``. ``pnp_flags``
     is passed to ``cv2.solvePnP``. Writes ``tags_preview.png`` (photo | tags, all views).
     """
     n_view = len(images)
     if not (n_view == len(depths) == len(ks)):
         raise ValueError(f"images/depths/K length mismatch: {n_view}, {len(depths)}, {len(ks)}")
     if detections is None:
-        if dictionary is None or refine is None:
-            raise ValueError("pass detections=... or both dictionary= and refine=")
-        detections = [detect_apriltags(path, dictionary, refine) for path in images]
+        if refine is None:
+            refine = False
+        detections = [
+            detect_apriltags(path, default_apriltag_dict() if dictionary is None else dictionary, refine)
+            for path in images
+        ]
     if len(detections) != n_view:
         raise ValueError(f"detections length {len(detections)} != {n_view}")
     out_preview = preview_png if preview_png is not None else npz_path.parent / "tags_preview.png"

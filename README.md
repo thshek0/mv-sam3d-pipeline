@@ -66,11 +66,11 @@ examples/gripper/
 
 A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `processed/` with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
 
-The CLI also writes `depth_preview_orbit.png` (object-only 3-view cloud) and `depth_visibility_preview.png` (cyan = object and Z>0, red = object and Z=0) when masks exist. AprilTag runs write `tags_preview.png`. Dataset stills previews are always **3 columns**. Each cell is a pair (`photo | overlay`). Every view in the dataset is shown. `mesh.png` and `depth_preview_orbit.png` are 3-view 3D stills, not that grid.
+Method folders keep `mesh.glb` and `mesh.png`. Shared depth boards (`rs_depthmap.png`, `da3_posed_valid.png`, `depth_summary.png`, …) sit on `output/<dataset>/`. `src/vis.py` still writes a per-npz preview/orbit if you call it. AprilTag runs write `tags_preview.png`. Dataset stills previews are **3 columns** (`photo | overlay`). `mesh.png` is a 3-view still, not that grid.
 
 `src/capture_realsense.py` writes those dumps into `input/captures_*` (SPACE to save). Aligned RealSense dumps (`{stem}_rgb.png`, `{stem}_depth.png`, `{stem}.json`, optional `{stem}_rgb.json`) go through `convert_realsense_dump`, then `tags.convert_apriltag_to_da3_npz`, then `crop_views_depth_to_masks`. Pass the cropped npz to `src/pipeline.py --da3-npz`. The depth orbit PNG (`depth_preview_orbit.png`) is object-mask pixels only by default (`object/` alpha). `visualize_depth(..., orbit_z_min=, orbit_z_max=)` clips that orbit camera Z only; `--full-orbit` plots the whole frame.
 
-`src/tsdf.py` fuses that same DA3-style npz with Open3D (metric depth, world-to-camera). Optional RGBA masks zero table depth. Pixels with `Z = 0` (empty wells) never update the volume, so holes do not need to be cut in the mask. `--voxel-length`, `--sdf-trunc`, and `--depth-trunc` are required. `--keep-largest` drops flyer components and does not fill holes.
+`src/tsdf.py` fuses that same DA3-style npz with Open3D (metric depth, world-to-camera). Optional RGBA masks zero table depth. Pixels with `Z = 0` never update the volume, so holes do not need to be cut in the mask. `--voxel-length`, `--sdf-trunc`, and `--depth-trunc` are required. `--keep-largest` drops flyer components and does not fill holes.
 
 `src/da3_posed.py` runs Depth Anything 3 with those PnP `w2c` + `K` (`align_to_input_ext_scale`). Pose-free DA3 is still the default in `src/pipeline.py`. The mesh to download is `mesh.glb`; `mesh.png` is the three-view still.
 
@@ -107,7 +107,7 @@ flowchart LR
 - **da3** — pose-free DA3 (default). RGB + masks only; no tags required.
 - **da3_posed** — DA3 with AprilTag cameras (`--pose-npz`). Use this when tags exist.
 - **rs** — D415 Z + PnP, as measured.
-- **rs_da3** / **fill_all_holes** — keep RS where `Z>0`; fill remaining object pixels with posed DA3 scaled by median `RS/DA3`. Same math; `fill_all_holes` is stored as `hybrid`.
+- **hybrid** — keep RS where `Z>0`; fill remaining object pixels with posed DA3 scaled by median `RS/DA3`. `rs_da3` and `fill_all_holes` are aliases; the folder is `hybrid_*`.
 
 ## Mesh
 
@@ -118,7 +118,7 @@ flowchart LR
 | RGB + masks only (gripper) | `--method da3 --mesh sam3d` |
 | Tags, pretty closed box | `--method da3_posed --mesh sam3d` |
 | Tags + RS, measured holes | `--method rs --mesh tsdf` |
-| Tags + RS, fill RS holes in **depth** | `--method fill_all_holes` then TSDF (not another SAM3D) |
+| Tags + RS, fill RS holes in **depth** | `--method hybrid` then TSDF (not another SAM3D) |
 
 ## Installation
 
@@ -140,7 +140,7 @@ export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
 python src/pipeline.py -i examples/gripper/processed --scene gripper
 ```
 
-Writes `work/gripper/` and `output/gripper/mesh.glb`. `-i` is a processed scene (`images/` + `object/`). `--scene` is only that folder name (default: the input folder’s name, here `processed`). If you already have DA3’s `da3_output.npz` (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
+Writes `work/gripper/` and `output/gripper/da3_sam3d/mesh.glb`. `-i` is a processed scene (`images/` + `object/`). `--scene` is the dataset folder name (default: the input folder’s name). If you already have DA3’s `da3_output.npz` (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
 
 ```bash
 python -m pytest tests
@@ -154,7 +154,14 @@ python -m pytest tests
 
 ## Runtime
 
-Default gripper path (`da3` → SAM3D), 12 views, **10 repeats**, NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `archive/gripper_timed/` (not the checked-in example).
+`src/time_run.py` times `da3` → SAM3D on any processed scene. Default `-i` is the gripper example (12 views, **10 repeats**). Writes `archive/<scene>_timed/` (`archive/gripper_timed/` for that example). `--keep-runs` (default) keeps each `run_*/` mesh and npz; `--no-keep-runs` leaves `summary.json` and contact sheets only. `--no-preview` skips `depth_preview.png`.
+
+```bash
+python src/time_run.py -i examples/gripper/processed
+python src/time_run.py -i path/to/processed --n 3 --no-keep-runs --no-preview
+```
+
+Numbers below are the gripper path on NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `archive/gripper_timed/` (not the checked-in example).
 
 **Result.** End to end is **138.4 ± 2.0 s** (~11.5 s/view). SAM3D is most of that (**121.5 ± 2.1 s**). DA3 is **11.1 ± 0.2 s** (~0.93 s/view). Depth is repeatable (RMSE vs run 0 ≈ **0.25 mm**). The mesh is not bitwise-identical — SAM3D is generative (~254k faces ± 1k; chamfer vs run 0 ≈ **8.6 mm ± 0.06 mm**) — but the 10 stills are the same gripper.
 

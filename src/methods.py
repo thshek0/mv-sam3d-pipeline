@@ -11,8 +11,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from helpers import append_color_legend, listed_images, run_da3, write_pair_preview
-from vis import _mask_keep, write_da3_npz, write_depthmap_preview
+from helpers import append_color_legend, listed_images, run_da3, valid_depth, write_pair_preview
+from vis import _mask_keep, write_da3_npz
 
 SOURCE_MAP_LEGEND: tuple[tuple[tuple[int, int, int], str], ...] = (
     ((0, 200, 220), "RealSense"),
@@ -21,9 +21,8 @@ SOURCE_MAP_LEGEND: tuple[tuple[tuple[int, int, int], str], ...] = (
 
 
 def rs_valid(depth: np.ndarray) -> np.ndarray:
-    """RealSense valid depth: finite and ``Z > 0``. ``Z = 0`` is invalid."""
-    z = np.asarray(depth)
-    return np.isfinite(z) & (z > 0)
+    """Finite and ``Z > 0``. ``Z = 0`` is invalid."""
+    return valid_depth(depth)
 
 
 def resize_depth(depth: np.ndarray, height: int, width: int) -> np.ndarray:
@@ -119,8 +118,6 @@ def depth_rs_da3(
     images_dir: Path,
     mask_dir: Path,
     out_npz: Path,
-    *,
-    preview_dir: Path | None = None,
 ) -> Path:
     """Keep valid RS; fill remaining object pixels with posed DA3 scaled to RS."""
     rs = np.load(rs_npz)
@@ -135,47 +132,19 @@ def depth_rs_da3(
         raise ValueError(f"{len(images)} RGBs, depth has {n_view} views")
     da_full = np.stack([resize_depth(da_z[i], height, width) for i in range(n_view)], axis=0)
     combined = np.zeros_like(rs_z)
-    objs: list[np.ndarray] = []
     for i, rgb_path in enumerate(images):
         obj = _mask_keep(rgb_path.stem, mask_dir, height, width)
         if obj is None:
             raise FileNotFoundError(f"missing mask for {rgb_path.name}")
         depth_i, scale = combine_rs_da3(rs_z[i], da_full[i], obj)
         combined[i] = depth_i
-        objs.append(obj)
         print(f"view {i:2d} fill={int((obj & ~rs_valid(rs_z[i])).sum())} scale={scale:.3f}", flush=True)
     keep_stems = list(rs["keep_stems"]) if "keep_stems" in rs.files else None
     write_da3_npz(
         out_npz, combined, rs["extrinsics"], rs["intrinsics"], images,
         process_res=width, keep_stems=keep_stems,
     )
-    if preview_dir is not None:
-        write_rs_da3_previews(preview_dir, images, objs, rs_z, da_full, combined)
     return out_npz
-
-
-def write_rs_da3_previews(
-    out_dir: Path,
-    images: list[Path],
-    objs: list[np.ndarray],
-    rs_z: np.ndarray,
-    da_z: np.ndarray,
-    depth: np.ndarray,
-) -> None:
-    """Write shared ``rs_`` / ``da3_posed_`` / ``hybrid_`` depth boards on ``out_dir``."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pairs_src: list[tuple[Image.Image, Image.Image, str, str]] = []
-    for i, rgb_path in enumerate(images):
-        rgb = Image.open(rgb_path).convert("RGB")
-        pairs_src.append(
-            (rgb, overlay_source(rgb, objs[i], rs_z[i], depth[i]), f"{i} photo", f"{i} source map"),
-        )
-    write_depthmap_preview(rs_z, images, out_dir / "rs_depthmap.png", label="RS")
-    write_depthmap_preview(da_z, images, out_dir / "da3_posed_depthmap.png", label="da3_posed")
-    write_depthmap_preview(depth, images, out_dir / "hybrid_depthmap.png", label="hybrid")
-    src_path = out_dir / "hybrid_source_map.png"
-    write_pair_preview(pairs_src, src_path)
-    append_color_legend(Image.open(src_path), SOURCE_MAP_LEGEND).save(src_path)
 
 
 def mesh_sam3d(
@@ -193,14 +162,9 @@ def mesh_sam3d(
     """MV-SAM3D on a processed scene + npz. Writes ``run_dir/mesh.glb`` and ``mesh.png``."""
     import shutil
 
-    from helpers import run_mvsam, visualize_depth
+    from helpers import run_mvsam
     from post import preview_mesh, seal_mesh, write_coacd
 
-    images_dir = scene_dir / "images"
-    visualize_depth(
-        npz, run_dir / "depth_preview.png", images_dir=images_dir, mode="both",
-        mask_dir=scene_dir / object_name,
-    )
     if not mvsam_python:
         raise RuntimeError("Pass --mvsam-python or set MVSAM_PYTHON / SAM3D_PYTHON")
     glb = run_mvsam(mvsam_python, mvsam_root, scene_dir, object_name, npz, merge_da3_glb)

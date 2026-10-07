@@ -1,53 +1,54 @@
 #!/usr/bin/env python3
-"""Time the default gripper path (da3 → SAM3D) N times into archive/gripper_timed/."""
+"""Time ``da3`` → SAM3D on any processed scene (N repeats + summary)."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import shutil
-import time
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any
 
 import numpy as np
 import trimesh
 from PIL import Image
 
-from helpers import DEFAULT_MVSAM, env_python, listed_images, run_da3, run_mvsam, validate_scene
-from helpers import visualize_depth
+from helpers import (
+    DEFAULT_MVSAM,
+    REPO,
+    depth_rmse,
+    env_python,
+    listed_images,
+    mean_sd,
+    run_da3,
+    run_mvsam,
+    timed,
+    valid_depth,
+    validate_scene,
+)
 from post import load_triangle_mesh, preview_mesh
+from vis import visualize_depth
 
-REPO = Path(__file__).resolve().parents[1]
-SRC = REPO / "examples/gripper/processed"
-OUT = REPO / "archive/gripper_timed"
-T = TypeVar("T")
-
-
-def timed(fn: Callable[[], T]) -> tuple[T, float]:
-    """Run ``fn`` once and return ``(result, wall_seconds)``."""
-    t0 = time.perf_counter()
-    out = fn()
-    return out, time.perf_counter() - t0
+DEFAULT_SCENE = REPO / "examples/gripper/processed"
+DEFAULT_GRIPPER_OUT = REPO / "archive/gripper_timed"
 
 
-def mean_sd(values: list[float]) -> tuple[float, float]:
-    """Sample mean and sample standard deviation (N-1). One value → sd=0."""
-    arr = np.asarray(values, dtype=np.float64)
-    if arr.size == 0:
-        raise ValueError("need at least one value")
-    mean = float(arr.mean())
-    sd = 0.0 if arr.size == 1 else float(arr.std(ddof=1))
-    return mean, sd
+def default_out_dir(src: Path) -> Path:
+    """``archive/gripper_timed`` for the example scene, else ``archive/<name>_timed``."""
+    resolved = src.expanduser().resolve()
+    if resolved == DEFAULT_SCENE.resolve():
+        return DEFAULT_GRIPPER_OUT
+    return REPO / "archive" / f"{resolved.name}_timed"
 
 
-def depth_rmse(a: np.ndarray, b: np.ndarray) -> float:
-    """RMSE on pixels where both depths are finite and > 0."""
-    valid = np.isfinite(a) & np.isfinite(b) & (a > 0) & (b > 0)
-    if not np.any(valid):
-        return float("nan")
-    diff = np.asarray(a, dtype=np.float64)[valid] - np.asarray(b, dtype=np.float64)[valid]
-    return float(np.sqrt(np.mean(diff * diff)))
+def discard_run_dirs(root: Path) -> None:
+    """Delete ``run_*`` and ``work/`` under ``root``. Leaves ``summary.json`` and sheets."""
+    for path in root.glob("run_*"):
+        if path.is_dir():
+            shutil.rmtree(path)
+    work = root / "work"
+    if work.is_dir():
+        shutil.rmtree(work)
 
 
 def chamfer_m(mesh_a: trimesh.Trimesh, mesh_b: trimesh.Trimesh, n_pts: int = 4000) -> float:
@@ -59,40 +60,45 @@ def chamfer_m(mesh_a: trimesh.Trimesh, mesh_b: trimesh.Trimesh, n_pts: int = 400
     return float(0.5 * (d_ab + d_ba))
 
 
-def _stage(work: Path) -> Path:
-    """Copy gripper processed into ``work`` once."""
-    if (work / "images").is_dir() and (work / "object").is_dir():
-        validate_scene(work, "object")
+def _stage(src: Path, work: Path, object_name: str) -> Path:
+    """Copy a processed scene into ``work`` unless it is already there."""
+    if (work / "images").is_dir() and (work / object_name).is_dir():
+        validate_scene(work, object_name)
         return work
     work.mkdir(parents=True, exist_ok=True)
-    for name in ("images", "object"):
+    for name in ("images", object_name):
         dest = work / name
         if dest.exists():
             shutil.rmtree(dest)
-        shutil.copytree(SRC / name, dest)
-    validate_scene(work, "object")
+        shutil.copytree(src / name, dest)
+    validate_scene(work, object_name)
     return work
 
 
 def run_once(
     run_dir: Path,
     scene_dir: Path,
+    object_name: str,
     da3_python: str,
     mvsam_python: str,
     mvsam_root: Path,
+    *,
+    preview: bool = True,
 ) -> dict[str, Any]:
-    """One da3 + visualize + SAM3D + mesh.png. Writes ``run_dir``."""
+    """One da3 + optional visualize + SAM3D + mesh.png. Writes ``run_dir``."""
     run_dir.mkdir(parents=True, exist_ok=True)
     images = scene_dir / "images"
     n_view = len(listed_images(images))
     da3_out = run_dir / "da3"
     npz, t_da3 = timed(lambda: run_da3(da3_python, mvsam_root, images, da3_out))
     shutil.copy2(npz, run_dir / "da3_output.npz")
-    _, t_vis = timed(lambda: visualize_depth(
-        npz, run_dir / "depth_preview.png", images_dir=images, mode="both",
-        mask_dir=scene_dir / "object",
-    ))
-    glb, t_sam = timed(lambda: run_mvsam(mvsam_python, mvsam_root, scene_dir, "object", npz, False))
+    t_vis = 0.0
+    if preview:
+        _, t_vis = timed(lambda: visualize_depth(
+            npz, run_dir / "depth_preview.png", images_dir=images, mode="both",
+            mask_dir=scene_dir / object_name,
+        ))
+    glb, t_sam = timed(lambda: run_mvsam(mvsam_python, mvsam_root, scene_dir, object_name, npz, False))
     shutil.copy2(glb, run_dir / "mesh.glb")
     _, t_prev = timed(lambda: preview_mesh(run_dir / "mesh.glb", run_dir / "mesh.png"))
     mesh = load_triangle_mesh(run_dir / "mesh.glb")
@@ -129,7 +135,7 @@ def summarize(root: Path) -> dict[str, Any]:
     seconds: dict[str, dict[str, float]] = {}
     per_view: dict[str, dict[str, float]] = {}
     for step in steps:
-        vals = [float(t["seconds"][step]) for t in timings]
+        vals = [float(t["seconds"].get(step, 0.0)) for t in timings]
         mean, sd = mean_sd(vals)
         seconds[step] = {"mean": mean, "sd": sd, "n": float(len(vals))}
         if step in ("da3", "sam3d", "total"):
@@ -139,7 +145,7 @@ def summarize(root: Path) -> dict[str, Any]:
     depths = [np.asarray(np.load(p / "da3_output.npz")["depth"], dtype=np.float32) for p in runs]
     rmse_vs0 = [depth_rmse(depths[0], d) for d in depths]
     stack = np.stack(depths, axis=0)
-    valid = np.isfinite(stack) & (stack > 0)
+    valid = valid_depth(stack)
     pixel_sd = np.full(stack.shape[1:], np.nan, dtype=np.float64)
     enough = valid.sum(axis=0) >= 2
     if np.any(enough):
@@ -181,10 +187,13 @@ def summarize(root: Path) -> dict[str, Any]:
 
 
 def _write_contact_sheet(runs: list[Path], out: Path, name: str) -> None:
-    """One row of per-run stills (depth preview or mesh.png)."""
+    """One row of per-run stills. Skips a run if ``name`` is missing."""
     thumbs: list[Image.Image] = []
     for path in runs:
-        im = Image.open(path / name).convert("RGB")
+        src = path / name
+        if not src.is_file():
+            continue
+        im = Image.open(src).convert("RGB")
         im.thumbnail((240, 240), Image.Resampling.LANCZOS)
         thumbs.append(im)
     if not thumbs:
@@ -200,34 +209,56 @@ def _write_contact_sheet(runs: list[Path], out: Path, name: str) -> None:
     grid.save(out)
 
 
-def parse_args() -> argparse.Namespace:
-    """CLI for timed gripper repeats."""
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """CLI for timed ``da3`` → SAM3D repeats on a processed scene."""
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "-i", "--input", type=Path, default=DEFAULT_SCENE,
+        help="Processed scene (images/ + object/). Default: examples/gripper/processed",
+    )
+    parser.add_argument("--object", default="object", help="Mask folder name")
     parser.add_argument("--n", type=int, default=10)
-    parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--out", type=Path, default=None, help="Repeat folder (default: archive/<scene>_timed)")
+    parser.add_argument(
+        "--keep-runs", action=argparse.BooleanOptionalAction, default=True,
+        help="Keep run_*/ meshes and npzs (default). --no-keep-runs leaves summary.json and sheets only",
+    )
+    parser.add_argument(
+        "--preview", action=argparse.BooleanOptionalAction, default=True,
+        help="Time and write depth_preview.png (default). --no-preview skips that step",
+    )
     parser.add_argument("--analyze-only", action="store_true")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    """Run ``--n`` timed gripper jobs, then write ``summary.json``."""
-    args = parse_args()
-    out = args.out.expanduser().resolve()
+def main(argv: list[str] | None = None) -> int:
+    """Run ``--n`` timed jobs, then write ``summary.json``."""
+    args = parse_args(argv)
+    src = args.input.expanduser().resolve()
+    if not src.is_dir():
+        raise FileNotFoundError(src)
+    out = (args.out if args.out is not None else default_out_dir(src)).expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
     if not args.analyze_only:
         da3_python = env_python("DA3_PYTHON", "SAM3D_PYTHON")
         mvsam_python = env_python("MVSAM_PYTHON", "SAM3D_PYTHON")
         if not da3_python or not mvsam_python:
             raise RuntimeError("Set SAM3D_PYTHON")
-        scene = _stage(out / "work")
+        scene = _stage(src, out / "work", args.object)
         start = 0
         existing = list(out.glob("run_*"))
         if existing:
             start = max(int(p.name.split("_")[1]) for p in existing) + 1
         for i in range(start, args.n):
-            run_once(out / f"run_{i:02d}", scene, da3_python, mvsam_python, DEFAULT_MVSAM)
+            run_once(
+                out / f"run_{i:02d}", scene, args.object, da3_python, mvsam_python, DEFAULT_MVSAM,
+                preview=args.preview,
+            )
         print("DONE all runs", flush=True)
     summarize(out)
+    if not args.keep_runs:
+        discard_run_dirs(out)
+        print("dropped run_* and work/ (--no-keep-runs)", flush=True)
     return 0
 
 

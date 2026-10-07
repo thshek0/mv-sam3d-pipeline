@@ -13,13 +13,13 @@ import numpy as np
 from PIL import Image
 
 from helpers import (
-    convert_labelme_json_to_rgba,
     convert_labelme_to_masks,
     convert_rembg_to_masks,
     convert_stills_to_images,
     convert_video_to_frames,
     env_python,
     listed_images,
+    rgba_from_labelme,
 )
 
 
@@ -74,7 +74,7 @@ def test_convert_labelme_to_masks_matches_stems() -> None:
         frames = convert_stills_to_images(raw, images_dir, max_side=12)
         masks = convert_labelme_to_masks(raw, frames, mask_dir)
         assert [path.name for path in masks] == ["0.png"]
-        rgba = convert_labelme_json_to_rgba(raw / "shot.json", Image.open(frames[0]))
+        rgba = rgba_from_labelme(raw / "shot.json", Image.open(frames[0]))
         assert rgba.mode == "RGBA"
         assert int(np.count_nonzero(np.asarray(rgba.getchannel("A")))) > 0
         assert Image.open(masks[0]).mode == "RGBA"
