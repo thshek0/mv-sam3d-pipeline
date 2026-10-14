@@ -44,39 +44,37 @@ flowchart LR
 
 ![Reconstructed gripper](examples/gripper/output/mesh.png)
 
-[`examples/gripper/output/mesh.glb`](examples/gripper/output/mesh.glb) is a checked-in result. The CLI writes `output/<scene>/<method>/mesh.glb` (dataset, then depth/mesh).
+[`examples/gripper/output/mesh.glb`](examples/gripper/output/mesh.glb) is a checked-in result. The CLI writes `output/<name>/meshes/{depth}_{mesh}/mesh.glb`.
 
 ## Data Format
 
 ```text
+dataset/<name>/              # raw capture only (read-only)
 examples/gripper/
-  raw/                 # 00.png + 00.json, 01.png + 01.json, …
-  processed/           # what MV-SAM3D reads
-    images/0.png …     # RGB (stems are 0, 1, 2, … not 00)
-    object/0.png …     # RGBA, same names as images/; alpha is the object
-  output/                 # checked-in example
-    crop_preview.png
-    depth_preview.png
-    masks_preview.png
-    mesh.glb
-    mesh.png
+  raw/                       # 00.png + 00.json, …
+  processed/
+    images/0.png …           # RGB (stems 0, 1, 2, …)
+    object/0.png …           # RGBA masks (example keeps this name)
+  output/                    # checked-in stills + mesh.glb
+output/<name>/
+  scene/                     # images/ + masks/ (staged)
+  depth/                     # *.npz + *depthmap* / *valid* / source_map
+  meshes/                    # {depth}_{mesh}/ e.g. da3_sam3d/, hybrid_tsdf/
+  depth_summary.png          # summaries + masks_preview at dataset root
+  mesh_summary.png
 ```
 
-`processed/` is the scene the CLI reads: one RGB per view in `images/`, one RGBA mask per view in `object/`, same filename, same count. Alpha must have some foreground. `raw/00.png` becomes `images/0.png` after ingest.
+`-i` is a processed scene: one RGB per view in `images/`, one RGBA mask per view in `masks/` (or `--masks object` for the gripper example). Same filename, same count. Alpha must have some foreground. The dataset name is that folder’s name (`…/processed` or `…/scene` uses the parent name). You can also pass `output/<name>/` after staging (it looks under `scene/`). `raw/00.png` becomes `images/0.png` after ingest.
 
-A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `processed/` with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
+A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `images/` + masks with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
 
-Method folders keep `mesh.glb` and `mesh.png`. Shared depth boards (`rs_depthmap.png`, `da3_posed_valid.png`, `depth_summary.png`, …) sit on `output/<dataset>/`. `src/vis.py` still writes a per-npz preview/orbit if you call it. AprilTag runs write `tags_preview.png`. Dataset stills previews are **3 columns** (`photo | overlay`). `mesh.png` is a 3-view still, not that grid.
+`depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay on `output/<name>/`. Mesh folders keep `mesh.glb` + `mesh.png`.
 
-`src/capture_realsense.py` writes those dumps into `input/captures_*` (SPACE to save). Aligned RealSense dumps (`{stem}_rgb.png`, `{stem}_depth.png`, `{stem}.json`, optional `{stem}_rgb.json`) go through `convert_realsense_dump`, then `tags.convert_apriltag_to_da3_npz`, then `crop_views_depth_to_masks`. Pass the cropped npz to `src/pipeline.py --da3-npz`. The depth orbit PNG (`depth_preview_orbit.png`) is object-mask pixels only by default (`object/` alpha). `visualize_depth(..., orbit_z_min=, orbit_z_max=)` clips that orbit camera Z only; `--full-orbit` plots the whole frame.
-
-`src/tsdf.py` fuses that same DA3-style npz with Open3D (metric depth, world-to-camera). Optional RGBA masks zero table depth. Pixels with `Z = 0` never update the volume, so holes do not need to be cut in the mask. `--voxel-length`, `--sdf-trunc`, and `--depth-trunc` are required. `--keep-largest` drops flyer components and does not fill holes.
-
-`src/da3_posed.py` runs Depth Anything 3 with those PnP `w2c` + `K` (`align_to_input_ext_scale`). Pose-free DA3 is still the default in `src/pipeline.py`. The mesh to download is `mesh.glb`; `mesh.png` is the three-view still.
+`src/capture_realsense.py` writes `dataset/captures_*` (SPACE to save). With tags: `convert_realsense_dump` → `tags.convert_apriltag_to_da3_npz` → crop. Without tags: `--rs-dump` builds an unposed RS npz. `src/tsdf.py` fuses metric depth (optional masks). `src/da3_posed.py` runs DA3 with known `w2c` + `K`. Download `mesh.glb`; `mesh.png` is the three-view still.
 
 ## Depth
 
-How the depth npz can be built. The main pipeline above is unchanged (`da3` is still the default).
+`--method` builds a DA3-style depth npz (`da3` is the default):
 
 ```mermaid
 flowchart LR
@@ -86,8 +84,7 @@ flowchart LR
   da3[da3]
   posed[da3_posed]
   rs[rs]
-  rsda3[rs_da3]
-  fill[fill_all_holes]
+  hybrid[hybrid]
   npz[depth npz]
   rgb --> da3 --> npz
   rgb --> posed
@@ -96,29 +93,30 @@ flowchart LR
   rsZ --> rs
   tags --> rs
   rs --> npz
-  rsZ --> rsda3
-  posed --> rsda3
-  rsda3 --> npz
-  rsZ --> fill
-  posed --> fill
-  fill --> npz
+  rsZ --> hybrid
+  da3 --> hybrid
+  posed --> hybrid
+  hybrid --> npz
 ```
 
-- **da3** — pose-free DA3 (default). RGB + masks only; no tags required.
-- **da3_posed** — DA3 with AprilTag cameras (`--pose-npz`). Use this when tags exist.
-- **rs** — D415 Z + PnP, as measured.
-- **hybrid** — keep RS where `Z>0`; fill remaining object pixels with posed DA3 scaled by median `RS/DA3`. `rs_da3` and `fill_all_holes` are aliases; the folder is `hybrid_*`.
+- **da3** — pose-free DA3. RGB + masks only.
+- **da3_posed** — DA3 with AprilTag cameras (`--pose-npz`).
+- **rs** — D415 Z. With tags: shared poses. Without tags: depth + K, identity extrinsics (boards / per-view).
+- **hybrid** — full-frame: keep valid RS, fill RS holes with scaled DA3. Posed RS also rejects DA in free space carved by another view. Aliases: `rs_da3`, `fill_all_holes`, `hybrid2` → `meshes/hybrid_*`.
+
+When both DA3 and RS npzs exist, the pipeline always writes `depth/hybrid.npz` as a side product.
 
 ## Mesh
 
-`--mesh sam3d` (default) is **generation** (MV-SAM3D). `--mesh tsdf` is **reconstruction** (Open3D TSDF on the same npz). Do not call TSDF “constructive” — that word means CSG.
+`--mesh sam3d` (default) is MV-SAM3D generation. `--mesh tsdf` is Open3D TSDF on the same npz.
 
 | You have | Run |
 |---|---|
-| RGB + masks only (gripper) | `--method da3 --mesh sam3d` |
-| Tags, pretty closed box | `--method da3_posed --mesh sam3d` |
+| RGB + masks only | `--method da3 --mesh sam3d` |
+| RS dump, no tags | `--rs-dump …` (unposed RS) + optional `--method hybrid` |
+| Tags, closed box | `--method da3_posed --mesh sam3d` |
 | Tags + RS, measured holes | `--method rs --mesh tsdf` |
-| Tags + RS, fill RS holes in **depth** | `--method hybrid` then TSDF (not another SAM3D) |
+| Tags + RS, fill RS holes | `--method hybrid --mesh tsdf` |
 
 ## Installation
 
@@ -137,10 +135,10 @@ To reconstruct a mesh you also need the GPU stack (DA3, MV-SAM3D, weights) in a 
 ```bash
 export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
 
-python src/pipeline.py -i examples/gripper/processed --scene gripper
+python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Writes `work/gripper/` and `output/gripper/da3_sam3d/mesh.glb`. `-i` is a processed scene (`images/` + `object/`). `--scene` is the dataset folder name (default: the input folder’s name). If you already have DA3’s `da3_output.npz` (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
+Writes `output/gripper/` (`scene/images/`, `scene/object/` or `scene/masks/`, `depth/da3.npz`, `meshes/da3_sam3d/mesh.glb`). New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
 
 ```bash
 python -m pytest tests
@@ -157,7 +155,7 @@ python -m pytest tests
 `src/time_run.py` times `da3` → SAM3D on any processed scene. Default `-i` is the gripper example (12 views, **10 repeats**). Writes `archive/<scene>_timed/` (`archive/gripper_timed/` for that example). `--keep-runs` (default) keeps each `run_*/` mesh and npz; `--no-keep-runs` leaves `summary.json` and contact sheets only. `--no-preview` skips `depth_preview.png`.
 
 ```bash
-python src/time_run.py -i examples/gripper/processed
+python src/time_run.py -i examples/gripper
 python src/time_run.py -i path/to/processed --n 3 --no-keep-runs --no-preview
 ```
 
