@@ -14,8 +14,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from helpers import (
-    DEPTH_SUMMARY_COLS,
     DEPTH_SUMMARY_MAX_VIEWS,
+    DEPTH_SUMMARY_ORDER,
     SUMMARY_CELL,
     _legend_font,
     append_color_legend,
@@ -363,14 +363,17 @@ def write_capture_depth_boards(
     rs_depth: np.ndarray | None = None,
     da3_posed_depth: np.ndarray | None = None,
     hybrid_depth: np.ndarray | None = None,
+    da3_depth: np.ndarray | None = None,
 ) -> list[Path]:
-    """Write shared ``rs_`` / ``da3_posed_`` / ``hybrid_`` depth boards.
+    """Write full-frame ``da3_`` / ``rs_`` / ``da3_posed_`` / ``hybrid_`` boards.
 
-    No hybrid valid board: after fusion almost every object pixel has Z.
-    Use ``rs_valid.png`` for RS holes and ``hybrid_source_map.png`` for source.
+    Depthmaps are unmasked (full image). Valid boards use mask overlay for holes.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
+    if da3_depth is not None:
+        written.append(write_depthmap_preview(da3_depth, images, out_dir / "da3_depthmap.png", label="da3"))
+        written.append(write_depth_visibility_preview(da3_depth, images, mask_dir, out_dir / "da3_valid.png"))
     if rs_depth is not None:
         written.append(write_depthmap_preview(rs_depth, images, out_dir / "rs_depthmap.png", label="RS"))
         written.append(write_depth_visibility_preview(rs_depth, images, mask_dir, out_dir / "rs_valid.png"))
@@ -390,25 +393,38 @@ def write_depth_summary(
     images: Sequence[Path],
     out_png: Path,
     *,
+    da3: np.ndarray | None = None,
     da3_posed: np.ndarray | None = None,
     rs: np.ndarray | None = None,
     hybrid: np.ndarray | None = None,
     max_views: int = DEPTH_SUMMARY_MAX_VIEWS,
 ) -> Path:
-    """One row per view (at most ``max_views``): photo | da3_posed | RS | hybrid.
+    """One row per view: photo plus only the depth columns that exist.
 
-    A missing depth stack is a blank column. All depth columns share 0.2–3 m.
+    Full-frame depth (no object mask). Column order: ``da3``, ``da3_posed``,
+    ``rs``, ``hybrid``. Shared display range 0.2–3 m.
     """
     if max_views < 1:
         raise ValueError(f"max_views must be >= 1, got {max_views}")
     n_view = min(len(images), max_views)
     if n_view < 1:
         raise ValueError("need at least one image")
+    stacks: dict[str, np.ndarray] = {}
+    if da3 is not None:
+        stacks["da3"] = da3
+    if da3_posed is not None:
+        stacks["da3_posed"] = da3_posed
+    if rs is not None:
+        stacks["rs"] = rs
+    if hybrid is not None:
+        stacks["hybrid"] = hybrid
+    if not stacks:
+        raise ValueError("need at least one depth stack")
+    columns = ["image", *[name for name in DEPTH_SUMMARY_ORDER if name in stacks]]
     vmin, vmax = DEPTH_DISPLAY_RANGE_M
-    stacks = {"da3_posed": da3_posed, "rs": rs, "hybrid": hybrid}
 
     def _cell(name: str, index: int) -> Image.Image | None:
-        stack = stacks[name]
+        stack = stacks.get(name)
         if stack is None or index >= stack.shape[0]:
             return None
         return Image.fromarray(_colorize_depth(stack[index], vmin=vmin, vmax=vmax))
@@ -417,14 +433,12 @@ def write_depth_summary(
     labels: list[str] = []
     for i in range(n_view):
         photo = Image.open(images[i]).convert("RGB")
-        rows.append([photo, _cell("da3_posed", i), _cell("rs", i), _cell("hybrid", i)])
+        rows.append([photo, *[_cell(name, i) for name in columns[1:]]])
         labels.append(Path(images[i]).stem)
     bar = turbo_colorbar_strip(SUMMARY_CELL[0], vmin, vmax)
-    headers: list[Image.Image | None] = [None]
-    for name in ("da3_posed", "rs", "hybrid"):
-        headers.append(None if stacks[name] is None else bar)
+    headers: list[Image.Image | None] = [None, *[bar for _ in columns[1:]]]
     return write_summary_grid(
-        out_png, DEPTH_SUMMARY_COLS, labels, rows, header_images=headers,
+        out_png, columns, labels, rows, header_images=headers,
     )
 
 
@@ -433,12 +447,13 @@ def write_dataset_outputs(
     images: Sequence[Path],
     mask_dir: Path,
     *,
+    da3_npz: Path | None = None,
     rs_npz: Path | None = None,
     da3_posed_npz: Path | None = None,
     hybrid_npz: Path | None = None,
     write_source_map: bool = True,
 ) -> list[Path]:
-    """Write shared depth boards, optional source map, and mesh/depth summaries."""
+    """Write depth boards under ``depth/``, summaries at the dataset root."""
     def _depth(path: Path | None) -> np.ndarray | None:
         if path is None or not path.is_file():
             return None
@@ -450,12 +465,14 @@ def write_dataset_outputs(
             raise ValueError(f"{path} depth must be (N, H, W), got {z.shape}")
         return z
 
+    da3_z = _depth(da3_npz)
     rs_z = _depth(rs_npz)
     posed_z = _depth(da3_posed_npz)
     hy_z = _depth(hybrid_npz)
+    depth_dir = dataset_dir / "depth"
     written = write_capture_depth_boards(
-        dataset_dir, images, mask_dir,
-        rs_depth=rs_z, da3_posed_depth=posed_z, hybrid_depth=hy_z,
+        depth_dir, images, mask_dir,
+        rs_depth=rs_z, da3_posed_depth=posed_z, hybrid_depth=hy_z, da3_depth=da3_z,
     )
     if (
         write_source_map
@@ -469,16 +486,16 @@ def write_dataset_outputs(
 
         written.append(
             write_hybrid_source_map(
-                rs_npz, hybrid_npz, Path(images[0]).parent, mask_dir,
-                dataset_dir / "hybrid_source_map.png",
+                rs_npz, hybrid_npz, Path(images[0]).parent,
+                depth_dir / "hybrid_source_map.png",
             )
         )
     written.append(write_subdir_summary(dataset_dir, "mesh.png"))
-    if rs_z is not None or posed_z is not None or hy_z is not None:
+    if da3_z is not None or rs_z is not None or posed_z is not None or hy_z is not None:
         written.append(
             write_depth_summary(
                 images, dataset_dir / "depth_summary.png",
-                da3_posed=posed_z, rs=rs_z, hybrid=hy_z,
+                da3=da3_z, da3_posed=posed_z, rs=rs_z, hybrid=hy_z,
             )
         )
     return written
@@ -510,9 +527,12 @@ def _resolve_mask_dir(
     if images_dir is None:
         print("warning: orbit object-only with no --masks / --images; using full frame", flush=True)
         return None
-    cand = images_dir.parent / "object"
+    cand = images_dir.parent / "masks"
     if cand.is_dir():
         return cand
+    legacy = images_dir.parent / "object"
+    if legacy.is_dir():
+        return legacy
     print(f"warning: no {cand}; orbit uses full frame", flush=True)
     return None
 
@@ -607,7 +627,7 @@ def visualize_depth(
 
     ``per_view`` is a 3-column photo | depth grid of every view.
     ``orbit`` is front/side/top of the fused world cloud, object-mask pixels
-    only by default (``object/`` next to ``images/``, or ``mask_dir``).
+    only by default (``masks/`` next to ``images/``, or ``mask_dir``).
     ``orbit_z_min`` / ``orbit_z_max`` clip camera Z for the orbit only (npz
     unchanged). When object masks are available, also writes
     ``depth_visibility_preview.png`` (cyan = object and Z>0, red = object and
@@ -662,7 +682,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--npz", required=True, type=Path, help="da3_output.npz")
     parser.add_argument("--output", required=True, type=Path, help="PNG path or directory")
     parser.add_argument("--images", type=Path, default=None, help="Folder of RGB stills")
-    parser.add_argument("--masks", type=Path, default=None, help="RGBA object masks (default: sibling object/)")
+    parser.add_argument("--masks", type=Path, default=None, help="RGBA masks (default: sibling masks/)")
     parser.add_argument("--mode", choices=("per_view", "orbit", "both"), default="both")
     parser.add_argument("--orbit-z-min", type=float, default=None, help="Orbit camera-Z clip low (meters)")
     parser.add_argument("--orbit-z-max", type=float, default=None, help="Orbit camera-Z clip high (meters)")

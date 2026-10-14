@@ -9,7 +9,6 @@ import numpy as np
 from PIL import Image
 
 from helpers import (
-    DEPTH_SUMMARY_COLS,
     MESH_SUMMARY_CELL,
     PREVIEW_COLS,
     PREVIEW_THUMB,
@@ -71,7 +70,7 @@ def test_depth_visibility_preview_is_pairwise() -> None:
     with tempfile.TemporaryDirectory() as tmp_s:
         root = Path(tmp_s)
         images_dir = root / "images"
-        mask_dir = root / "object"
+        mask_dir = root / "masks"
         images_dir.mkdir()
         mask_dir.mkdir()
         depth = np.ones((2, 8, 8), dtype=np.float32)
@@ -103,19 +102,34 @@ def test_subdir_summary_stacks_vertically(tmp_path: Path) -> None:
     assert image.size[1] >= MESH_SUMMARY_CELL[1] * 2
 
 
-def test_depth_summary_is_four_columns_max_six_views(tmp_path: Path) -> None:
-    """Rows are image stems (capped at 6); columns are photo | da3_posed | RS | hybrid."""
+def test_depth_summary_is_present_columns_max_six_views(tmp_path: Path) -> None:
+    """Rows capped at 6; only provided depth columns appear (photo | rs)."""
     images = []
     for i in range(8):
         path = tmp_path / f"{i}.png"
         Image.new("RGB", (8, 8), (40, 40, 40)).save(path)
         images.append(path)
     rs = np.ones((8, 8, 8), dtype=np.float32)
-    out = write_depth_summary(images, tmp_path / "depth_summary.png", rs=rs, da3_posed=None)
+    out = write_depth_summary(images, tmp_path / "depth_summary.png", rs=rs)
     image = Image.open(out)
-    assert image.size[0] >= SUMMARY_CELL[0] * len(DEPTH_SUMMARY_COLS)
+    assert image.size[0] >= SUMMARY_CELL[0] * 2
+    assert image.size[0] < SUMMARY_CELL[0] * 4
     assert image.size[1] >= SUMMARY_CELL[1] * 6
     assert image.size[1] < SUMMARY_CELL[1] * 8
+
+
+def test_depth_summary_only_existing_columns(tmp_path: Path) -> None:
+    """Pose-free DA3 alone is photo | da3 (no blank da3_posed / rs / hybrid)."""
+    images = []
+    for i in range(2):
+        path = tmp_path / f"{i}.png"
+        Image.new("RGB", (8, 8), (40, 40, 40)).save(path)
+        images.append(path)
+    depth = np.ones((2, 8, 8), dtype=np.float32)
+    out = write_depth_summary(images, tmp_path / "depth_summary.png", da3=depth, max_views=2)
+    image = Image.open(out)
+    assert image.size[0] >= SUMMARY_CELL[0] * 2
+    assert image.size[0] < SUMMARY_CELL[0] * 3
 
 
 def test_reorganize_method_folders_renames_and_keeps_mesh(tmp_path: Path) -> None:

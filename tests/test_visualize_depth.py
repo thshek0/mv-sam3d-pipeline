@@ -64,12 +64,12 @@ def test_visualize_depth_writes_both_previews() -> None:
 
 
 def test_visualize_orbit_object_only_keeps_mask_pixels() -> None:
-    """Orbit drops background pixels when object/ alpha is set."""
+    """Orbit drops background pixels when masks/ alpha is set."""
     with tempfile.TemporaryDirectory() as tmp_s:
         root = Path(tmp_s)
         npz = root / "da3_output.npz"
         images = root / "images"
-        masks = root / "object"
+        masks = root / "masks"
         _tiny_npz(npz, images)
         masks.mkdir()
         fg = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
@@ -139,7 +139,7 @@ def test_append_turbo_colorbar_labels_meters(tmp_path: Path) -> None:
 def test_depthmap_and_valid_boards_write_legends(tmp_path: Path) -> None:
     """Depthmap gets a meter bar; valid board is taller than the raw grid."""
     images = tmp_path / "images"
-    masks = tmp_path / "object"
+    masks = tmp_path / "masks"
     images.mkdir()
     masks.mkdir()
     Image.new("RGB", (8, 8), (20, 20, 20)).save(images / "0.png")
