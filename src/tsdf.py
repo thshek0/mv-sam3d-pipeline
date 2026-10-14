@@ -21,12 +21,15 @@ def _require_open3d() -> Any:
 
 
 def apply_mask_to_depth(depth: np.ndarray, mask_path: Path | None) -> np.ndarray:
-    """Zero depth outside the mask alpha (or L > 0). ``Z = 0`` stays invalid."""
+    """Zero depth outside the mask alpha (or L > 0). ``Z = 0`` stays invalid.
+
+    A mask that is not the depth size is nearest-resized onto the depth grid.
+    """
     if mask_path is None or not mask_path.is_file():
         return depth
     mask_img = Image.open(mask_path)
     if mask_img.size != (depth.shape[1], depth.shape[0]):
-        raise ValueError(f"{mask_path} size {mask_img.size} != depth {depth.shape[1]}x{depth.shape[0]}")
+        mask_img = mask_img.resize((depth.shape[1], depth.shape[0]), Image.Resampling.NEAREST)
     if mask_img.mode in {"RGBA", "LA"}:
         alpha = np.asarray(mask_img.getchannel("A"))
     else:
@@ -65,6 +68,8 @@ def tsdf_from_da3_npz(
     Extrinsics are world-to-camera (OpenCV). Depth is meters; ``Z <= 0`` is skipped.
     Optional RGBA/L masks zero background depth (table). Pixels with ``Z = 0``
     do not carve or fill — they never update the volume.
+    RGB and masks larger than the depth grid are resized onto it (Lanczos RGB,
+    nearest mask), so pose-free DA3 can fuse full-resolution captures.
     ``keep_largest`` drops flyer components; it does not fill holes.
     """
     if voxel_length <= 0 or sdf_trunc <= 0 or depth_trunc <= 0:
@@ -87,9 +92,10 @@ def tsdf_from_da3_npz(
         z = depth[i]
         if mask_dir is not None:
             z = apply_mask_to_depth(z, mask_dir / rgb_path.name)
-        rgb = np.asarray(Image.open(rgb_path).convert("RGB"))
-        if rgb.shape[0] != height or rgb.shape[1] != width:
-            raise ValueError(f"{rgb_path} {rgb.shape[:2]} != depth {height}x{width}")
+        rgb_im = Image.open(rgb_path).convert("RGB")
+        if rgb_im.size != (width, height):
+            rgb_im = rgb_im.resize((width, height), Image.Resampling.LANCZOS)
+        rgb = np.asarray(rgb_im)
         color = o3d.geometry.Image(rgb)
         depth_im = o3d.geometry.Image(z)
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(

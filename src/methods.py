@@ -1,7 +1,7 @@
 """Depth and mesh recipes. Compose these; do not subclass.
 
-Depth: ``depth_da3``, ``depth_da3_posed``, ``depth_rs_da3`` (RS, then scaled
-DA3 in every object hole). Mesh: ``mesh_sam3d``, ``mesh_tsdf``.
+Depth: ``depth_da3``, ``depth_da3_posed``, ``depth_rs_da3`` (hybrid).
+Mesh: ``mesh_sam3d``, ``mesh_tsdf``.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from helpers import append_color_legend, listed_images, run_da3, valid_depth, write_pair_preview
-from vis import _mask_keep, write_da3_npz
+from vis import write_da3_npz
 
 SOURCE_MAP_LEGEND: tuple[tuple[tuple[int, int, int], str], ...] = (
     ((0, 200, 220), "RealSense"),
@@ -31,49 +31,44 @@ def resize_depth(depth: np.ndarray, height: int, width: int) -> np.ndarray:
     return np.array(im.resize((width, height), Image.Resampling.NEAREST), dtype=np.float32)
 
 
-def combine_rs_da3(rs: np.ndarray, da3: np.ndarray, obj: np.ndarray) -> tuple[np.ndarray, float]:
-    """Keep valid RS on the object; fill remaining object pixels with scaled DA3.
-
-    ``scale`` is the median ``RS / DA3`` on pixels where both are valid.
-    """
-    keep = obj & rs_valid(rs)
-    overlap = keep & rs_valid(da3)
+def combine_rs_da3(
+    rs: np.ndarray, da3: np.ndarray, region: np.ndarray | None = None,
+) -> tuple[np.ndarray, float]:
+    """Keep valid RS; fill RS holes with scaled DA3 (full frame if ``region`` is None)."""
+    out = np.asarray(rs, dtype=np.float32).copy()
+    da = np.asarray(da3, dtype=np.float32)
+    if region is None:
+        region = np.ones(out.shape, dtype=bool)
+    else:
+        region = np.asarray(region, dtype=bool)
+    keep = region & rs_valid(out)
+    overlap = keep & rs_valid(da)
     scale = 1.0
     if np.any(overlap):
-        scale = float(np.median(rs[overlap] / np.maximum(da3[overlap], 1e-6)))
-    out = np.zeros_like(rs)
-    out[keep] = rs[keep]
-    fill = obj & (~keep)
-    out[fill] = da3[fill] * scale
+        scale = float(np.median(out[overlap] / np.maximum(da[overlap], 1e-6)))
+    fill = region & (~rs_valid(out)) & rs_valid(da)
+    out[fill] = da[fill] * scale
     return out, scale
 
 
-def overlay_source(
-    rgb: Image.Image, obj: np.ndarray, rs: np.ndarray, fused: np.ndarray,
-) -> Image.Image:
-    """Cyan = valid RealSense (Z>0). Yellow = fused pixel whose RS Z was 0.
-
-    ``Z = 0`` is invalid (RealSense). Those pixels stay dim if the fuse left them 0.
-    """
+def overlay_source(rgb: Image.Image, rs: np.ndarray, fused: np.ndarray) -> Image.Image:
+    """Cyan = valid RS. Yellow = fused fill where RS was invalid."""
     photo = rgb.convert("RGB")
     if photo.size != (rs.shape[1], rs.shape[0]):
         photo = photo.resize((rs.shape[1], rs.shape[0]), Image.Resampling.BILINEAR)
     arr = np.asarray(photo, dtype=np.float64)
     out = arr * 0.35
-    keep = obj & rs_valid(rs)
-    from_da3 = obj & (~keep) & rs_valid(fused)
+    keep = rs_valid(rs)
+    from_da3 = (~keep) & rs_valid(fused)
     out[keep] = 0.25 * arr[keep] + np.array([0.0, 200.0, 220.0])
     out[from_da3] = 0.25 * arr[from_da3] + np.array([240.0, 200.0, 40.0])
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 
 
 def write_hybrid_source_map(
-    rs_npz: Path, fused_npz: Path, images_dir: Path, mask_dir: Path, out_png: Path,
+    rs_npz: Path, fused_npz: Path, images_dir: Path, out_png: Path,
 ) -> Path:
-    """Write ``hybrid_source_map.png``: photo | source label, plus a color legend.
-
-    Cyan = valid RealSense (Z>0). Yellow = fused pixel whose RS Z was 0.
-    """
+    """Write ``hybrid_source_map.png``: photo | RS vs DA3 fill, plus a color legend."""
     rs = np.load(rs_npz)
     fused = np.load(fused_npz)
     rs_z = np.asarray(rs["depth"], dtype=np.float32)
@@ -87,15 +82,11 @@ def write_hybrid_source_map(
     fu_full = np.stack([resize_depth(fu_z[i], height, width) for i in range(n_view)], axis=0)
     pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
     for i, rgb_path in enumerate(images):
-        obj = _mask_keep(rgb_path.stem, mask_dir, height, width)
-        if obj is None:
-            raise FileNotFoundError(f"missing mask for {rgb_path.name}")
         rgb = Image.open(rgb_path).convert("RGB")
-        overlay = overlay_source(rgb, obj, rs_z[i], fu_full[i])
+        overlay = overlay_source(rgb, rs_z[i], fu_full[i])
         pairs.append((rgb, overlay, f"{i} photo", f"{i} source map"))
     write_pair_preview(pairs, out_png)
-    board = append_color_legend(Image.open(out_png), SOURCE_MAP_LEGEND)
-    board.save(out_png)
+    append_color_legend(Image.open(out_png), SOURCE_MAP_LEGEND).save(out_png)
     print(f"hybrid source map → {out_png}", flush=True)
     return out_png
 
@@ -112,14 +103,16 @@ def depth_da3_posed(images_dir: Path, pose_npz: Path, output: Path, process_res:
     return run_da3_posed(images_dir, pose_npz, output, process_res)
 
 
-def depth_rs_da3(
-    rs_npz: Path,
-    da3_npz: Path,
-    images_dir: Path,
-    mask_dir: Path,
-    out_npz: Path,
-) -> Path:
-    """Keep valid RS; fill remaining object pixels with posed DA3 scaled to RS."""
+def _rs_is_unposed(rs: np.lib.npyio.NpzFile) -> bool:
+    """True when the RS npz was written without AprilTag poses."""
+    return "unposed_rs" in rs.files and bool(np.asarray(rs["unposed_rs"]))
+
+
+def depth_rs_da3(rs_npz: Path, da3_npz: Path, images_dir: Path, out_npz: Path) -> Path:
+    """Full-frame hybrid: keep valid RS; fill RS holes with scaled DA3.
+
+    Posed RS uses free-space-aware fill (``fuse_hybrid2``); unposed RS is per-view.
+    """
     rs = np.load(rs_npz)
     da = np.load(da3_npz)
     rs_z = np.asarray(rs["depth"], dtype=np.float32)
@@ -131,25 +124,37 @@ def depth_rs_da3(
     if len(images) != n_view:
         raise ValueError(f"{len(images)} RGBs, depth has {n_view} views")
     da_full = np.stack([resize_depth(da_z[i], height, width) for i in range(n_view)], axis=0)
-    combined = np.zeros_like(rs_z)
-    for i, rgb_path in enumerate(images):
-        obj = _mask_keep(rgb_path.stem, mask_dir, height, width)
-        if obj is None:
-            raise FileNotFoundError(f"missing mask for {rgb_path.name}")
-        depth_i, scale = combine_rs_da3(rs_z[i], da_full[i], obj)
-        combined[i] = depth_i
-        print(f"view {i:2d} fill={int((obj & ~rs_valid(rs_z[i])).sum())} scale={scale:.3f}", flush=True)
     keep_stems = list(rs["keep_stems"]) if "keep_stems" in rs.files else None
+
+    if _rs_is_unposed(rs):
+        fused = np.zeros_like(rs_z)
+        scales = np.ones(n_view, dtype=np.float32)
+        for i in range(n_view):
+            depth_i, scale = combine_rs_da3(rs_z[i], da_full[i])
+            fused[i] = depth_i
+            scales[i] = np.float32(scale)
+            fill_n = int((~rs_valid(rs_z[i]) & rs_valid(da_full[i])).sum())
+            print(f"view {i:2d} fill={fill_n} scale={scale:.3f}", flush=True)
+        extras: dict[str, np.ndarray] = {
+            "hybrid_scale": scales, "unposed_hybrid": np.asarray(1, dtype=np.int8),
+        }
+    else:
+        from hybrid2 import fuse_hybrid2
+
+        full = np.ones((n_view, height, width), dtype=bool)
+        fused, scale_f = fuse_hybrid2(rs_z, da_full, full, rs["intrinsics"], rs["extrinsics"])
+        extras = {"hybrid_scale": scale_f.astype(np.float32)}
+
     write_da3_npz(
-        out_npz, combined, rs["extrinsics"], rs["intrinsics"], images,
-        process_res=width, keep_stems=keep_stems,
+        out_npz, fused, rs["extrinsics"], rs["intrinsics"], images,
+        process_res=width, keep_stems=keep_stems, extras=extras,
     )
     return out_npz
 
 
 def mesh_sam3d(
     scene_dir: Path,
-    object_name: str,
+    masks_name: str,
     npz: Path,
     run_dir: Path,
     mvsam_python: str,
@@ -167,7 +172,7 @@ def mesh_sam3d(
 
     if not mvsam_python:
         raise RuntimeError("Pass --mvsam-python or set MVSAM_PYTHON / SAM3D_PYTHON")
-    glb = run_mvsam(mvsam_python, mvsam_root, scene_dir, object_name, npz, merge_da3_glb)
+    glb = run_mvsam(mvsam_python, mvsam_root, scene_dir, masks_name, npz, merge_da3_glb)
     raw = run_dir / "mesh.glb"
     shutil.copy2(glb, raw)
     preview_mesh(raw, run_dir / "mesh.png")
@@ -192,11 +197,15 @@ def mesh_tsdf(
     mask_dir: Path | None = None,
     keep_largest: bool = False,
 ) -> Path:
-    """TSDF from a DA3-style npz. Implemented in ``tsdf``."""
+    """TSDF from a DA3-style npz. Writes the mesh and ``mesh.png`` beside it."""
+    from post import preview_mesh
     from tsdf import tsdf_from_da3_npz
 
-    return tsdf_from_da3_npz(
+    path = tsdf_from_da3_npz(
         npz, images_dir, mesh_path,
         voxel_length=voxel_length, sdf_trunc=sdf_trunc, depth_trunc=depth_trunc,
         mask_dir=mask_dir, keep_largest=keep_largest,
     )
+    preview_mesh(path, path.with_suffix(".png"))
+    print(f"DONE → {path}", flush=True)
+    return path

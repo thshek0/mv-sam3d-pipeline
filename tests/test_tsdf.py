@@ -52,6 +52,30 @@ def test_tsdf_from_da3_npz_extracts_mesh_and_leaves_zero_z() -> None:
         assert np.asarray(mesh.triangles).shape[0] > 0
 
 
+def test_tsdf_resizes_full_res_rgb_onto_the_depth_grid() -> None:
+    """Pose-free DA3 depth can be smaller than the capture RGB and mask."""
+    height, width = 8, 8
+    depth = np.full((1, height, width), 0.40, dtype=np.float32)
+    k_mat = np.array([[40.0, 0.0, 4.0], [0.0, 40.0, 4.0], [0.0, 0.0, 1.0]], dtype=np.float32)
+    w2c = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmp_s:
+        root = Path(tmp_s)
+        images = root / "images"
+        masks = root / "masks"
+        images.mkdir()
+        masks.mkdir()
+        Image.new("RGB", (32, 24), (180, 180, 180)).save(images / "0.png")
+        Image.new("RGBA", (32, 24), (180, 180, 180, 255)).save(masks / "0.png")
+        npz_path = write_da3_npz(
+            root / "da3.npz", depth, w2c[None, ...], k_mat[None, ...], [images / "0.png"], process_res=width,
+        )
+        mesh_path = tsdf_from_da3_npz(
+            npz_path, images, root / "mesh.ply",
+            voxel_length=0.01, sdf_trunc=0.04, depth_trunc=1.0, mask_dir=masks,
+        )
+        assert mesh_path.is_file()
+
+
 def test_keep_largest_triangle_component_drops_the_small_shell() -> None:
     """Two disconnected triangles: the cluster with more faces is kept."""
     import open3d as o3d
