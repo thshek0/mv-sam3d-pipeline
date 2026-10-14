@@ -11,9 +11,11 @@ checkpoints/
 *.mp4
 *.stl
 intermediate/
+/dataset/
 /input/
 /work/
 /output/
+/tmp/
 /archive/
 LOCAL.md
 .pytest_cache/

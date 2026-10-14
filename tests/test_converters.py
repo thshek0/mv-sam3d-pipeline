@@ -70,7 +70,7 @@ def test_convert_labelme_to_masks_matches_stems() -> None:
         }
         (raw / "shot.json").write_text(json.dumps(payload))
         images_dir = raw / "images"
-        mask_dir = raw / "object"
+        mask_dir = raw / "masks"
         frames = convert_stills_to_images(raw, images_dir, max_side=12)
         masks = convert_labelme_to_masks(raw, frames, mask_dir)
         assert [path.name for path in masks] == ["0.png"]

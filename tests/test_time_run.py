@@ -40,7 +40,7 @@ def test_timed_returns_elapsed() -> None:
 def test_default_out_dir_uses_scene_name() -> None:
     """Gripper example keeps the old archive path; other scenes use their folder name."""
     assert default_out_dir(DEFAULT_SCENE) == DEFAULT_GRIPPER_OUT
-    assert default_out_dir(Path("/tmp/captures_20261002_1606")) == REPO / "archive" / "captures_20261002_1606_timed"
+    assert default_out_dir(Path("/tmp/device3")) == REPO / "archive" / "device3_timed"
 
 
 def test_discard_run_dirs_keeps_summary(tmp_path: Path) -> None:

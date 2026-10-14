@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from helpers import dataset_depth_npz
 from pipeline import resolve_depth
 from vis import write_da3_npz
 
@@ -20,7 +21,7 @@ def _tiny_npz(path: Path, images: list[Path], depth: np.ndarray) -> Path:
 
 
 def test_resolve_da3_uses_existing_npz() -> None:
-    """``da3`` with ``--da3-npz`` returns that path and does not call DA3."""
+    """``da3`` with ``--da3-npz`` copies into ``depth/da3.npz`` and does not call DA3."""
     with tempfile.TemporaryDirectory() as tmp_s:
         root = Path(tmp_s)
         images = root / "images"
@@ -29,10 +30,11 @@ def test_resolve_da3_uses_existing_npz() -> None:
         npz = _tiny_npz(root / "a.npz", [images / "0.png"], np.ones((1, 8, 8), dtype=np.float32))
         got = resolve_depth(
             "da3",
-            images_dir=images, mask_dir=root / "object", work_dir=root,
+            images_dir=images, out_dir=root, dataset="toy",
             mvsam_root=root, da3_python=None, da3_npz=npz, rs_npz=None, pose_npz=None, process_res=8,
         )
-        assert got == npz.resolve()
+        assert got == dataset_depth_npz(root, "toy", "da3")
+        assert got.is_file()
 
 
 def test_resolve_rs_da3_needs_both_npzs() -> None:
@@ -42,7 +44,7 @@ def test_resolve_rs_da3_needs_both_npzs() -> None:
         try:
             resolve_depth(
                 "rs_da3",
-                images_dir=root, mask_dir=root, work_dir=root,
+                images_dir=root, out_dir=root, dataset="toy",
                 mvsam_root=root, da3_python=None, da3_npz=None, rs_npz=None, pose_npz=None, process_res=8,
             )
         except RuntimeError as exc:

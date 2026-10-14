@@ -65,7 +65,7 @@ def test_crop_views_depth_to_masks_writes_npz() -> None:
     with tempfile.TemporaryDirectory() as tmp_s:
         root = Path(tmp_s)
         images = root / "images"
-        masks = root / "object"
+        masks = root / "masks"
         images.mkdir()
         masks.mkdir()
         Image.new("RGB", (8, 6), (30, 30, 30)).save(images / "0.png")

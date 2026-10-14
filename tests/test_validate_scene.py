@@ -15,14 +15,14 @@ def test_validate_scene_accepts_matching_rgba() -> None:
     with tempfile.TemporaryDirectory() as raw_s:
         scene = Path(raw_s)
         images = scene / "images"
-        masks = scene / "object"
+        masks = scene / "masks"
         images.mkdir()
         masks.mkdir()
         Image.new("RGB", (8, 8), (10, 20, 30)).save(images / "0.png")
         rgba = Image.new("RGBA", (8, 8), (1, 2, 3, 0))
         rgba.putpixel((2, 2), (255, 0, 0, 255))
         rgba.save(masks / "0.png")
-        assert validate_scene(scene, "object") == [images / "0.png"]
+        assert validate_scene(scene, "masks") == [images / "0.png"]
 
 
 def test_validate_scene_rejects_empty_alpha() -> None:
@@ -30,13 +30,13 @@ def test_validate_scene_rejects_empty_alpha() -> None:
     with tempfile.TemporaryDirectory() as raw_s:
         scene = Path(raw_s)
         images = scene / "images"
-        masks = scene / "object"
+        masks = scene / "masks"
         images.mkdir()
         masks.mkdir()
         Image.new("RGB", (4, 4), (1, 1, 1)).save(images / "0.png")
         Image.new("RGBA", (4, 4), (0, 0, 0, 0)).save(masks / "0.png")
         try:
-            validate_scene(scene, "object")
+            validate_scene(scene, "masks")
         except ValueError as exc:
             assert "empty alpha" in str(exc)
         else:
@@ -48,10 +48,10 @@ def test_validate_scene_missing_mask() -> None:
     with tempfile.TemporaryDirectory() as raw_s:
         scene = Path(raw_s)
         (scene / "images").mkdir()
-        (scene / "object").mkdir()
+        (scene / "masks").mkdir()
         Image.new("RGB", (4, 4), (1, 1, 1)).save(scene / "images" / "0.png")
         try:
-            validate_scene(scene, "object")
+            validate_scene(scene, "masks")
         except FileNotFoundError as exc:
             assert "0.png" in str(exc)
         else:
@@ -63,11 +63,11 @@ def test_validate_scene_rejects_rgb_mask() -> None:
     with tempfile.TemporaryDirectory() as raw_s:
         scene = Path(raw_s)
         (scene / "images").mkdir()
-        (scene / "object").mkdir()
+        (scene / "masks").mkdir()
         Image.new("RGB", (4, 4), (1, 1, 1)).save(scene / "images" / "0.png")
-        Image.new("RGB", (4, 4), (2, 2, 2)).save(scene / "object" / "0.png")
+        Image.new("RGB", (4, 4), (2, 2, 2)).save(scene / "masks" / "0.png")
         try:
-            validate_scene(scene, "object")
+            validate_scene(scene, "masks")
         except ValueError as exc:
             assert "RGBA" in str(exc)
         else:

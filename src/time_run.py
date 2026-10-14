@@ -60,25 +60,25 @@ def chamfer_m(mesh_a: trimesh.Trimesh, mesh_b: trimesh.Trimesh, n_pts: int = 400
     return float(0.5 * (d_ab + d_ba))
 
 
-def _stage(src: Path, work: Path, object_name: str) -> Path:
+def _stage(src: Path, work: Path, masks_name: str) -> Path:
     """Copy a processed scene into ``work`` unless it is already there."""
-    if (work / "images").is_dir() and (work / object_name).is_dir():
-        validate_scene(work, object_name)
+    if (work / "images").is_dir() and (work / masks_name).is_dir():
+        validate_scene(work, masks_name)
         return work
     work.mkdir(parents=True, exist_ok=True)
-    for name in ("images", object_name):
+    for name in ("images", masks_name):
         dest = work / name
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(src / name, dest)
-    validate_scene(work, object_name)
+    validate_scene(work, masks_name)
     return work
 
 
 def run_once(
     run_dir: Path,
     scene_dir: Path,
-    object_name: str,
+    masks_name: str,
     da3_python: str,
     mvsam_python: str,
     mvsam_root: Path,
@@ -96,9 +96,9 @@ def run_once(
     if preview:
         _, t_vis = timed(lambda: visualize_depth(
             npz, run_dir / "depth_preview.png", images_dir=images, mode="both",
-            mask_dir=scene_dir / object_name,
+            mask_dir=scene_dir / masks_name,
         ))
-    glb, t_sam = timed(lambda: run_mvsam(mvsam_python, mvsam_root, scene_dir, object_name, npz, False))
+    glb, t_sam = timed(lambda: run_mvsam(mvsam_python, mvsam_root, scene_dir, masks_name, npz, False))
     shutil.copy2(glb, run_dir / "mesh.glb")
     _, t_prev = timed(lambda: preview_mesh(run_dir / "mesh.glb", run_dir / "mesh.png"))
     mesh = load_triangle_mesh(run_dir / "mesh.glb")
@@ -214,9 +214,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-i", "--input", type=Path, default=DEFAULT_SCENE,
-        help="Processed scene (images/ + object/). Default: examples/gripper/processed",
+        help="Processed scene (images/ + masks/). Default: examples/gripper/processed",
     )
-    parser.add_argument("--object", default="object", help="Mask folder name")
+    parser.add_argument("--masks", default="object", help="Mask folder name (gripper example uses object/)")
     parser.add_argument("--n", type=int, default=10)
     parser.add_argument("--out", type=Path, default=None, help="Repeat folder (default: archive/<scene>_timed)")
     parser.add_argument(
@@ -244,14 +244,14 @@ def main(argv: list[str] | None = None) -> int:
         mvsam_python = env_python("MVSAM_PYTHON", "SAM3D_PYTHON")
         if not da3_python or not mvsam_python:
             raise RuntimeError("Set SAM3D_PYTHON")
-        scene = _stage(src, out / "work", args.object)
+        scene = _stage(src, out / "work", args.masks)
         start = 0
         existing = list(out.glob("run_*"))
         if existing:
             start = max(int(p.name.split("_")[1]) for p in existing) + 1
         for i in range(start, args.n):
             run_once(
-                out / f"run_{i:02d}", scene, args.object, da3_python, mvsam_python, DEFAULT_MVSAM,
+                out / f"run_{i:02d}", scene, args.masks, da3_python, mvsam_python, DEFAULT_MVSAM,
                 preview=args.preview,
             )
         print("DONE all runs", flush=True)

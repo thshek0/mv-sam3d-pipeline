@@ -19,19 +19,54 @@ T = TypeVar("T")
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_MVSAM = REPO / "MV-SAM3D"
-DEFAULT_WORK = REPO / "work"
+DEFAULT_DATASET = REPO / "dataset"
 DEFAULT_OUT = REPO / "output"
+
+HYBRID_ALIASES = frozenset({"rs_da3", "fill_all_holes", "hybrid2"})
+SCENE_DIR_NAMES = frozenset({"processed", "scene"})
+DEPTH_SOURCES = ("da3", "da3_posed", "rs", "hybrid")
+
+
+def normalize_depth_method(method: str) -> str:
+    """Map hybrid aliases to the canonical ``hybrid`` name."""
+    return "hybrid" if method == "hybrid" or method in HYBRID_ALIASES else method
 
 
 def method_output_slug(depth_method: str, mesh_method: str = "sam3d") -> str:
-    """Folder name under ``output/<dataset>/`` for a depth + mesh pair.
-
-    ``hybrid``, ``fill_all_holes``, and ``rs_da3`` share the ``hybrid`` slug.
-    SAM3D appends ``_sam3d``, TSDF appends ``_tsdf``.
-    """
-    depth = "hybrid" if depth_method in {"hybrid", "fill_all_holes", "rs_da3"} else depth_method
+    """Mesh folder name ``{depth}_{mesh}`` under ``output/<dataset>/meshes/``."""
+    depth = normalize_depth_method(depth_method)
     suffix = "sam3d" if mesh_method == "sam3d" else mesh_method
     return f"{depth}_{suffix}"
+
+
+def dataset_name_from_input(src: Path) -> str:
+    """Dataset name for ``-i``: parent when the folder is ``processed`` or ``scene``."""
+    return src.parent.name if src.name in SCENE_DIR_NAMES else src.name
+
+
+def dataset_root(out_dir: Path, dataset: str) -> Path:
+    """Return ``output/<dataset>/``."""
+    return out_dir / dataset
+
+
+def dataset_scene_dir(out_dir: Path, dataset: str) -> Path:
+    """Return ``output/<dataset>/scene/`` (images + masks)."""
+    return out_dir / dataset / "scene"
+
+
+def dataset_depth_dir(out_dir: Path, dataset: str) -> Path:
+    """Return ``output/<dataset>/depth/``."""
+    return out_dir / dataset / "depth"
+
+
+def dataset_depth_npz(out_dir: Path, dataset: str, source: str) -> Path:
+    """Return ``output/<dataset>/depth/{source}.npz``."""
+    return out_dir / dataset / "depth" / f"{source}.npz"
+
+
+def dataset_meshes_dir(out_dir: Path, dataset: str) -> Path:
+    """Return ``output/<dataset>/meshes/``."""
+    return out_dir / dataset / "meshes"
 
 
 def valid_depth(depth: np.ndarray) -> np.ndarray:
@@ -67,10 +102,20 @@ def depth_rmse(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def run_output_dir(out_dir: Path, dataset: str, method_slug: str) -> Path:
-    """Return ``output/<dataset>/<method>/`` and create it."""
-    path = out_dir / dataset / method_slug
+    """Return ``output/<dataset>/meshes/<slug>/`` and create it."""
+    path = dataset_meshes_dir(out_dir, dataset) / method_slug
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def place_depth_npz(src: Path, dest: Path) -> Path:
+    """Copy ``src`` to ``dest`` unless they are the same file. Creates parents."""
+    dest = dest.expanduser()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    src = src.expanduser().resolve()
+    if src != dest.resolve():
+        shutil.copy2(src, dest)
+    return dest
 
 
 def env_python(*names: str) -> str | None:
@@ -316,6 +361,7 @@ MESH_SUMMARY_ORDER: tuple[str, ...] = (
     "rs_sam3d",
     "da3_posed_tsdf",
     "hybrid_tsdf",
+    "da3_tsdf",
     "rs_tsdf",
 )
 METHOD_FOLDER_RENAMES: dict[str, str] = {
@@ -328,7 +374,17 @@ METHOD_FOLDER_RENAMES: dict[str, str] = {
     "tsdf": "rs_tsdf",
 }
 MESH_KEEP_NAMES: frozenset[str] = frozenset({"mesh.glb", "mesh.png", "mesh.stl"})
-DEPTH_SUMMARY_COLS: tuple[str, ...] = ("image", "da3_posed", "rs", "hybrid")
+DEPTH_BOARD_NAMES: tuple[str, ...] = (
+    "da3_depthmap.png",
+    "da3_valid.png",
+    "da3_posed_depthmap.png",
+    "da3_posed_valid.png",
+    "rs_depthmap.png",
+    "rs_valid.png",
+    "hybrid_depthmap.png",
+    "hybrid_source_map.png",
+)
+DEPTH_SUMMARY_ORDER: tuple[str, ...] = ("da3", "da3_posed", "rs", "hybrid")
 DEPTH_SUMMARY_MAX_VIEWS = 6
 
 
@@ -406,17 +462,24 @@ def write_summary_grid(
     return out_png
 
 
+def mesh_scan_root(dataset_dir: Path) -> Path:
+    """Prefer ``dataset/meshes/`` when present; else ``dataset`` (legacy / tests)."""
+    meshes = dataset_dir / "meshes"
+    return meshes if meshes.is_dir() else dataset_dir
+
+
 def reorganize_method_folders(dataset_dir: Path, *, mesh_only: bool = True) -> list[str]:
     """Rename mesh folders to ``<depth>_sam3d`` / ``<depth>_tsdf`` and drop previews.
 
-    Does not touch ``rs_da3`` (depth-preview folder, not a mesh). Returns log lines.
+    Operates under ``meshes/`` when that folder exists. Does not touch ``rs_da3``.
     """
     dataset_dir = dataset_dir.expanduser()
     log: list[str] = []
     if not dataset_dir.is_dir():
         raise FileNotFoundError(dataset_dir)
+    root = mesh_scan_root(dataset_dir)
     for old, new in METHOD_FOLDER_RENAMES.items():
-        src, dest = dataset_dir / old, dataset_dir / new
+        src, dest = root / old, root / new
         if not src.is_dir() or src == dest:
             continue
         if dest.exists():
@@ -426,7 +489,7 @@ def reorganize_method_folders(dataset_dir: Path, *, mesh_only: bool = True) -> l
         log.append(f"rename {old} → {new}")
     if mesh_only:
         skip = {"rs_da3"}
-        for folder in sorted(p for p in dataset_dir.iterdir() if p.is_dir() and p.name not in skip):
+        for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name not in skip):
             if not any((folder / name).is_file() for name in MESH_KEEP_NAMES):
                 continue
             for path in list(folder.iterdir()):
@@ -443,21 +506,99 @@ def write_subdir_summary(
     out_png: Path | None = None,
     *,
     order: Sequence[str] | None = None,
+    scan_dir: Path | None = None,
 ) -> Path:
-    """Stack ``filename`` from each immediate subfolder, one row per folder."""
+    """Stack ``filename`` from each mesh subfolder, one row per folder.
+
+    Scans ``scan_dir``, or ``dataset/meshes/`` when present, else immediate children.
+    The summary PNG is written on ``dataset_dir`` by default.
+    """
     dataset_dir = dataset_dir.expanduser()
+    root = scan_dir.expanduser() if scan_dir is not None else mesh_scan_root(dataset_dir)
     preferred = list(order) if order is not None else list(MESH_SUMMARY_ORDER)
-    names = [name for name in preferred if (dataset_dir / name / filename).is_file()]
+    names = [name for name in preferred if (root / name / filename).is_file()]
     extra = sorted(
-        path.parent.name for path in dataset_dir.glob(f"*/{filename}")
+        path.parent.name for path in root.glob(f"*/{filename}")
         if path.parent.name not in names and path.is_file()
     )
     names.extend(extra)
     if not names:
-        raise FileNotFoundError(f"no {filename} under {dataset_dir}/*/")
+        raise FileNotFoundError(f"no {filename} under {root}/*/")
     dest = out_png if out_png is not None else dataset_dir / f"{Path(filename).stem}_summary.png"
-    paths = [[dataset_dir / name / filename] for name in names]
+    paths = [[root / name / filename] for name in names]
     return write_summary_grid(dest, [Path(filename).stem], names, paths, cell=MESH_SUMMARY_CELL)
+
+
+def migrate_dataset_layout(dataset_dir: Path) -> list[str]:
+    """Move a flat ``output/<name>/`` tree into ``scene/``, ``depth/``, ``meshes/``.
+
+    Boards at the dataset root are left in place. Idempotent when already migrated.
+    """
+    dataset_dir = dataset_dir.expanduser().resolve()
+    if not dataset_dir.is_dir():
+        raise FileNotFoundError(dataset_dir)
+    log: list[str] = []
+    scene = dataset_dir / "scene"
+    depth = dataset_dir / "depth"
+    meshes = dataset_dir / "meshes"
+
+    for name in ("images", "masks", "object", "labelme_raw"):
+        src = dataset_dir / name
+        if not src.is_dir():
+            continue
+        dest = scene / name
+        if dest.exists():
+            log.append(f"keep scene/{name} (already exists, left {name})")
+            continue
+        scene.mkdir(parents=True, exist_ok=True)
+        src.rename(dest)
+        log.append(f"move {name} → scene/{name}")
+
+    for source in DEPTH_SOURCES:
+        dest = depth / f"{source}.npz"
+        candidates = [
+            dataset_dir / source / "da3_output.npz",
+            dataset_dir / source / f"{source}.npz",
+            dataset_dir / f"{source}.npz",
+        ]
+        src = next((p for p in candidates if p.is_file()), None)
+        if src is not None:
+            if dest.exists() and src.resolve() != dest.resolve():
+                log.append(f"keep depth/{source}.npz (already exists, left {src.relative_to(dataset_dir)})")
+            elif not dest.exists():
+                depth.mkdir(parents=True, exist_ok=True)
+                src.rename(dest)
+                log.append(f"move {src.relative_to(dataset_dir)} → depth/{source}.npz")
+        old_dir = dataset_dir / source
+        if old_dir.is_dir() and dest.is_file() and old_dir.resolve() != depth.resolve():
+            shutil.rmtree(old_dir)
+            log.append(f"drop {source}/")
+
+    for folder in sorted(p for p in dataset_dir.iterdir() if p.is_dir()):
+        if folder.name in {"scene", "depth", "meshes"}:
+            continue
+        if not (folder.name.endswith("_sam3d") or folder.name.endswith("_tsdf")):
+            continue
+        dest = meshes / folder.name
+        if dest.exists():
+            log.append(f"keep meshes/{folder.name} (already exists, left {folder.name})")
+            continue
+        meshes.mkdir(parents=True, exist_ok=True)
+        folder.rename(dest)
+        log.append(f"move {folder.name} → meshes/{folder.name}")
+
+    depth.mkdir(parents=True, exist_ok=True)
+    for name in DEPTH_BOARD_NAMES:
+        src = dataset_dir / name
+        if not src.is_file():
+            continue
+        dest = depth / name
+        if dest.exists():
+            log.append(f"keep depth/{name} (already exists, left root copy)")
+            continue
+        src.rename(dest)
+        log.append(f"move {name} → depth/{name}")
+    return log
 
 
 _LEGEND_FONT = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
@@ -788,6 +929,105 @@ def intrinsics_from_realsense_meta(meta: dict[str, Any]) -> np.ndarray:
     return np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]], dtype=np.float64)
 
 
+def identity_w2c(n_view: int) -> np.ndarray:
+    """Return ``(N, 3, 4)`` identity world-to-camera matrices (no shared pose)."""
+    if n_view < 1:
+        raise ValueError(f"n_view must be >= 1, got {n_view}")
+    ext = np.zeros((n_view, 3, 4), dtype=np.float32)
+    ext[:, 0, 0] = 1.0
+    ext[:, 1, 1] = 1.0
+    ext[:, 2, 2] = 1.0
+    return ext
+
+
+def realsense_dump_stems(
+    src_dir: Path,
+    *,
+    rgb_suffix: str,
+    depth_suffix: str,
+    meta_suffix: str,
+    labelme_suffix: str | None = None,
+    skip_incomplete: bool = False,
+) -> list[str]:
+    """Sorted stems that have RGB, depth, meta, and optional LabelMe sidecars.
+
+    With ``skip_incomplete=False`` (default), any incomplete view raises.
+    With ``True``, incomplete views are omitted (e.g. unlabeled stills).
+    """
+    stems = sorted(
+        stem
+        for path in src_dir.iterdir()
+        if path.is_file()
+        for stem in [_strip_suffix(path.name, rgb_suffix)]
+        if stem is not None
+    )
+    if not stems:
+        raise RuntimeError(f"No files ending with {rgb_suffix!r} in {src_dir}")
+    missing: list[str] = []
+    keep: list[str] = []
+    for stem in stems:
+        need = [f"{stem}{depth_suffix}", f"{stem}{meta_suffix}"]
+        if labelme_suffix is not None:
+            need.append(f"{stem}{labelme_suffix}")
+        absent = [name for name in need if not (src_dir / name).is_file()]
+        if absent:
+            missing.extend(absent)
+            continue
+        keep.append(stem)
+    if missing and not skip_incomplete:
+        raise FileNotFoundError(f"Incomplete RealSense views: {', '.join(missing)}")
+    if not keep:
+        raise FileNotFoundError(f"Incomplete RealSense views: {', '.join(missing)}")
+    return keep
+
+
+def load_realsense_depth_stack(
+    src_dir: Path,
+    stems: Sequence[str],
+    *,
+    depth_suffix: str,
+    meta_suffix: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Load metric depth ``(N, H, W)`` and ``K`` ``(N, 3, 3)`` for ``stems``."""
+    depths: list[np.ndarray] = []
+    ks: list[np.ndarray] = []
+    for stem in stems:
+        meta = json.loads((src_dir / f"{stem}{meta_suffix}").read_text())
+        depth_img = Image.open(src_dir / f"{stem}{depth_suffix}")
+        scale = float(meta["depth_scale_m_per_unit"])
+        depth = np.asarray(depth_img).astype(np.float32) * scale
+        depths.append(depth)
+        ks.append(intrinsics_from_realsense_meta(meta))
+        print(f"realsense depth {stem} {depth.shape[1]}x{depth.shape[0]} valid={100.0 * (depth > 0).mean():.1f}%", flush=True)
+    return np.stack(depths, axis=0), np.stack(ks, axis=0)
+
+
+def write_unposed_rs_npz(
+    out_npz: Path,
+    depths: np.ndarray,
+    ks: np.ndarray,
+    images: Sequence[Path],
+    keep_stems: Sequence[str] | None = None,
+) -> Path:
+    """Write a DA3-style npz from RealSense Z + K without AprilTag poses.
+
+    Extrinsics are identity per view (camera frame only). Use for depth boards
+    and per-view pointmaps; multi-view TSDF in one world frame still needs tags.
+    """
+    from vis import write_da3_npz
+
+    depth_n = np.asarray(depths, dtype=np.float32)
+    if depth_n.ndim != 3:
+        raise ValueError(f"depth must be (N, H, W), got {depth_n.shape}")
+    if len(images) != depth_n.shape[0]:
+        raise ValueError(f"{len(images)} images, depth has {depth_n.shape[0]} views")
+    return write_da3_npz(
+        out_npz, depth_n, identity_w2c(depth_n.shape[0]), np.asarray(ks, dtype=np.float32),
+        list(images), process_res=int(depth_n.shape[2]), keep_stems=keep_stems,
+        extras={"unposed_rs": np.asarray(1, dtype=np.int8)},
+    )
+
+
 def convert_realsense_dump(
     src_dir: Path,
     images_dir: Path,
@@ -807,24 +1047,11 @@ def convert_realsense_dump(
     If ``labelme_suffix`` is set, every stem must have that sidecar. ``raw_dir``
     then gets ``{stem}.png`` + ``{stem}.json`` for ``convert_labelme_to_masks``.
     """
-    stems = sorted(
-        stem
-        for path in src_dir.iterdir()
-        if path.is_file()
-        for stem in [_strip_suffix(path.name, rgb_suffix)]
-        if stem is not None
+    stems = realsense_dump_stems(
+        src_dir,
+        rgb_suffix=rgb_suffix, depth_suffix=depth_suffix, meta_suffix=meta_suffix,
+        labelme_suffix=labelme_suffix,
     )
-    if not stems:
-        raise RuntimeError(f"No files ending with {rgb_suffix!r} in {src_dir}")
-    missing: list[str] = []
-    for stem in stems:
-        for name in (f"{stem}{depth_suffix}", f"{stem}{meta_suffix}"):
-            if not (src_dir / name).is_file():
-                missing.append(name)
-        if labelme_suffix is not None and not (src_dir / f"{stem}{labelme_suffix}").is_file():
-            missing.append(f"{stem}{labelme_suffix}")
-    if missing:
-        raise FileNotFoundError(f"Incomplete RealSense views: {', '.join(missing)}")
     images_dir.mkdir(parents=True, exist_ok=True)
     for old in images_dir.glob("*"):
         old.unlink()
@@ -919,7 +1146,7 @@ def run_da3(da3_python: str, mvsam_root: Path, images_dir: Path, da3_out: Path) 
 
 
 def run_mvsam(
-    mvsam_python: str, mvsam_root: Path, scene_dir: Path, object_name: str, da3_npz: Path, merge_da3_glb: bool,
+    mvsam_python: str, mvsam_root: Path, scene_dir: Path, masks_name: str, da3_npz: Path, merge_da3_glb: bool,
 ) -> Path:
     """Run weighted multi-view SAM 3D; return path to result.glb."""
     infer = mvsam_root / "run_inference_weighted.py"
@@ -928,7 +1155,7 @@ def run_mvsam(
     cmd = [
         mvsam_python, str(infer),
         "--input_path", str(scene_dir),
-        "--mask_prompt", object_name,
+        "--mask_prompt", masks_name,
         "--da3_output", str(da3_npz),
     ]
     if merge_da3_glb:
@@ -967,12 +1194,12 @@ def listed_images(images_dir: Path) -> list[Path]:
     )
 
 
-def validate_scene(scene_dir: Path, object_name: str) -> list[Path]:
-    """Check ``images/{i}.png`` and ``{object}/{i}.png`` match (RGBA, some alpha)."""
+def validate_scene(scene_dir: Path, masks_name: str) -> list[Path]:
+    """Check ``images/{i}.png`` and ``{masks}/{i}.png`` match (RGBA, some alpha)."""
     images = listed_images(scene_dir / "images")
     if not images:
         raise RuntimeError(f"No images in {scene_dir / 'images'}")
-    mask_dir = scene_dir / object_name
+    mask_dir = scene_dir / masks_name
     for image in images:
         mask = mask_dir / image.name
         if not mask.is_file():

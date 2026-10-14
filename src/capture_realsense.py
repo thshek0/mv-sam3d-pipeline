@@ -1,7 +1,7 @@
 """Capture aligned RealSense RGB-D dumps for ``helpers.convert_realsense_dump``.
 
 SPACE writes ``{stem}_rgb.png``, raw ``uint16`` ``{stem}_depth.png`` (0 = no Z),
-and ``{stem}.json``. Default session folder is ``input/captures_%Y%m%d_%H%M``.
+and ``{stem}.json``. Default session folder is ``dataset/captures_%Y%m%d_%H%M``.
 Needs ``pyrealsense2`` on the capture machine; it is not in the repo ``.venv``.
 """
 
@@ -17,7 +17,7 @@ from typing import Any, Sequence
 import cv2
 import numpy as np
 
-REPO = Path(__file__).resolve().parents[1]
+from helpers import DEFAULT_DATASET, REPO
 VideoMode = tuple[int, int, int]
 
 DEFAULT_LOCK = REPO / "env" / "camera_lock.json"
@@ -409,7 +409,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--out", type=Path, default=None,
-        help="Session folder (default: input/captures_YYYYMMDD_HHMM)",
+        help="Session folder (default: dataset/captures_YYYYMMDD_HHMM)",
     )
     parser.add_argument(
         "--lock", type=Path, default=Path(os.environ.get("RS_LOCK_PATH", str(DEFAULT_LOCK))),
@@ -543,7 +543,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     out = args.out
     if out is None:
-        out = REPO / "input" / datetime.now().strftime(CAPTURE_DIR_FORMAT)
+        out = DEFAULT_DATASET / datetime.now().strftime(CAPTURE_DIR_FORMAT)
     out = out.expanduser().resolve()
     if args.self_test:
         self_test_dump(out)

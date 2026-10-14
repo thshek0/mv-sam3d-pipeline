@@ -14,21 +14,22 @@ from vis import depth_to_pointmap
 
 
 def test_method_output_slug_groups_depth_then_mesh() -> None:
-    """``output/<dataset>/<slug>/``: hybrid alias, ``_sam3d`` or ``_tsdf`` suffix."""
+    """``meshes/{depth}_{mesh}``: hybrid alias, ``_sam3d`` or ``_tsdf`` suffix."""
     assert method_output_slug("da3", "sam3d") == "da3_sam3d"
     assert method_output_slug("da3_posed", "sam3d") == "da3_posed_sam3d"
     assert method_output_slug("hybrid", "sam3d") == "hybrid_sam3d"
     assert method_output_slug("fill_all_holes", "sam3d") == "hybrid_sam3d"
     assert method_output_slug("rs_da3", "sam3d") == "hybrid_sam3d"
+    assert method_output_slug("hybrid2", "sam3d") == "hybrid_sam3d"
     assert method_output_slug("rs", "tsdf") == "rs_tsdf"
     assert method_output_slug("da3_posed", "tsdf") == "da3_posed_tsdf"
     assert method_output_slug("fill_all_holes", "tsdf") == "hybrid_tsdf"
 
 
 def _write_processed_scene(src: Path) -> None:
-    """Write a one-view ``images/`` + RGBA ``object/`` scene."""
+    """Write a one-view ``images/`` + RGBA ``masks/`` scene."""
     images = src / "images"
-    masks = src / "object"
+    masks = src / "masks"
     images.mkdir(parents=True)
     masks.mkdir()
     Image.new("RGB", (8, 8), (10, 20, 30)).save(images / "0.png")
@@ -39,14 +40,12 @@ def test_main_raises_without_da3_on_processed_scene() -> None:
     """A processed scene fails without ``--da3-npz`` / ``--da3-python``."""
     with tempfile.TemporaryDirectory() as raw_s:
         root = Path(raw_s)
-        src = root / "processed"
+        src = root / "toy"
         _write_processed_scene(src)
         try:
             main(
                 [
                     "-i", str(src),
-                    "--scene", "toy",
-                    "--work-dir", str(root / "work"),
                     "--output-dir", str(root / "out"),
                 ]
             )
@@ -54,10 +53,10 @@ def test_main_raises_without_da3_on_processed_scene() -> None:
             assert "da3" in str(exc).lower()
         else:
             raise AssertionError("expected RuntimeError for missing DA3")
-        staged = root / "work" / "toy"
+        staged = root / "out" / "toy" / "scene"
         assert (staged / "images" / "0.png").is_file()
-        assert (staged / "object" / "0.png").is_file()
-        assert Image.open(staged / "object" / "0.png").mode == "RGBA"
+        assert (staged / "masks" / "0.png").is_file()
+        assert Image.open(staged / "masks" / "0.png").mode == "RGBA"
 
 
 def test_main_rejects_raw_stills() -> None:
@@ -71,8 +70,6 @@ def test_main_rejects_raw_stills() -> None:
             main(
                 [
                     "-i", str(src),
-                    "--scene", "bare",
-                    "--work-dir", str(root / "work"),
                     "--output-dir", str(root / "out"),
                 ]
             )
@@ -105,7 +102,7 @@ def test_main_fails_without_mvsam_and_keeps_method_folder_mesh_only() -> None:
     """``--da3-npz`` fails without MV-SAM3D and does not write depth boards in the mesh folder."""
     with tempfile.TemporaryDirectory() as raw_s:
         root = Path(raw_s)
-        src = root / "processed"
+        src = root / "toy"
         _write_processed_scene(src)
         npz = root / "da3_output.npz"
         _one_view_npz(npz, src / "images")
@@ -114,8 +111,6 @@ def test_main_fails_without_mvsam_and_keeps_method_folder_mesh_only() -> None:
             main(
                 [
                     "-i", str(src),
-                    "--scene", "toy",
-                    "--work-dir", str(root / "work"),
                     "--output-dir", str(out),
                     "--da3-npz", str(npz),
                 ]
@@ -124,7 +119,7 @@ def test_main_fails_without_mvsam_and_keeps_method_folder_mesh_only() -> None:
             assert "MVSAM" in str(exc) or "SAM3D" in str(exc)
         else:
             raise AssertionError("expected RuntimeError for missing MV-SAM3D")
-        run_dir = out / "toy" / "da3_sam3d"
+        run_dir = out / "toy" / "meshes" / "da3_sam3d"
         assert not (run_dir / "depth_preview.png").exists()
         assert not (run_dir / "mesh.glb").exists()
 
