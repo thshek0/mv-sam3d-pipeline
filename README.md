@@ -30,7 +30,7 @@ flowchart LR
   mesh -.-> seal
 ```
 
-`--coacd` sits after `--seal`. Driver scripts live in `src/` (`python src/pipeline.py`). Clones, `env/`, and `patches/` stay at the repo root.
+`--coacd` sits after `--seal`. Driver scripts live in `src/` (`python src/pipeline.py`). Clones and `env/` (pip freezes + MV-SAM3D patch) stay at the repo root.
 
 **Input**
 

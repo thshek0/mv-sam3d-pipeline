@@ -2,7 +2,7 @@
 
 Converters run in this repo’s `.venv` (Pillow, tests). rembg, DA3, and MV-SAM3D are **optional** other envs. Point them with env vars; there are no machine-specific paths in this repo.
 
-Driver scripts are in `src/`. Tests are in `tests/` (`pytest.ini` sets `pythonpath = src`). `env/` is **committed** (pip freezes + `camera_lock.json`). `patches/mv-sam3d.patch` is still required. Weights, clones, and `.venv` are gitignored. Leave existing checkpoints on disk; do not delete them.
+Driver scripts are in `src/`. Tests are in `tests/` (`pytest.ini` sets `pythonpath = src`). `env/` is **committed** (pip freezes, `camera_lock.json`, MV-SAM3D patch). Weights, clones, and `.venv` are gitignored. Leave existing checkpoints on disk; do not delete them.
 
 ```text
 src/run_dataset.py        dataset runner (ingest → depth → mesh matrix)
@@ -11,8 +11,7 @@ src/methods.py            depth_da3 / da3_posed / hybrid (fuse), mesh_sam3d / me
 src/helpers.py            ingest, masks, crop, subprocesses
 src/capture_realsense.py  D415 SPACE dump
 src/tags.py src/tsdf.py src/da3_posed.py src/post.py src/vis.py src/time_run.py
-env/                      pipeline-venv.txt, GPU/rembg freezes, camera_lock.json
-patches/mv-sam3d.patch    CUDA_HOME + HF snapshots/<rev>
+env/                      pip freezes, camera_lock.json, mv-sam3d.patch
 MV-SAM3D/ Depth-Anything-3/   clones at repo root, not under src/
 ```
 
@@ -38,12 +37,12 @@ git -C MV-SAM3D checkout abb04b5e8af5bc33b0265bdf19937e76bbb6bcdd
 git clone https://github.com/ByteDance-Seed/Depth-Anything-3.git
 git -C Depth-Anything-3 checkout 3d835ec1a5802d64a8b8b15f817a1ab54809bfe4
 
-git -C MV-SAM3D apply ../patches/mv-sam3d.patch
+git -C MV-SAM3D apply ../env/mv-sam3d.patch
 ```
 
 Keep `MV-SAM3D/` and `Depth-Anything-3/` as siblings of `src/` (repo root). `run_da3.py` imports DA3 from `../Depth-Anything-3`. Do **not** clone `facebookresearch/sam-3d-objects`.
 
-The patch sets `CUDA_HOME` from the env prefix (never `/usr/local/cuda*`) and resolves DA3 Hugging Face weights under `snapshots/<rev>/`.
+`env/mv-sam3d.patch` sets `CUDA_HOME` from the env prefix (never `/usr/local/cuda*`) and resolves DA3 Hugging Face weights under `snapshots/<rev>/`.
 
 ## 3. GPU env (`sam3d-objects`) — optional (DA3 / MV-SAM3D)
 
