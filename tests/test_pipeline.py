@@ -14,16 +14,13 @@ from vis import depth_to_pointmap
 
 
 def test_method_output_slug_groups_depth_then_mesh() -> None:
-    """``meshes/{depth}_{mesh}``: hybrid alias, ``_sam3d`` or ``_tsdf`` suffix."""
+    """Slug ``{depth}_{mesh}`` for flat ``meshes/{slug}_mesh.glb``."""
     assert method_output_slug("da3", "sam3d") == "da3_sam3d"
     assert method_output_slug("da3_posed", "sam3d") == "da3_posed_sam3d"
     assert method_output_slug("hybrid", "sam3d") == "hybrid_sam3d"
-    assert method_output_slug("fill_all_holes", "sam3d") == "hybrid_sam3d"
-    assert method_output_slug("rs_da3", "sam3d") == "hybrid_sam3d"
-    assert method_output_slug("hybrid2", "sam3d") == "hybrid_sam3d"
     assert method_output_slug("rs", "tsdf") == "rs_tsdf"
     assert method_output_slug("da3_posed", "tsdf") == "da3_posed_tsdf"
-    assert method_output_slug("fill_all_holes", "tsdf") == "hybrid_tsdf"
+    assert method_output_slug("hybrid", "tsdf") == "hybrid_tsdf"
 
 
 def _write_processed_scene(src: Path) -> None:
@@ -119,9 +116,10 @@ def test_main_fails_without_mvsam_and_keeps_method_folder_mesh_only() -> None:
             assert "MVSAM" in str(exc) or "SAM3D" in str(exc)
         else:
             raise AssertionError("expected RuntimeError for missing MV-SAM3D")
-        run_dir = out / "toy" / "meshes" / "da3_sam3d"
-        assert not (run_dir / "depth_preview.png").exists()
-        assert not (run_dir / "mesh.glb").exists()
+        meshes = out / "toy" / "meshes"
+        assert not (meshes / "da3_sam3d_mesh.glb").exists()
+        assert not (meshes / "da3_sam3d" / "depth_preview.png").exists()
+        assert not (meshes / "da3_sam3d" / "mesh.glb").exists()
 
 
 if __name__ == "__main__":

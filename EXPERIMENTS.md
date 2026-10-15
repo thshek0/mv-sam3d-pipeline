@@ -2,7 +2,7 @@
 
 The default product is the mesh (`mesh.glb`). `--seal` and `--coacd` are optional. Scripts are in `src/`. Below is what we kept, what we measured, and what we dropped.
 
-**Generation** (`--mesh sam3d`) is the official name for MV-SAM3D. **Reconstruction** (`--mesh tsdf`) is TSDF fusion of a depth npz. Do not say “constructive.”
+**Generation** (`--mesh sam3d`) is the official name for MV-SAM3D. **Reconstruction** (`--mesh tsdf`) is TSDF fusion of a depth npz. Do not say “constructive.” Multi-view TSDF needs AprilTag (or other) poses; unposed RS/hybrid (identity `w2c`) is nonsense and the pipeline refuses it — use SAM3D or `da3`/`da3_posed` TSDF.
 
 ## Orientation
 
@@ -100,7 +100,7 @@ SAM 2 could not cut wells (holes not detected; too slow). That is why TSDF is fi
 
 - **Eliminate:** SAM3D’s generative fill.
 - **Try:** if RS has holes, the mesh should have holes.
-- **Result:** **through-grid lid**, no chassis. `output/heater_v5/tsdf/`. `depth_visibility_preview.png` is photo | overlay for all 12 views (cyan = object and Z>0, red = object and Z=0).
+- **Result:** **through-grid lid**, no chassis. `output/heater_v5/meshes/rs_tsdf_mesh.glb`. Depth visibility preview is photo | overlay for all 12 views (cyan = object and Z>0, red = object and Z=0).
 - **Isolated:** missing walls are not “TSDF forgot the photos.” Those wall pixels have no RealSense depth. **IR stereo does not work on the silver sides.** Extra RGB of the box does not change that.
 
 **1-view SAM3D** — heater_v5 `0.png` + pose-free DA3.
@@ -113,14 +113,14 @@ SAM 2 could not cut wells (holes not detected; too slow). That is why TSDF is fi
 
 - **Eliminate:** DA3 guessing cameras (pose-free DA3 on shiny views).
 - **Try:** better **depth image** on metal, metric to tags.
-- **Result:** `depth_vs_rs.png` — DA3 **fills walls** RS leaves empty; wells stay a **100% valid plate**. `output/heater_v5/meshes/da3_posed_sam3d/`.
+- **Result:** `depth_vs_rs.png` — DA3 **fills walls** RS leaves empty; wells stay a **100% valid plate**. `output/heater_v5/meshes/da3_posed_sam3d_mesh.glb`.
 - **Isolated:** known pose is not why wells are filled (DA3 is dense by design). Known pose **does** give side depth where RS is blind. That is RGB depth, not D415.
 
-**SAM3D on posed DA3** — `src/pipeline.py --da3-npz work/heater_v5_da3_posed/da3_output.npz`.
+**SAM3D on posed DA3** — `src/pipeline.py --da3-npz …/depth/da3_posed.npz`.
 
 - **Eliminate:** pose-free DA3 as the SAM3D pointmap.
 - **Try:** cleaner box from the better cameras.
-- **Result:** cleaner closed box than v5 A; cups clearer from the side; **lid still closed**. Preview is `mesh.png`; download `mesh.glb`. `output/heater_v5/meshes/da3_posed_sam3d/`.
+- **Result:** cleaner closed box than v5 A; cups clearer from the side; **lid still closed**. Preview is `da3_posed_sam3d_mesh.png`; download `da3_posed_sam3d_mesh.glb`.
 
 Video around the object was considered and **not** run: more frames at the same grazing silver angle would still be `Z=0`. That would not isolate shiny-surface stereo.
 
@@ -142,13 +142,13 @@ Video around the object was considered and **not** run: more frames at the same 
 
 ### Next dataset / method
 
-Same heater_v5 stills: leftover `output/heater_v5/rs_da3/` is the old wall-only preview dump. Current fuse is `--method hybrid` (folders `meshes/hybrid_sam3d` / `meshes/hybrid_tsdf`). **Still not run on heater_v5:** TSDF on RS-only depth if you want holes kept. New capture only if walls must be metric: matte the chassis, face-on, table tags still in view. Do not recapture “more of the same silver at a grazing angle.”
+Same heater_v5 stills. Current fuse is `--method hybrid` (`meshes/hybrid_sam3d_mesh.glb` / `hybrid_tsdf_mesh.glb`). **Still not run on heater_v5:** TSDF on RS-only depth if you want holes kept. New capture only if walls must be metric: matte the chassis, face-on, table tags still in view. Do not recapture “more of the same silver at a grazing angle.”
 
 Do not default the public CLI to `da3_posed` (needs tags). Do not archive the `da3` method.
 
 ## Lab captures — TSDF vs SAM3D
 
-Same five sets. TSDF at voxel 0.002, sdf 0.006, depth-trunc 2, `--keep-largest`. Compare `output/<name>/meshes/{da3_posed,hybrid}_sam3d/mesh.png` (SAM3D) to `output/<name>/meshes/{rs,da3_posed,hybrid}_tsdf/mesh.png`.
+Same five sets. TSDF at voxel 0.002, sdf 0.006, depth-trunc 2, `--keep-largest`. Compare `output/<name>/meshes/{da3_posed,hybrid}_sam3d_mesh.png` (SAM3D) to `output/<name>/meshes/{rs,da3_posed,hybrid}_tsdf_mesh.png`.
 
 | Capture | RS TSDF | da3_posed TSDF | hybrid TSDF | Note |
 |---|---|---|---|---|
@@ -158,7 +158,7 @@ Same five sets. TSDF at voxel 0.002, sdf 0.006, depth-trunc 2, `--keep-largest`.
 | device2 (was 1601) | 203k | 442k | 308k | RS has shape, still open |
 | device3 (was 1606) | 302k | 951k | 1.6M | **RS keeps the L**; posed/hybrid TSDF smear |
 
-**device3 RS TSDF** is the reconstruction to put next to SAM3D’s closed L-box: measured shell, no fake fill, jagged, chassis incomplete. Posed/hybrid TSDF is DA3 painting a plate, then fusion — same failure as fill-all, without SAM3D.
+**device3 RS TSDF** is the reconstruction to put next to SAM3D’s closed L-box: measured shell, no fake fill, jagged, chassis incomplete. Posed/hybrid TSDF is DA3 painting a plate, then fusion — same failure as hybrid fill, without SAM3D.
 
 `--method rs` is the best **depth map** when you have stereo and tags and want holes kept. Hybrid fills those holes. SAM3D on hybrid/posed DA3 still closed the heater lid.
 

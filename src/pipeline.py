@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Compose a processed scene with one depth method, then one mesh method.
 
-Depth: ``da3``, ``da3_posed``, ``rs``, ``hybrid`` (aliases ``rs_da3``,
-``fill_all_holes``, ``hybrid2``). Mesh: ``sam3d`` or ``tsdf``.
+Depth: ``da3``, ``da3_posed``, ``rs``, ``hybrid``. Mesh: ``sam3d`` or ``tsdf``.
 If both DA3 and RS exist, hybrid is always written as a side product.
 
 Layout under ``output/<name>/``: ``scene/`` (images + masks), ``depth/{source}.npz``,
-``meshes/{depth}_{mesh}/``, boards at the dataset root.
+``meshes/{depth}_{mesh}_mesh.glb``, boards at the dataset root.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ from typing import Sequence
 from helpers import (
     DEFAULT_MVSAM,
     DEFAULT_OUT,
-    HYBRID_ALIASES,
     dataset_depth_npz,
     dataset_name_from_input,
     dataset_root,
@@ -27,18 +25,25 @@ from helpers import (
     env_python,
     listed_images,
     load_realsense_depth_stack,
+    mesh_glb_path,
     method_output_slug,
-    normalize_depth_method,
     place_depth_npz,
     realsense_dump_stems,
-    run_output_dir,
     validate_scene,
     write_unposed_rs_npz,
 )
-from methods import depth_da3, depth_da3_posed, depth_rs_da3, mesh_sam3d, mesh_tsdf
+from methods import (
+    depth_da3,
+    depth_da3_posed,
+    depth_hybrid,
+    depth_npz_is_unposed,
+    mesh_sam3d,
+    mesh_tsdf,
+)
 from vis import write_dataset_outputs
 
-DEPTH_METHODS = ("da3", "da3_posed", "rs", "hybrid", *sorted(HYBRID_ALIASES))
+
+DEPTH_METHODS = ("da3", "da3_posed", "rs", "hybrid")
 MESH_METHODS = ("sam3d", "tsdf")
 DEFAULT_MASKS = "masks"
 
@@ -140,7 +145,6 @@ def resolve_depth(
     process_res: int,
 ) -> Path:
     """Return a DA3-style npz for ``method`` under ``depth/{source}.npz``."""
-    method = normalize_depth_method(method)
     if method == "da3":
         dest = dataset_depth_npz(out_dir, dataset, "da3")
         existing = _require_file(da3_npz)
@@ -168,7 +172,7 @@ def resolve_depth(
         if rs_npz is None or da3_npz is None:
             raise RuntimeError("hybrid needs --rs-npz and --da3-npz")
         dest = dataset_depth_npz(out_dir, dataset, "hybrid")
-        return depth_rs_da3(rs_npz, da3_npz, images_dir, dest)
+        return depth_hybrid(rs_npz, da3_npz, images_dir, dest)
     raise ValueError(f"unknown depth method {method!r}")
 
 
@@ -197,7 +201,7 @@ def build_unposed_rs_npz(rs_dump: Path, images_dir: Path, out_npz: Path) -> Path
 def main(argv: Sequence[str] | None = None) -> int:
     """Stage under ``output/<name>/``, build depth, then SAM3D or TSDF unless ``--depth-only``."""
     args = parse_args(argv)
-    method = normalize_depth_method(args.method)
+    method = args.method
     src = args.input.expanduser().resolve()
     if not src.exists():
         raise FileNotFoundError(src)
@@ -210,9 +214,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     scene_dir = dataset_scene_dir(out_root, name)
     images_dir = scene_dir / "images"
     mask_dir = scene_dir / args.masks
-    run_dir = run_output_dir(out_root, name, method_output_slug(method, args.mesh))
+    slug = method_output_slug(method, args.mesh)
+    glb = mesh_glb_path(out_root, name, slug)
 
-    print(f"dataset={root} scene={scene_dir} src={src} out={run_dir} method={method} mesh={args.mesh}", flush=True)
+    print(f"dataset={root} scene={scene_dir} src={src} out={glb} method={method} mesh={args.mesh}", flush=True)
     _stage_processed_scene(input_scene, scene_dir, args.masks)
     validate_scene(scene_dir, args.masks)
 
@@ -256,7 +261,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         da3_posed_side = place_depth_npz(da3_posed_side, dataset_depth_npz(out_root, name, "da3_posed"))
 
     if hybrid_side is None and rs_side is not None and da3_side is not None:
-        hybrid_side = depth_rs_da3(
+        hybrid_side = depth_hybrid(
             rs_side, da3_side, images_dir, dataset_depth_npz(out_root, name, "hybrid"),
         )
     elif hybrid_side is not None:
@@ -264,14 +269,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not args.depth_only:
         if args.mesh == "tsdf":
+            if depth_npz_is_unposed(npz):
+                raise RuntimeError(
+                    f"{npz} is unposed (identity w2c). Multi-view TSDF needs AprilTag "
+                    "(or other) poses; use --mesh sam3d, or --method da3 / da3_posed --mesh tsdf."
+                )
             mesh_tsdf(
-                npz, images_dir, run_dir / "mesh.glb",
+                npz, images_dir, glb,
                 voxel_length=args.voxel_length, sdf_trunc=args.sdf_trunc, depth_trunc=args.depth_trunc,
                 mask_dir=mask_dir, keep_largest=args.keep_largest,
             )
         else:
             mesh_sam3d(
-                scene_dir, args.masks, npz, run_dir, args.mvsam_python, args.mvsam_root,
+                scene_dir, args.masks, npz, glb, args.mvsam_python, args.mvsam_root,
                 merge_da3_glb=args.merge_da3_glb, seal=args.seal, coacd=args.coacd,
             )
     else:

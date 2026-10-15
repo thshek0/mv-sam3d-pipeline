@@ -490,7 +490,10 @@ def write_dataset_outputs(
                 depth_dir / "hybrid_source_map.png",
             )
         )
-    written.append(write_subdir_summary(dataset_dir, "mesh.png"))
+    try:
+        written.append(write_subdir_summary(dataset_dir, "mesh.png"))
+    except FileNotFoundError:
+        print(f"no mesh.png under {dataset_dir} (skip mesh_summary)", flush=True)
     if da3_z is not None or rs_z is not None or posed_z is not None or hy_z is not None:
         written.append(
             write_depth_summary(

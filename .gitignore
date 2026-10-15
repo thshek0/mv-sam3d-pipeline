@@ -17,6 +17,7 @@ intermediate/
 /output/
 /tmp/
 /archive/
+/presentation/
 LOCAL.md
 .pytest_cache/
 *.egg-info/

@@ -107,7 +107,9 @@ def tsdf_from_da3_npz(
         volume.integrate(rgbd, intrinsic, _as_w2c44(exts[i]))
         print(f"tsdf view {i} valid={100.0 * (z > 0).mean():.1f}%", flush=True)
     if mask_dir is not None:
-        write_depth_visibility_preview(depth, images, mask_dir, mesh_path.parent / "depth_visibility_preview.png")
+        slug = mesh_path.name[: -len("_mesh.glb")] if mesh_path.name.endswith("_mesh.glb") else None
+        vis_name = f"{slug}_depth_visibility_preview.png" if slug else "depth_visibility_preview.png"
+        write_depth_visibility_preview(depth, images, mask_dir, mesh_path.parent / vis_name)
     mesh = volume.extract_triangle_mesh()
     if keep_largest:
         mesh = keep_largest_triangle_component(mesh)

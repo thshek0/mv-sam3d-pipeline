@@ -1,22 +1,31 @@
 """Depth and mesh recipes. Compose these; do not subclass.
 
-Depth: ``depth_da3``, ``depth_da3_posed``, ``depth_rs_da3`` (hybrid).
+Depth: ``depth_da3``, ``depth_da3_posed``, ``depth_hybrid``.
 Mesh: ``mesh_sam3d``, ``mesh_tsdf``.
 """
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 from helpers import append_color_legend, listed_images, run_da3, valid_depth, write_pair_preview
-from vis import write_da3_npz
+from vis import _as_w2c44, write_da3_npz
 
 SOURCE_MAP_LEGEND: tuple[tuple[tuple[int, int, int], str], ...] = (
     ((0, 200, 220), "RealSense"),
     ((240, 200, 40), "DA3"),
+)
+
+FLYING_JUMP_M = 0.01
+FREE_MARGIN_M = 0.01
+SCALE_THRESH_M = 0.01
+RANSAC_ITERS = 64
+_NEIGHBOR_OFFSETS: tuple[tuple[int, int], ...] = (
+    (-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1),
 )
 
 
@@ -31,7 +40,7 @@ def resize_depth(depth: np.ndarray, height: int, width: int) -> np.ndarray:
     return np.array(im.resize((width, height), Image.Resampling.NEAREST), dtype=np.float32)
 
 
-def combine_rs_da3(
+def fill_rs_holes(
     rs: np.ndarray, da3: np.ndarray, region: np.ndarray | None = None,
 ) -> tuple[np.ndarray, float]:
     """Keep valid RS; fill RS holes with scaled DA3 (full frame if ``region`` is None)."""
@@ -49,6 +58,166 @@ def combine_rs_da3(
     fill = region & (~rs_valid(out)) & rs_valid(da)
     out[fill] = da[fill] * scale
     return out, scale
+
+
+def drop_flying_pixels(depth: np.ndarray, jump_m: float = FLYING_JUMP_M, min_neighbors: int = 3) -> np.ndarray:
+    """Zero pixels that jump from the median of their valid 3x3 neighbors.
+
+    Isolated valid pixels (fewer than ``min_neighbors``) are dropped too.
+    ``Z = 0`` stays invalid. Nothing is inpainted.
+    """
+    z = np.asarray(depth, dtype=np.float32)
+    valid = valid_depth(z)
+    padded_z = np.pad(z.astype(np.float64), 1, constant_values=np.nan)
+    padded_v = np.pad(valid, 1, constant_values=False)
+    height, width = z.shape
+    samples: list[np.ndarray] = []
+    neighbor_valid: list[np.ndarray] = []
+    for dy, dx in _NEIGHBOR_OFFSETS:
+        y0, x0 = dy + 1, dx + 1
+        samples.append(padded_z[y0 : y0 + height, x0 : x0 + width])
+        neighbor_valid.append(padded_v[y0 : y0 + height, x0 : x0 + width])
+    stack = np.where(np.stack(neighbor_valid, axis=0), np.stack(samples, axis=0), np.nan)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        median = np.nanmedian(stack, axis=0)
+    count = np.stack(neighbor_valid, axis=0).sum(axis=0)
+    flyer = valid & ((count < min_neighbors) | (np.abs(z - median) > jump_m))
+    out = z.copy()
+    out[flyer] = 0.0
+    return out
+
+
+def ransac_scale(
+    rs: np.ndarray, da: np.ndarray, mask: np.ndarray, *,
+    thresh_m: float = SCALE_THRESH_M, n_iter: int = RANSAC_ITERS, seed: int = 0,
+) -> tuple[float, float]:
+    """Fit ``rs ≈ a * da`` on ``mask``. Return ``(a, inlier_fraction)``.
+
+    One-point RANSAC, then the median ratio of the winning inliers. No shift.
+    Empty overlap returns ``(1, 0)``.
+    """
+    ys = np.asarray(rs, dtype=np.float64)[mask]
+    xs = np.asarray(da, dtype=np.float64)[mask]
+    ok = np.isfinite(ys) & np.isfinite(xs) & (xs > 1e-6) & (ys > 0)
+    xs, ys = xs[ok], ys[ok]
+    if xs.size == 0:
+        return 1.0, 0.0
+    if xs.size == 1:
+        return float(ys[0] / xs[0]), 1.0
+    rng = np.random.default_rng(seed)
+    best_a = float(np.median(ys / xs))
+    best_inliers = np.ones(xs.size, dtype=bool)
+    best_count = -1
+    for _ in range(n_iter):
+        index = int(rng.integers(0, xs.size))
+        scale = float(ys[index] / xs[index])
+        if not np.isfinite(scale) or scale <= 0:
+            continue
+        inliers = np.abs(ys - scale * xs) < thresh_m
+        count = int(inliers.sum())
+        if count > best_count:
+            best_count = count
+            best_a = scale
+            best_inliers = inliers
+    if best_count > 0:
+        best_a = float(np.median(ys[best_inliers] / xs[best_inliers]))
+    return best_a, float(best_count / xs.size)
+
+
+def _unproject(u: np.ndarray, v: np.ndarray, z: np.ndarray, k_mat: np.ndarray) -> np.ndarray:
+    """Pinhole unproject pixel columns to camera-frame points ``(M, 3)``."""
+    fx, fy = float(k_mat[0, 0]), float(k_mat[1, 1])
+    cx, cy = float(k_mat[0, 2]), float(k_mat[1, 2])
+    depth = z.astype(np.float64)
+    x = (u.astype(np.float64) - cx) * depth / fx
+    y = (v.astype(np.float64) - cy) * depth / fy
+    return np.stack([x, y, depth], axis=1)
+
+
+def _to_world(points_cam: np.ndarray, ext: np.ndarray) -> np.ndarray:
+    """Map camera-frame points through the inverse of a w2c extrinsic."""
+    c2w = np.linalg.inv(_as_w2c44(ext))
+    homo = np.concatenate([points_cam, np.ones((points_cam.shape[0], 1), dtype=np.float64)], axis=1)
+    return (homo @ c2w.T)[:, :3]
+
+
+def in_free_space(
+    points_world: np.ndarray, rs: np.ndarray, k_mat: np.ndarray, ext: np.ndarray, margin_m: float,
+) -> np.ndarray:
+    """True where a world point is in front of a valid RealSense hit along its ray."""
+    n_pts = points_world.shape[0]
+    free = np.zeros(n_pts, dtype=bool)
+    if n_pts == 0:
+        return free
+    w2c = _as_w2c44(ext)
+    homo = np.concatenate([points_world, np.ones((n_pts, 1), dtype=np.float64)], axis=1)
+    cam = (homo @ w2c.T)[:, :3]
+    z = cam[:, 2]
+    fx, fy = float(k_mat[0, 0]), float(k_mat[1, 1])
+    cx, cy = float(k_mat[0, 2]), float(k_mat[1, 2])
+    safe_z = np.maximum(z, 1e-6)
+    u = np.rint(fx * cam[:, 0] / safe_z + cx).astype(np.int32)
+    v = np.rint(fy * cam[:, 1] / safe_z + cy).astype(np.int32)
+    height, width = rs.shape
+    inside = (z > 0) & (u >= 0) & (v >= 0) & (u < width) & (v < height)
+    if not np.any(inside):
+        return free
+    z_rs = rs[v[inside], u[inside]]
+    z_in = z[inside]
+    closer = valid_depth(z_rs) & (z_in < (z_rs - margin_m))
+    free[np.flatnonzero(inside)[closer]] = True
+    return free
+
+
+def fuse_hybrid(
+    rs_z: np.ndarray, da_z: np.ndarray, obj: np.ndarray, intrinsics: np.ndarray, extrinsics: np.ndarray, *,
+    jump_m: float = FLYING_JUMP_M, free_margin_m: float = FREE_MARGIN_M, scale_thresh_m: float = SCALE_THRESH_M,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fuse cleaned RS with scaled DA. Return ``(depth, scales)``.
+
+    DA fills an object pixel only when that 3D point is not in front of a
+    RealSense measurement in any other view. Rejected pixels stay 0.
+    """
+    rs = np.asarray(rs_z, dtype=np.float32)
+    da = np.asarray(da_z, dtype=np.float32)
+    keep_obj = np.asarray(obj, dtype=bool)
+    if rs.shape != da.shape or rs.shape != keep_obj.shape:
+        raise ValueError(f"shape rs {rs.shape} da {da.shape} obj {keep_obj.shape}")
+    n_view = rs.shape[0]
+    if np.asarray(intrinsics).shape[0] != n_view or np.asarray(extrinsics).shape[0] != n_view:
+        raise ValueError("intrinsics and extrinsics must have one matrix per view")
+    cleaned = np.stack([drop_flying_pixels(rs[i], jump_m=jump_m) for i in range(n_view)], axis=0)
+    fused = np.zeros_like(cleaned)
+    scales = np.ones(n_view, dtype=np.float64)
+    for i in range(n_view):
+        overlap = keep_obj[i] & valid_depth(cleaned[i]) & valid_depth(da[i])
+        scale, inlier_frac = ransac_scale(cleaned[i], da[i], overlap, thresh_m=scale_thresh_m)
+        scales[i] = scale
+        aligned = da[i] * np.float32(scale)
+        keep = keep_obj[i] & valid_depth(cleaned[i])
+        fused[i][keep] = cleaned[i][keep]
+        candidate = keep_obj[i] & (~keep) & valid_depth(aligned)
+        count = int(candidate.sum())
+        rejected = 0
+        if count:
+            vv, uu = np.nonzero(candidate)
+            pts = _to_world(_unproject(uu, vv, aligned[vv, uu], intrinsics[i]), extrinsics[i])
+            free = np.zeros(count, dtype=bool)
+            for j in range(n_view):
+                if j == i:
+                    continue
+                free |= in_free_space(pts, cleaned[j], intrinsics[j], extrinsics[j], free_margin_m)
+            rejected = int(free.sum())
+            accept = ~free
+            fused[i][vv[accept], uu[accept]] = aligned[vv[accept], uu[accept]]
+        flyers = int((keep_obj[i] & valid_depth(rs[i]) & ~valid_depth(cleaned[i])).sum())
+        print(
+            f"view {i:2d} scale={scale:.3f} inliers={inlier_frac:.2f} "
+            f"flyers={flyers} fill={count - rejected} rejected={rejected}",
+            flush=True,
+        )
+    return fused, scales
 
 
 def overlay_source(rgb: Image.Image, rs: np.ndarray, fused: np.ndarray) -> Image.Image:
@@ -108,10 +277,22 @@ def _rs_is_unposed(rs: np.lib.npyio.NpzFile) -> bool:
     return "unposed_rs" in rs.files and bool(np.asarray(rs["unposed_rs"]))
 
 
-def depth_rs_da3(rs_npz: Path, da3_npz: Path, images_dir: Path, out_npz: Path) -> Path:
+def depth_npz_is_unposed(npz: Path) -> bool:
+    """True when the depth npz has identity cameras (no AprilTag / shared poses).
+
+    Multi-view TSDF on such an npz is meaningless: every view shares ``w2c = I``.
+    """
+    raw = np.load(npz)
+    for key in ("unposed_rs", "unposed_hybrid"):
+        if key in raw.files and bool(np.asarray(raw[key])):
+            return True
+    return False
+
+
+def depth_hybrid(rs_npz: Path, da3_npz: Path, images_dir: Path, out_npz: Path) -> Path:
     """Full-frame hybrid: keep valid RS; fill RS holes with scaled DA3.
 
-    Posed RS uses free-space-aware fill (``fuse_hybrid2``); unposed RS is per-view.
+    Posed RS uses free-space-aware fill (``fuse_hybrid``); unposed RS is per-view.
     """
     rs = np.load(rs_npz)
     da = np.load(da3_npz)
@@ -130,7 +311,7 @@ def depth_rs_da3(rs_npz: Path, da3_npz: Path, images_dir: Path, out_npz: Path) -
         fused = np.zeros_like(rs_z)
         scales = np.ones(n_view, dtype=np.float32)
         for i in range(n_view):
-            depth_i, scale = combine_rs_da3(rs_z[i], da_full[i])
+            depth_i, scale = fill_rs_holes(rs_z[i], da_full[i])
             fused[i] = depth_i
             scales[i] = np.float32(scale)
             fill_n = int((~rs_valid(rs_z[i]) & rs_valid(da_full[i])).sum())
@@ -139,10 +320,8 @@ def depth_rs_da3(rs_npz: Path, da3_npz: Path, images_dir: Path, out_npz: Path) -
             "hybrid_scale": scales, "unposed_hybrid": np.asarray(1, dtype=np.int8),
         }
     else:
-        from hybrid2 import fuse_hybrid2
-
         full = np.ones((n_view, height, width), dtype=bool)
-        fused, scale_f = fuse_hybrid2(rs_z, da_full, full, rs["intrinsics"], rs["extrinsics"])
+        fused, scale_f = fuse_hybrid(rs_z, da_full, full, rs["intrinsics"], rs["extrinsics"])
         extras = {"hybrid_scale": scale_f.astype(np.float32)}
 
     write_da3_npz(
@@ -156,7 +335,7 @@ def mesh_sam3d(
     scene_dir: Path,
     masks_name: str,
     npz: Path,
-    run_dir: Path,
+    mesh_glb: Path,
     mvsam_python: str,
     mvsam_root: Path,
     *,
@@ -164,26 +343,30 @@ def mesh_sam3d(
     seal: bool = False,
     coacd: bool = False,
 ) -> Path:
-    """MV-SAM3D on a processed scene + npz. Writes ``run_dir/mesh.glb`` and ``mesh.png``."""
+    """MV-SAM3D on a processed scene + npz. Writes ``{slug}_mesh.glb`` / ``.png``."""
     import shutil
 
-    from helpers import run_mvsam
+    from helpers import mesh_slug_from_glb, run_mvsam
     from post import preview_mesh, seal_mesh, write_coacd
 
     if not mvsam_python:
         raise RuntimeError("Pass --mvsam-python or set MVSAM_PYTHON / SAM3D_PYTHON")
+    mesh_glb = mesh_glb.expanduser()
+    mesh_glb.parent.mkdir(parents=True, exist_ok=True)
     glb = run_mvsam(mvsam_python, mvsam_root, scene_dir, masks_name, npz, merge_da3_glb)
-    raw = run_dir / "mesh.glb"
-    shutil.copy2(glb, raw)
-    preview_mesh(raw, run_dir / "mesh.png")
+    shutil.copy2(glb, mesh_glb)
+    preview_mesh(mesh_glb, mesh_glb.with_suffix(".png"))
     if seal or coacd:
-        closed = seal_mesh(raw)
-        closed.export(run_dir / "sealed.stl")
-        preview_mesh(run_dir / "sealed.stl", run_dir / "sealed.png")
+        slug = mesh_slug_from_glb(mesh_glb)
+        prefix = f"{slug}_" if slug else ""
+        sealed = mesh_glb.parent / f"{prefix}sealed.stl"
+        closed = seal_mesh(mesh_glb)
+        closed.export(sealed)
+        preview_mesh(sealed, sealed.with_suffix(".png"))
         if coacd:
-            write_coacd(closed, run_dir)
-    print(f"DONE → {raw}", flush=True)
-    return raw
+            write_coacd(closed, mesh_glb.parent)
+    print(f"DONE → {mesh_glb}", flush=True)
+    return mesh_glb
 
 
 def mesh_tsdf(

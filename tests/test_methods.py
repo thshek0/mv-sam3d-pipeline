@@ -8,7 +8,14 @@ import numpy as np
 from PIL import Image
 
 from helpers import append_color_legend
-from methods import SOURCE_MAP_LEGEND, combine_rs_da3, overlay_source, resize_depth, rs_valid
+from methods import (
+    SOURCE_MAP_LEGEND,
+    depth_npz_is_unposed,
+    fill_rs_holes,
+    overlay_source,
+    resize_depth,
+    rs_valid,
+)
 
 
 def _lid() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -25,9 +32,28 @@ def _lid() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return obj, rs, da3
 
 
+def test_depth_npz_is_unposed_flags(tmp_path: Path) -> None:
+    """``unposed_rs`` / ``unposed_hybrid`` mark identity-camera npzs."""
+    from vis import write_da3_npz
+
+    images = tmp_path / "images"
+    images.mkdir()
+    Image.new("RGB", (4, 4), (1, 2, 3)).save(images / "0.png")
+    z = np.ones((1, 4, 4), dtype=np.float32)
+    k_mat = np.eye(3, dtype=np.float32)[None, ...]
+    ext = np.eye(4, dtype=np.float32)[:3][None, ...]
+    posed = write_da3_npz(tmp_path / "posed.npz", z, ext, k_mat, [images / "0.png"], process_res=4)
+    assert not depth_npz_is_unposed(posed)
+    unposed = write_da3_npz(
+        tmp_path / "rs.npz", z, ext, k_mat, [images / "0.png"], process_res=4,
+        extras={"unposed_rs": np.asarray(1, dtype=np.int8)},
+    )
+    assert depth_npz_is_unposed(unposed)
+
+
 def test_unposed_hybrid_uses_per_view_fill(tmp_path: Path) -> None:
     """Unposed RS + DA3 hybrid keeps RS and fills holes without free-space poses."""
-    from methods import depth_rs_da3
+    from methods import depth_hybrid
     from vis import write_da3_npz
 
     images = tmp_path / "images"
@@ -44,17 +70,17 @@ def test_unposed_hybrid_uses_per_view_fill(tmp_path: Path) -> None:
         tmp_path / "da.npz", da_z[None, ...], ext[None, ...], k_mat[None, ...],
         [images / "0.png"], process_res=8,
     )
-    out = depth_rs_da3(rs_npz, da_npz, images, tmp_path / "hybrid.npz")
+    out = depth_hybrid(rs_npz, da_npz, images, tmp_path / "hybrid.npz")
     raw = np.load(out)
     assert int(raw["unposed_hybrid"]) == 1
     assert abs(float(raw["depth"][0, 1, 2]) - 1.0) < 1e-5
     assert abs(float(raw["depth"][0, 2, 2]) - 1.0) < 1e-5
 
 
-def test_combine_keeps_rs_and_fills_object_holes() -> None:
+def test_fill_rs_holes_keeps_rs_and_fills_object_holes() -> None:
     """Valid RS stays; object holes get scaled DA3; outside region keeps RS."""
     obj, rs, da3 = _lid()
-    depth, scale = combine_rs_da3(rs, da3, obj)
+    depth, scale = fill_rs_holes(rs, da3, obj)
     assert abs(scale - 1.0) < 1e-5
     assert abs(float(depth[1, 2]) - 1.0) < 1e-5
     assert abs(float(depth[2, 2]) - 1.0) < 1e-5
@@ -62,22 +88,22 @@ def test_combine_keeps_rs_and_fills_object_holes() -> None:
     assert float(depth[0, 0]) == 0.0
 
 
-def test_combine_full_frame_fills_all_rs_holes() -> None:
+def test_fill_rs_holes_full_frame() -> None:
     """With no region, RS holes anywhere are filled with scaled DA3."""
     rs = np.array([[2.0, 0.0], [0.0, 0.0]], dtype=np.float32)
     da3 = np.array([[1.0, 1.0], [1.0, 1.5]], dtype=np.float32)
-    depth, scale = combine_rs_da3(rs, da3)
+    depth, scale = fill_rs_holes(rs, da3)
     assert abs(scale - 2.0) < 1e-5
     assert abs(float(depth[0, 0]) - 2.0) < 1e-5
     assert abs(float(depth[0, 1]) - 2.0) < 1e-5
     assert abs(float(depth[1, 1]) - 3.0) < 1e-5
 
 
-def test_combine_scales_da3_to_rs() -> None:
+def test_fill_rs_holes_scales_da3_to_rs() -> None:
     """Overlap median RS/DA3 is applied to filled pixels."""
     rs = np.array([[2.0, 2.0], [0.0, 0.0]], dtype=np.float32)
     da3 = np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float32)
-    depth, scale = combine_rs_da3(rs, da3)
+    depth, scale = fill_rs_holes(rs, da3)
     assert abs(scale - 2.0) < 1e-5
     assert abs(float(depth[1, 0]) - 2.0) < 1e-5
 

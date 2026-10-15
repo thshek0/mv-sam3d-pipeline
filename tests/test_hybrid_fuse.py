@@ -1,10 +1,10 @@
-"""hybrid2 fuse: drop flying pixels, RANSAC scale, reject DA in free space."""
+"""Hybrid fuse: drop flying pixels, RANSAC scale, reject DA in free space."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from hybrid2 import drop_flying_pixels, fuse_hybrid2, ransac_scale
+from methods import drop_flying_pixels, fuse_hybrid, ransac_scale
 
 
 def _cameras(n_view: int = 2) -> tuple[np.ndarray, np.ndarray]:
@@ -38,7 +38,7 @@ def test_ransac_scale_ignores_one_outlier() -> None:
     assert inlier_frac > 0.9
 
 
-def test_hybrid2_rejects_da_in_front_of_other_view() -> None:
+def test_fuse_hybrid_rejects_da_in_front_of_other_view() -> None:
     """A closer DA sample on an RS hole is dropped when the other view saw past it."""
     ks, ext = _cameras()
     rs = np.full((2, 8, 8), 2.0, dtype=np.float32)
@@ -46,13 +46,13 @@ def test_hybrid2_rejects_da_in_front_of_other_view() -> None:
     rs[0, 3, 3] = 0.0
     da[0, 3, 3] = 0.5
     obj = np.ones((2, 8, 8), dtype=bool)
-    fused, scales = fuse_hybrid2(rs, da, obj, ks, ext, jump_m=0.05)
+    fused, scales = fuse_hybrid(rs, da, obj, ks, ext, jump_m=0.05)
     assert abs(float(scales[0]) - 2.0) < 1e-6
     assert float(fused[0, 3, 3]) == 0.0
     assert abs(float(fused[0, 3, 4]) - 2.0) < 1e-5
 
 
-def test_hybrid2_keeps_da_that_meets_the_other_view() -> None:
+def test_fuse_hybrid_keeps_da_that_meets_the_other_view() -> None:
     """DA on a hole is kept when its depth lands on the other view's surface."""
     ks, ext = _cameras()
     rs = np.full((2, 8, 8), 2.0, dtype=np.float32)
@@ -60,18 +60,18 @@ def test_hybrid2_keeps_da_that_meets_the_other_view() -> None:
     rs[0, 3, 3] = 0.0
     obj = np.ones((2, 8, 8), dtype=bool)
     obj[:, 0, 0] = False
-    fused, _scales = fuse_hybrid2(rs, da, obj, ks, ext, jump_m=0.05)
+    fused, _scales = fuse_hybrid(rs, da, obj, ks, ext, jump_m=0.05)
     assert abs(float(fused[0, 3, 3]) - 2.0) < 1e-5
     assert float(fused[0, 0, 0]) == 0.0
 
 
-def test_hybrid2_replaces_a_flying_pixel_with_scaled_da() -> None:
+def test_fuse_hybrid_replaces_a_flying_pixel_with_scaled_da() -> None:
     """A spike is not kept; scaled DA may rewrite it when it is not free space."""
     ks, ext = _cameras()
     rs = np.full((2, 8, 8), 2.0, dtype=np.float32)
     da = np.ones((2, 8, 8), dtype=np.float32)
     rs[0, 4, 4] = 3.0
     obj = np.ones((2, 8, 8), dtype=bool)
-    fused, _scales = fuse_hybrid2(rs, da, obj, ks, ext, jump_m=0.01)
+    fused, _scales = fuse_hybrid(rs, da, obj, ks, ext, jump_m=0.01)
     assert abs(float(fused[0, 4, 4]) - 2.0) < 1e-5
     assert abs(float(fused[0, 4, 5]) - 2.0) < 1e-5

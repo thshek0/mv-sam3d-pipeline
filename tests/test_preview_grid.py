@@ -36,8 +36,8 @@ def test_write_pair_preview_always_three_columns() -> None:
         assert im.size == (PREVIEW_COLS * PREVIEW_THUMB * 2, PREVIEW_THUMB)
 
 
-def test_save_tag_preview_is_pairwise() -> None:
-    """Tags preview is photo | overlay and includes every still."""
+def test_save_tag_preview_is_overlay_only() -> None:
+    """Tags preview is overlay-only (no raw photo column) for every still."""
     with tempfile.TemporaryDirectory() as tmp_s:
         root = Path(tmp_s)
         images = []
@@ -56,7 +56,7 @@ def test_save_tag_preview_is_pairwise() -> None:
         out = root / "tags_preview.png"
         save_tag_preview(images, dets, out, ks=[k_mat] * 4)
         im = Image.open(out)
-        assert im.size == (PREVIEW_COLS * PREVIEW_THUMB * 2, 2 * PREVIEW_THUMB)
+        assert im.size == (PREVIEW_COLS * PREVIEW_THUMB, 2 * PREVIEW_THUMB)
         marked = overlay_tags(Image.open(images[0]), dets[0], k_mat)
         arr = np.asarray(marked)
         base = np.asarray(Image.open(images[0]))
@@ -92,7 +92,7 @@ def test_depth_visibility_preview_is_pairwise() -> None:
 
 
 def test_subdir_summary_stacks_vertically(tmp_path: Path) -> None:
-    """Two subfolders become two rows, one column."""
+    """Non-mesh filenames stay one column, one row per folder."""
     (tmp_path / "left").mkdir()
     (tmp_path / "right").mkdir()
     Image.new("RGB", (24, 12), (200, 20, 20)).save(tmp_path / "left" / "foo.png")
@@ -100,6 +100,18 @@ def test_subdir_summary_stacks_vertically(tmp_path: Path) -> None:
     out = write_subdir_summary(tmp_path, "foo.png")
     image = Image.open(out)
     assert image.size[1] >= MESH_SUMMARY_CELL[1] * 2
+
+
+def test_mesh_summary_is_two_by_three(tmp_path: Path) -> None:
+    """mesh.png summary is sam3d|tsdf columns × da3|rs|hybrid rows."""
+    meshes = tmp_path / "meshes"
+    meshes.mkdir()
+    for slug in ("da3_sam3d", "da3_tsdf", "rs_tsdf", "hybrid_sam3d"):
+        Image.new("RGB", (32, 16), (80, 80, 80)).save(meshes / f"{slug}_mesh.png")
+    out = write_subdir_summary(tmp_path, "mesh.png")
+    image = Image.open(out)
+    assert image.size[0] >= MESH_SUMMARY_CELL[0] * 2
+    assert image.size[1] >= MESH_SUMMARY_CELL[1] * 3
 
 
 def test_depth_summary_is_present_columns_max_six_views(tmp_path: Path) -> None:
@@ -133,7 +145,7 @@ def test_depth_summary_only_existing_columns(tmp_path: Path) -> None:
 
 
 def test_reorganize_method_folders_renames_and_keeps_mesh(tmp_path: Path) -> None:
-    """Old posed/hybrid folders become *_sam3d / *_tsdf; only mesh files stay."""
+    """Old posed folders flatten to ``{slug}_mesh.glb`` / ``.png``; junk dropped."""
     posed = tmp_path / "posed"
     posed.mkdir()
     Image.new("RGB", (4, 4), (10, 10, 10)).save(posed / "mesh.png")
@@ -143,11 +155,10 @@ def test_reorganize_method_folders_renames_and_keeps_mesh(tmp_path: Path) -> Non
     leftover.mkdir()
     (leftover / "source.png").write_bytes(b"y")
     log = reorganize_method_folders(tmp_path)
-    dest = tmp_path / "da3_posed_sam3d"
-    assert dest.is_dir()
-    assert (dest / "mesh.png").is_file()
-    assert (dest / "mesh.glb").is_file()
-    assert not (dest / "depth_preview.png").exists()
+    assert (tmp_path / "da3_posed_sam3d_mesh.png").is_file()
+    assert (tmp_path / "da3_posed_sam3d_mesh.glb").is_file()
+    assert not (tmp_path / "da3_posed_sam3d").exists()
+    assert not (tmp_path / "da3_posed_sam3d_depth_preview.png").exists()
     assert not posed.exists()
     assert (leftover / "source.png").is_file()
     assert any("rename posed" in line for line in log)

@@ -44,7 +44,7 @@ flowchart LR
 
 ![Reconstructed gripper](examples/gripper/output/mesh.png)
 
-[`examples/gripper/output/mesh.glb`](examples/gripper/output/mesh.glb) is a checked-in result. The CLI writes `output/<name>/meshes/{depth}_{mesh}/mesh.glb`.
+[`examples/gripper/output/mesh.glb`](examples/gripper/output/mesh.glb) is a checked-in result. The CLI writes `output/<name>/meshes/{depth}_{mesh}_mesh.glb`.
 
 ## Data Format
 
@@ -59,7 +59,7 @@ examples/gripper/
 output/<name>/
   scene/                     # images/ + masks/ (staged)
   depth/                     # *.npz + *depthmap* / *valid* / source_map
-  meshes/                    # {depth}_{mesh}/ e.g. da3_sam3d/, hybrid_tsdf/
+  meshes/                    # flat {depth}_{mesh}_mesh.glb (+ _mesh.png)
   depth_summary.png          # summaries + masks_preview at dataset root
   mesh_summary.png
 ```
@@ -68,7 +68,7 @@ output/<name>/
 
 A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `images/` + masks with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
 
-`depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay on `output/<name>/`. Mesh folders keep `mesh.glb` + `mesh.png`.
+`depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay on `output/<name>/`. Meshes are flat under `meshes/` as `{slug}_mesh.glb` + `{slug}_mesh.png` (e.g. `da3_sam3d_mesh.glb`).
 
 `src/capture_realsense.py` writes `dataset/captures_*` (SPACE to save). With tags: `convert_realsense_dump` → `tags.convert_apriltag_to_da3_npz` → crop. Without tags: `--rs-dump` builds an unposed RS npz. `src/tsdf.py` fuses metric depth (optional masks). `src/da3_posed.py` runs DA3 with known `w2c` + `K`. Download `mesh.glb`; `mesh.png` is the three-view still.
 
@@ -102,18 +102,18 @@ flowchart LR
 - **da3** — pose-free DA3. RGB + masks only.
 - **da3_posed** — DA3 with AprilTag cameras (`--pose-npz`).
 - **rs** — D415 Z. With tags: shared poses. Without tags: depth + K, identity extrinsics (boards / per-view).
-- **hybrid** — full-frame: keep valid RS, fill RS holes with scaled DA3. Posed RS also rejects DA in free space carved by another view. Aliases: `rs_da3`, `fill_all_holes`, `hybrid2` → `meshes/hybrid_*`.
+- **hybrid** — full-frame: keep valid RS, fill RS holes with scaled DA3. Posed RS also rejects DA in free space carved by another view.
 
 When both DA3 and RS npzs exist, the pipeline always writes `depth/hybrid.npz` as a side product.
 
 ## Mesh
 
-`--mesh sam3d` (default) is MV-SAM3D generation. `--mesh tsdf` is Open3D TSDF on the same npz.
+`--mesh sam3d` (default) is MV-SAM3D generation (`meshes/{depth}_sam3d_mesh.glb`, including `rs_sam3d` when `--method rs`). `--mesh tsdf` is Open3D multi-view TSDF on the same npz — it **requires real extrinsics**. Unposed RS / hybrid (no AprilTags, identity `w2c`) is rejected; use SAM3D or `da3` / `da3_posed` TSDF instead.
 
 | You have | Run |
 |---|---|
-| RGB + masks only | `--method da3 --mesh sam3d` |
-| RS dump, no tags | `--rs-dump …` (unposed RS) + optional `--method hybrid` |
+| RGB + masks only | `--method da3 --mesh sam3d` (or `--mesh tsdf` — DA3 poses) |
+| RS dump, no tags | `--rs-dump …` + `--method da3` / `hybrid` + `--mesh sam3d` (not TSDF on RS/hybrid) |
 | Tags, closed box | `--method da3_posed --mesh sam3d` |
 | Tags + RS, measured holes | `--method rs --mesh tsdf` |
 | Tags + RS, fill RS holes | `--method hybrid --mesh tsdf` |
@@ -138,11 +138,35 @@ export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
 python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Writes `output/gripper/` (`scene/images/`, `scene/object/` or `scene/masks/`, `depth/da3.npz`, `meshes/da3_sam3d/mesh.glb`). New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
+Writes `output/gripper/` (`scene/images/`, `scene/object/` or `scene/masks/`, `depth/da3.npz`, `meshes/da3_sam3d_mesh.glb`). New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
 
 ```bash
 python -m pytest tests
 ```
+
+## New dataset (`dataset/<name>/`)
+
+After capture + LabelMe (or a processed `images/`+`masks/` scene), run one command. It builds every **valid** depth × mesh for the mode and refreshes summaries (including after each mesh).
+
+```bash
+export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
+NAME=my_capture
+PY=.venv/bin/python
+
+$PY src/run_dataset.py $NAME all --rs --tags       # RealSense + AprilTags
+$PY src/run_dataset.py $NAME all --rs --unposed    # RealSense, no tags
+$PY src/run_dataset.py $NAME all --no-rs           # RGB+masks only → da3
+```
+
+Optional filters: `--depth da3,hybrid` `--mesh sam3d,tsdf`. Steps also work one at a time: `ingest`, `rs`, `da3`, `da3_posed`, `hybrid`, `mesh DEPTH MESH`, `summarize`.
+
+| Mode | Depths | Meshes |
+|---|---|---|
+| `--no-rs` | `da3` | `da3` × sam3d/tsdf |
+| `--rs --unposed` | `rs`, `da3`, `hybrid` | `da3` × sam3d/tsdf, `rs_sam3d`, `hybrid_sam3d` (no rs/hybrid TSDF) |
+| `--rs --tags` | `rs`, `da3`, `hybrid`, `da3_posed` | all × sam3d/tsdf |
+
+Outputs under `output/<name>/`: `dataset_summary.png` (full-frame dump RGBs), `masks_preview.png`, `tags_preview.png` (full-frame overlay + axes when `--tags`), `depth_summary.png`, `mesh_summary.png` (2×3: columns sam3d|tsdf, rows da3|rs|hybrid; da3 row prefers `da3_posed` when tags). Mesh work uses mask-cropped `scene/images/`.
 
 ## Seal and CoACD
 

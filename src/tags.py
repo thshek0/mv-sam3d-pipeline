@@ -8,7 +8,6 @@ from typing import Callable, Mapping, Sequence
 import numpy as np
 from PIL import Image, ImageDraw
 
-from helpers import write_pair_preview
 from vis import write_da3_npz
 
 CornerKey = tuple[int, int]
@@ -183,17 +182,19 @@ def save_tag_preview(
     out_png: Path,
     ks: Sequence[np.ndarray] | None = None,
 ) -> Path:
-    """Write a 3-column photo | tags grid with every dataset view."""
+    """Write an overlay-only grid (tag quads + ids + axes); no raw photo column."""
+    from helpers import write_thumb_grid
+
     if len(images) != len(detections):
         raise ValueError(f"images/detections length mismatch: {len(images)}, {len(detections)}")
     if ks is not None and len(ks) != len(images):
         raise ValueError(f"ks length {len(ks)} != {len(images)}")
-    pairs: list[tuple[Image.Image, Image.Image, str, str]] = []
+    cells: list[tuple[Image.Image, str]] = []
     for i, (path, det) in enumerate(zip(images, detections)):
         rgb = Image.open(path).convert("RGB")
         k_mat = None if ks is None else np.asarray(ks[i])
-        pairs.append((rgb, overlay_tags(rgb, det, k_mat), f"{i} photo", f"{i} tags"))
-    write_pair_preview(pairs, out_png)
+        cells.append((overlay_tags(rgb, det, k_mat), f"{i} tags"))
+    write_thumb_grid(cells, out_png)
     print(f"tags preview → {out_png}", flush=True)
     return out_png
 

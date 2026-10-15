@@ -37,13 +37,13 @@ def test_resolve_da3_uses_existing_npz() -> None:
         assert got.is_file()
 
 
-def test_resolve_rs_da3_needs_both_npzs() -> None:
-    """``rs_da3`` without both npzs raises."""
+def test_resolve_hybrid_needs_both_npzs() -> None:
+    """``hybrid`` without both npzs raises."""
     with tempfile.TemporaryDirectory() as tmp_s:
         root = Path(tmp_s)
         try:
             resolve_depth(
-                "rs_da3",
+                "hybrid",
                 images_dir=root, out_dir=root, dataset="toy",
                 mvsam_root=root, da3_python=None, da3_npz=None, rs_npz=None, pose_npz=None, process_res=8,
             )

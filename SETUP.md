@@ -5,8 +5,9 @@ Converters run in this repo’s `.venv` (Pillow, tests). rembg, DA3, and MV-SAM3
 Driver scripts are in `src/`. Tests are in `tests/` (`pytest.ini` sets `pythonpath = src`). `env/` is **committed** (pip freezes + `camera_lock.json`). `patches/mv-sam3d.patch` is still required. Weights, clones, and `.venv` are gitignored. Leave existing checkpoints on disk; do not delete them.
 
 ```text
-src/pipeline.py           CLI (depth method + mesh method)
-src/methods.py            depth_da3 / da3_posed / hybrid, mesh_sam3d / mesh_tsdf
+src/run_dataset.py        dataset runner (ingest → depth → mesh matrix)
+src/pipeline.py           single-method CLI (depth + mesh)
+src/methods.py            depth_da3 / da3_posed / hybrid (fuse), mesh_sam3d / mesh_tsdf
 src/helpers.py            ingest, masks, crop, subprocesses
 src/capture_realsense.py  D415 SPACE dump
 src/tags.py src/tsdf.py src/da3_posed.py src/post.py src/vis.py src/time_run.py
@@ -141,7 +142,7 @@ source .venv/bin/activate
 python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gripper/meshes/da3_sam3d/mesh.glb` and `mesh.png`. Missing DA3/npz raises; it does not skip.
+Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gripper/meshes/da3_sam3d_mesh.glb` and `da3_sam3d_mesh.png`. Missing DA3/npz raises; it does not skip.
 
 Optional closed solid + convex parts (CoACD `t=0.05`):
 
@@ -149,7 +150,7 @@ Optional closed solid + convex parts (CoACD `t=0.05`):
 python src/pipeline.py -i examples/gripper/processed --masks object --seal --coacd
 ```
 
-`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Ingest helpers live in `helpers`; depth/mesh recipes in `methods`. `src/pipeline.py --method` is `da3` (default), `da3_posed`, `rs`, or `hybrid`; `--mesh` is `sam3d` or `tsdf`. Results land in `output/<name>/{scene,depth,meshes}/`. `src/time_run.py` times `da3` → SAM3D. Thin CLIs: `tags`, `tsdf`, `da3_posed`, `capture_realsense`. Live tag detect needs OpenCV in `SAM3D_PYTHON`.
+`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Ingest helpers live in `helpers`; depth/mesh recipes in `methods`. New dumps: `src/run_dataset.py NAME all --rs --tags|--unposed` (or `--no-rs`). `src/pipeline.py --method` is `da3` (default), `da3_posed`, `rs`, or `hybrid`; `--mesh` is `sam3d` or `tsdf` (TSDF refused on unposed RS/hybrid). Results land in `output/<name>/{scene,depth,meshes}/`. `src/time_run.py` times `da3` → SAM3D. Thin CLIs: `tags`, `tsdf`, `da3_posed`, `capture_realsense`. Live tag detect needs OpenCV in `SAM3D_PYTHON`.
 
 D415 capture needs `pyrealsense2` on the camera machine (not the repo `.venv`):
 

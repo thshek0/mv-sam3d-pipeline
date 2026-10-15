@@ -22,21 +22,34 @@ DEFAULT_MVSAM = REPO / "MV-SAM3D"
 DEFAULT_DATASET = REPO / "dataset"
 DEFAULT_OUT = REPO / "output"
 
-HYBRID_ALIASES = frozenset({"rs_da3", "fill_all_holes", "hybrid2"})
 SCENE_DIR_NAMES = frozenset({"processed", "scene"})
 DEPTH_SOURCES = ("da3", "da3_posed", "rs", "hybrid")
 
 
-def normalize_depth_method(method: str) -> str:
-    """Map hybrid aliases to the canonical ``hybrid`` name."""
-    return "hybrid" if method == "hybrid" or method in HYBRID_ALIASES else method
-
-
 def method_output_slug(depth_method: str, mesh_method: str = "sam3d") -> str:
-    """Mesh folder name ``{depth}_{mesh}`` under ``output/<dataset>/meshes/``."""
-    depth = normalize_depth_method(depth_method)
+    """Mesh slug ``{depth}_{mesh}`` for flat files under ``meshes/``."""
     suffix = "sam3d" if mesh_method == "sam3d" else mesh_method
-    return f"{depth}_{suffix}"
+    return f"{depth_method}_{suffix}"
+
+
+def mesh_artifact_path(meshes_dir: Path, slug: str, artifact: str) -> Path:
+    """Return ``meshes/{slug}_{artifact}`` (e.g. ``da3_sam3d_mesh.glb``)."""
+    return meshes_dir / f"{slug}_{artifact}"
+
+
+def mesh_glb_path(out_dir: Path, dataset: str, method_slug: str) -> Path:
+    """Return ``output/<dataset>/meshes/{slug}_mesh.glb`` and create ``meshes/``."""
+    meshes = dataset_meshes_dir(out_dir, dataset)
+    meshes.mkdir(parents=True, exist_ok=True)
+    return mesh_artifact_path(meshes, method_slug, "mesh.glb")
+
+
+def mesh_slug_from_glb(mesh_path: Path) -> str | None:
+    """Parse ``{slug}`` from ``{slug}_mesh.glb``, else ``None``."""
+    name = mesh_path.name
+    if name.endswith("_mesh.glb"):
+        return name[: -len("_mesh.glb")]
+    return None
 
 
 def dataset_name_from_input(src: Path) -> str:
@@ -102,8 +115,9 @@ def depth_rmse(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def run_output_dir(out_dir: Path, dataset: str, method_slug: str) -> Path:
-    """Return ``output/<dataset>/meshes/<slug>/`` and create it."""
-    path = dataset_meshes_dir(out_dir, dataset) / method_slug
+    """Deprecated alias: ensure ``meshes/`` and return it (flat ``{slug}_*`` files)."""
+    _ = method_slug
+    path = dataset_meshes_dir(out_dir, dataset)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -320,6 +334,34 @@ def _fit_thumb(im: Image.Image, thumb: int) -> Image.Image:
     return cell
 
 
+def write_thumb_grid(
+    cells: Sequence[tuple[Image.Image, str]],
+    out_png: Path,
+    *,
+    thumb: int = PREVIEW_THUMB,
+    cols: int = PREVIEW_COLS,
+) -> Path:
+    """Write a labeled thumbnail grid (one image per cell)."""
+    if cols < 1:
+        raise ValueError(f"cols must be >= 1, got {cols}")
+    if not cells:
+        raise ValueError("need at least one cell")
+    rows = (len(cells) + cols - 1) // cols
+    grid = Image.new("RGB", (cols * thumb, rows * thumb), (14, 14, 16))
+    draw = ImageDraw.Draw(grid)
+    font = ImageFont.load_default()
+    for i, (im, label) in enumerate(cells):
+        r, c = divmod(i, cols)
+        cell = _fit_thumb(im, thumb)
+        ImageDraw.Draw(cell).text((8, thumb - 18), label, fill=(220, 220, 220), font=font)
+        x0, y0 = c * thumb, r * thumb
+        grid.paste(cell, (x0, y0))
+        draw.rectangle((x0, y0, x0 + thumb - 1, y0 + thumb - 1), outline=(60, 60, 64))
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    grid.save(out_png)
+    return out_png
+
+
 def write_pair_preview(
     pairs: Sequence[tuple[Image.Image, Image.Image, str, str]],
     out_png: Path,
@@ -352,17 +394,39 @@ def write_pair_preview(
     return out_png
 
 
+def write_dataset_summary(
+    images: Sequence[Path],
+    out_png: Path,
+    *,
+    thumb: int = PREVIEW_THUMB,
+    cols: int = PREVIEW_COLS,
+) -> Path:
+    """Contact sheet of raw RGB views only (no masks / depth / mesh)."""
+    if not images:
+        raise ValueError("need at least one image")
+    cells = [
+        (Image.open(path).convert("RGB"), path.stem)
+        for path in images
+    ]
+    written = write_thumb_grid(cells, out_png, thumb=thumb, cols=cols)
+    print(f"dataset summary → {written}", flush=True)
+    return written
+
+
 SUMMARY_CELL = (520, 300)
-MESH_SUMMARY_CELL = (1100, 280)
+MESH_SUMMARY_CELL = (520, 300)
+MESH_SUMMARY_ROWS: tuple[str, ...] = ("da3", "rs", "hybrid")
+MESH_SUMMARY_COLS: tuple[str, ...] = ("sam3d", "tsdf")
+# Legacy one-column order (migrations / extras).
 MESH_SUMMARY_ORDER: tuple[str, ...] = (
     "da3_posed_sam3d",
-    "hybrid_sam3d",
     "da3_sam3d",
     "rs_sam3d",
+    "hybrid_sam3d",
     "da3_posed_tsdf",
-    "hybrid_tsdf",
     "da3_tsdf",
     "rs_tsdf",
+    "hybrid_tsdf",
 )
 METHOD_FOLDER_RENAMES: dict[str, str] = {
     "posed": "da3_posed_sam3d",
@@ -374,6 +438,13 @@ METHOD_FOLDER_RENAMES: dict[str, str] = {
     "tsdf": "rs_tsdf",
 }
 MESH_KEEP_NAMES: frozenset[str] = frozenset({"mesh.glb", "mesh.png", "mesh.stl"})
+MESH_FLAT_EXTRA: frozenset[str] = frozenset({
+    "depth_visibility_preview.png",
+    "sealed.stl",
+    "sealed.png",
+    "convex_parts.stl",
+    "convex_parts.png",
+})
 DEPTH_BOARD_NAMES: tuple[str, ...] = (
     "da3_depthmap.png",
     "da3_valid.png",
@@ -468,8 +539,38 @@ def mesh_scan_root(dataset_dir: Path) -> Path:
     return meshes if meshes.is_dir() else dataset_dir
 
 
+def _flatten_mesh_folder(folder: Path, *, mesh_only: bool) -> list[str]:
+    """Move ``folder/{mesh.glb,…}`` to ``parent/{folder.name}_mesh.glb`` and remove folder."""
+    log: list[str] = []
+    keep = set(MESH_KEEP_NAMES) | set(MESH_FLAT_EXTRA)
+    if mesh_only:
+        for path in list(folder.iterdir()):
+            if path.is_dir():
+                continue
+            if path.name not in keep:
+                path.unlink()
+                log.append(f"drop {folder.name}/{path.name}")
+    for name in sorted(keep):
+        src = folder / name
+        if not src.is_file():
+            continue
+        dest = folder.parent / f"{folder.name}_{name}"
+        if dest.exists():
+            log.append(f"keep {dest.name} (already exists, left {folder.name}/{name})")
+            continue
+        src.rename(dest)
+        log.append(f"flatten {folder.name}/{name} → {dest.name}")
+    leftovers = [p for p in folder.iterdir()]
+    if leftovers:
+        log.append(f"keep {folder.name}/ ({len(leftovers)} leftover)")
+    else:
+        folder.rmdir()
+        log.append(f"drop {folder.name}/")
+    return log
+
+
 def reorganize_method_folders(dataset_dir: Path, *, mesh_only: bool = True) -> list[str]:
-    """Rename mesh folders to ``<depth>_sam3d`` / ``<depth>_tsdf`` and drop previews.
+    """Rename legacy mesh folders, flatten to ``{slug}_mesh.glb``, drop junk.
 
     Operates under ``meshes/`` when that folder exists. Does not touch ``rs_da3``.
     """
@@ -487,17 +588,59 @@ def reorganize_method_folders(dataset_dir: Path, *, mesh_only: bool = True) -> l
             continue
         src.rename(dest)
         log.append(f"rename {old} → {new}")
-    if mesh_only:
-        skip = {"rs_da3"}
-        for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name not in skip):
-            if not any((folder / name).is_file() for name in MESH_KEEP_NAMES):
-                continue
-            for path in list(folder.iterdir()):
-                if path.name in MESH_KEEP_NAMES or path.is_dir():
-                    continue
-                path.unlink()
-                log.append(f"drop {folder.name}/{path.name}")
+    skip = {"rs_da3"}
+    for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name not in skip):
+        if not any((folder / name).is_file() for name in MESH_KEEP_NAMES):
+            continue
+        log.extend(_flatten_mesh_folder(folder, mesh_only=mesh_only))
     return log
+
+
+def _mesh_summary_cell(root: Path, depth: str, mesh: str, filename: str) -> Path | None:
+    """Resolve ``meshes/{depth}_{mesh}_{filename}``, preferring ``da3_posed`` for da3."""
+    candidates = [f"{depth}_{mesh}"]
+    if depth == "da3":
+        candidates = [f"da3_posed_{mesh}", f"da3_{mesh}"]
+    for slug in candidates:
+        flat = root / f"{slug}_{filename}"
+        if flat.is_file():
+            return flat
+        nested = root / slug / filename
+        if nested.is_file():
+            return nested
+    return None
+
+
+def write_mesh_summary(
+    dataset_dir: Path,
+    filename: str = "mesh.png",
+    out_png: Path | None = None,
+    *,
+    scan_dir: Path | None = None,
+) -> Path:
+    """Fixed 2×3 grid: columns ``sam3d|tsdf``, rows ``da3|rs|hybrid``.
+
+    The ``da3`` row prefers ``da3_posed_*`` when present (AprilTag cameras).
+    Missing cells stay blank.
+    """
+    dataset_dir = dataset_dir.expanduser()
+    root = scan_dir.expanduser() if scan_dir is not None else mesh_scan_root(dataset_dir)
+    paths = [
+        [_mesh_summary_cell(root, depth, mesh, filename) for mesh in MESH_SUMMARY_COLS]
+        for depth in MESH_SUMMARY_ROWS
+    ]
+    if not any(cell is not None for row in paths for cell in row):
+        raise FileNotFoundError(f"no {filename} under {root}/")
+    dest = out_png if out_png is not None else dataset_dir / f"{Path(filename).stem}_summary.png"
+    row_labels: list[str] = []
+    for depth, row in zip(MESH_SUMMARY_ROWS, paths):
+        hit = next((p for p in row if p is not None), None)
+        hit_name = hit.name if hit is not None else ""
+        if depth == "da3" and hit_name.startswith("da3_posed"):
+            row_labels.append("da3_posed")
+        else:
+            row_labels.append(depth)
+    return write_summary_grid(dest, list(MESH_SUMMARY_COLS), row_labels, paths, cell=MESH_SUMMARY_CELL)
 
 
 def write_subdir_summary(
@@ -508,24 +651,35 @@ def write_subdir_summary(
     order: Sequence[str] | None = None,
     scan_dir: Path | None = None,
 ) -> Path:
-    """Stack ``filename`` from each mesh subfolder, one row per folder.
+    """Write a summary of mesh artifacts (flat ``{slug}_{filename}`` or legacy folders).
 
-    Scans ``scan_dir``, or ``dataset/meshes/`` when present, else immediate children.
-    The summary PNG is written on ``dataset_dir`` by default.
+    ``mesh.png`` uses the fixed 2×3 mesh grid; other names stay one row per slug.
     """
+    if filename == "mesh.png" and order is None:
+        return write_mesh_summary(dataset_dir, filename, out_png, scan_dir=scan_dir)
     dataset_dir = dataset_dir.expanduser()
     root = scan_dir.expanduser() if scan_dir is not None else mesh_scan_root(dataset_dir)
     preferred = list(order) if order is not None else list(MESH_SUMMARY_ORDER)
-    names = [name for name in preferred if (root / name / filename).is_file()]
-    extra = sorted(
+    names = [name for name in preferred if (root / f"{name}_{filename}").is_file() or (root / name / filename).is_file()]
+    flat_extra = sorted(
+        path.name[: -len(f"_{filename}")]
+        for path in root.glob(f"*_{filename}")
+        if path.is_file() and path.name[: -len(f"_{filename}")] not in names
+    )
+    nested_extra = sorted(
         path.parent.name for path in root.glob(f"*/{filename}")
         if path.parent.name not in names and path.is_file()
     )
-    names.extend(extra)
+    names.extend(flat_extra)
+    names.extend(n for n in nested_extra if n not in names)
     if not names:
-        raise FileNotFoundError(f"no {filename} under {root}/*/")
+        raise FileNotFoundError(f"no {filename} under {root}/")
     dest = out_png if out_png is not None else dataset_dir / f"{Path(filename).stem}_summary.png"
-    paths = [[root / name / filename] for name in names]
+    paths = []
+    for name in names:
+        flat = root / f"{name}_{filename}"
+        nested = root / name / filename
+        paths.append([flat if flat.is_file() else nested])
     return write_summary_grid(dest, [Path(filename).stem], names, paths, cell=MESH_SUMMARY_CELL)
 
 
@@ -579,13 +733,20 @@ def migrate_dataset_layout(dataset_dir: Path) -> list[str]:
             continue
         if not (folder.name.endswith("_sam3d") or folder.name.endswith("_tsdf")):
             continue
-        dest = meshes / folder.name
-        if dest.exists():
-            log.append(f"keep meshes/{folder.name} (already exists, left {folder.name})")
-            continue
         meshes.mkdir(parents=True, exist_ok=True)
-        folder.rename(dest)
-        log.append(f"move {folder.name} → meshes/{folder.name}")
+        staging = meshes / folder.name
+        if staging.exists():
+            log.append(f"keep meshes/{folder.name} (already exists, left {folder.name})")
+        else:
+            folder.rename(staging)
+            log.append(f"move {folder.name} → meshes/{folder.name}")
+            folder = staging
+        if folder.is_dir() and any((folder / name).is_file() for name in MESH_KEEP_NAMES):
+            log.extend(_flatten_mesh_folder(folder, mesh_only=True))
+    if meshes.is_dir():
+        for folder in sorted(p for p in meshes.iterdir() if p.is_dir()):
+            if any((folder / name).is_file() for name in MESH_KEEP_NAMES):
+                log.extend(_flatten_mesh_folder(folder, mesh_only=True))
 
     depth.mkdir(parents=True, exist_ok=True)
     for name in DEPTH_BOARD_NAMES:
@@ -1037,6 +1198,7 @@ def convert_realsense_dump(
     meta_suffix: str,
     labelme_suffix: str | None = None,
     raw_dir: Path | None = None,
+    skip_incomplete: bool = False,
 ) -> tuple[list[Path], np.ndarray, np.ndarray, list[str]]:
     """Load an aligned RealSense dump into numbered RGB, depth (meters), and K.
 
@@ -1044,13 +1206,14 @@ def convert_realsense_dump(
     JSON must contain ``fx``, ``fy``, ``cx``, ``cy``, ``depth_scale_m_per_unit``.
     RGB and depth must be the same size. ``Z = 0`` is invalid.
 
-    If ``labelme_suffix`` is set, every stem must have that sidecar. ``raw_dir``
+    If ``labelme_suffix`` is set, every kept stem must have that sidecar. ``raw_dir``
     then gets ``{stem}.png`` + ``{stem}.json`` for ``convert_labelme_to_masks``.
+    ``skip_incomplete`` drops views missing depth/meta/LabelMe instead of raising.
     """
     stems = realsense_dump_stems(
         src_dir,
         rgb_suffix=rgb_suffix, depth_suffix=depth_suffix, meta_suffix=meta_suffix,
-        labelme_suffix=labelme_suffix,
+        labelme_suffix=labelme_suffix, skip_incomplete=skip_incomplete,
     )
     images_dir.mkdir(parents=True, exist_ok=True)
     for old in images_dir.glob("*"):

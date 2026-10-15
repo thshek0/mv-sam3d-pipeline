@@ -56,8 +56,34 @@ def run_da3_posed(images_dir: Path, pose_npz: Path, output: Path, process_res: i
         export_dir=None,
     )
     depth = np.asarray(prediction.depth, dtype=np.float32)
-    extrinsics = np.asarray(prediction.extrinsics)
-    intrinsics = np.asarray(prediction.intrinsics)
+    # Keep AprilTag / RS cameras (metric). DA3's align_to_input_ext_scale can leave
+    # depth in a nonsense unit (~1e7). Rescale each view to RS Z when the pose npz
+    # has depth — a single global scale still leaves ~2× per-view drift that breaks TSDF.
+    extrinsics = ext.astype(np.float32)
+    intrinsics = np.asarray(k_mat, dtype=np.float32)
+    if "depth" in raw.files:
+        rs_z = np.asarray(raw["depth"], dtype=np.float32)
+        if rs_z.shape != depth.shape:
+            raise ValueError(f"pose depth {rs_z.shape} != DA3 depth {depth.shape}")
+        scales = np.full(depth.shape[0], np.nan, dtype=np.float64)
+        for i in range(depth.shape[0]):
+            keep = (
+                (rs_z[i] > 0) & np.isfinite(rs_z[i]) & (rs_z[i] < 2.0)
+                & (depth[i] > 0) & np.isfinite(depth[i])
+            )
+            if not np.any(keep):
+                continue
+            scales[i] = float(np.median(rs_z[i][keep] / np.maximum(depth[i][keep], 1e-6)))
+        if not np.any(np.isfinite(scales)):
+            raise RuntimeError("no overlap to scale da3_posed depth to RS")
+        fallback = float(np.nanmedian(scales))
+        scales = np.where(np.isfinite(scales), scales, fallback)
+        depth = depth * scales.astype(np.float32)[:, None, None]
+        print(
+            f"da3_posed scale→RS per-view med={fallback:.6g} "
+            f"min={float(np.min(scales)):.6g} max={float(np.max(scales)):.6g}",
+            flush=True,
+        )
     pointmaps = np.stack([depth_to_pointmap(depth[i], intrinsics[i]) for i in range(depth.shape[0])], axis=0)
     pointmaps_sam3d = np.stack([pointmap_to_sam3d_format(pointmaps[i]) for i in range(depth.shape[0])], axis=0)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -71,9 +97,10 @@ def run_da3_posed(images_dir: Path, pose_npz: Path, output: Path, process_res: i
         image_files=np.array([str(path) for path in images]),
         process_res=np.asarray(process_res),
     )
+    valid = depth[np.isfinite(depth) & (depth > 0)]
     print(
         f"da3 posed → {output} depth={depth.shape} "
-        f"range=[{float(depth.min()):.4g}, {float(depth.max()):.4g}]",
+        f"range=[{float(valid.min()):.4g}, {float(valid.max()):.4g}]",
         flush=True,
     )
     return output
