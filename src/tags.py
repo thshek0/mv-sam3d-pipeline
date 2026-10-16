@@ -232,14 +232,25 @@ def solve_w2c(
     detections: Detections, world: dict[CornerKey, np.ndarray], k_mat: np.ndarray,
     pnp_flags: int, min_corners: int,
 ) -> np.ndarray | None:
-    """3x4 world-to-camera from shared corners, or None if PnP fails."""
+    """3x4 world-to-camera from shared corners, or None if PnP fails.
+
+    ``SOLVEPNP_ITERATIVE`` with fewer than 6 points is run as SQPnP. OpenCV's
+    iterative solver starts from DLT, which rejects a single tag (4 corners).
+    """
     keys = sorted(set(detections) & set(world))
     if len(keys) < min_corners:
         return None
     cv2 = _require_cv2()
     obj = np.stack([world[k] for k in keys], axis=0)
     img = np.stack([detections[k] for k in keys], axis=0)
-    ok, rvec, tvec = cv2.solvePnP(obj, img, k_mat, np.zeros(5), flags=pnp_flags)
+    # ITERATIVE initializes with DLT, which needs 6 points. One tag is 4 corners.
+    flags = pnp_flags
+    if int(flags) == int(cv2.SOLVEPNP_ITERATIVE) and len(keys) < 6:
+        flags = int(cv2.SOLVEPNP_SQPNP)
+    try:
+        ok, rvec, tvec = cv2.solvePnP(obj, img, k_mat, np.zeros(5), flags=flags)
+    except cv2.error:
+        return None
     if not ok:
         return None
     rot, _ = cv2.Rodrigues(rvec)
