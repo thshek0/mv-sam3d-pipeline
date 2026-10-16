@@ -26,7 +26,7 @@ from helpers import (
     listed_images,
     load_realsense_depth_stack,
     mesh_glb_path,
-    method_output_slug,
+    mesh_name,
     place_depth_npz,
     realsense_dump_stems,
     validate_scene,
@@ -214,8 +214,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     scene_dir = dataset_scene_dir(out_root, name)
     images_dir = scene_dir / "images"
     mask_dir = scene_dir / args.masks
-    slug = method_output_slug(method, args.mesh)
-    glb = mesh_glb_path(out_root, name, slug)
+    stem = mesh_name(method, args.mesh)
+    glb = mesh_glb_path(out_root, name, stem)
 
     print(f"dataset={root} scene={scene_dir} src={src} out={glb} method={method} mesh={args.mesh}", flush=True)
     _stage_processed_scene(input_scene, scene_dir, args.masks)

@@ -26,26 +26,26 @@ SCENE_DIR_NAMES = frozenset({"processed", "scene"})
 DEPTH_SOURCES = ("da3", "da3_posed", "rs", "hybrid")
 
 
-def method_output_slug(depth_method: str, mesh_method: str = "sam3d") -> str:
-    """Mesh slug ``{depth}_{mesh}`` for flat files under ``meshes/``."""
+def mesh_name(depth_method: str, mesh_method: str = "sam3d") -> str:
+    """File stem ``{depth}_{mesh}`` for flat files under ``meshes/``."""
     suffix = "sam3d" if mesh_method == "sam3d" else mesh_method
     return f"{depth_method}_{suffix}"
 
 
-def mesh_artifact_path(meshes_dir: Path, slug: str, artifact: str) -> Path:
-    """Return ``meshes/{slug}_{artifact}`` (e.g. ``da3_sam3d_mesh.glb``)."""
-    return meshes_dir / f"{slug}_{artifact}"
+def mesh_artifact_path(meshes_dir: Path, name: str, artifact: str) -> Path:
+    """Return ``meshes/{name}_{artifact}`` (e.g. ``da3_sam3d_mesh.glb``)."""
+    return meshes_dir / f"{name}_{artifact}"
 
 
-def mesh_glb_path(out_dir: Path, dataset: str, method_slug: str) -> Path:
-    """Return ``output/<dataset>/meshes/{slug}_mesh.glb`` and create ``meshes/``."""
+def mesh_glb_path(out_dir: Path, dataset: str, name: str) -> Path:
+    """Return ``output/<dataset>/meshes/{name}_mesh.glb`` and create ``meshes/``."""
     meshes = dataset_meshes_dir(out_dir, dataset)
     meshes.mkdir(parents=True, exist_ok=True)
-    return mesh_artifact_path(meshes, method_slug, "mesh.glb")
+    return mesh_artifact_path(meshes, name, "mesh.glb")
 
 
-def mesh_slug_from_glb(mesh_path: Path) -> str | None:
-    """Parse ``{slug}`` from ``{slug}_mesh.glb``, else ``None``."""
+def mesh_name_from_glb(mesh_path: Path) -> str | None:
+    """Parse ``{depth}_{mesh}`` from ``{depth}_{mesh}_mesh.glb``, else ``None``."""
     name = mesh_path.name
     if name.endswith("_mesh.glb"):
         return name[: -len("_mesh.glb")]
@@ -114,9 +114,9 @@ def depth_rmse(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.sqrt(np.mean(diff * diff)))
 
 
-def run_output_dir(out_dir: Path, dataset: str, method_slug: str) -> Path:
-    """Deprecated alias: ensure ``meshes/`` and return it (flat ``{slug}_*`` files)."""
-    _ = method_slug
+def run_output_dir(out_dir: Path, dataset: str, name: str) -> Path:
+    """Deprecated alias: ensure ``meshes/`` and return it (flat ``{depth}_{mesh}_*`` files)."""
+    _ = name
     path = dataset_meshes_dir(out_dir, dataset)
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -570,7 +570,7 @@ def _flatten_mesh_folder(folder: Path, *, mesh_only: bool) -> list[str]:
 
 
 def reorganize_method_folders(dataset_dir: Path, *, mesh_only: bool = True) -> list[str]:
-    """Rename legacy mesh folders, flatten to ``{slug}_mesh.glb``, drop junk.
+    """Rename legacy mesh folders, flatten to ``{depth}_{mesh}_mesh.glb``, drop junk.
 
     Operates under ``meshes/`` when that folder exists. Does not touch ``rs_da3``.
     """
@@ -601,11 +601,11 @@ def _mesh_summary_cell(root: Path, depth: str, mesh: str, filename: str) -> Path
     candidates = [f"{depth}_{mesh}"]
     if depth == "da3":
         candidates = [f"da3_posed_{mesh}", f"da3_{mesh}"]
-    for slug in candidates:
-        flat = root / f"{slug}_{filename}"
+    for name in candidates:
+        flat = root / f"{name}_{filename}"
         if flat.is_file():
             return flat
-        nested = root / slug / filename
+        nested = root / name / filename
         if nested.is_file():
             return nested
     return None
@@ -651,9 +651,9 @@ def write_subdir_summary(
     order: Sequence[str] | None = None,
     scan_dir: Path | None = None,
 ) -> Path:
-    """Write a summary of mesh artifacts (flat ``{slug}_{filename}`` or legacy folders).
+    """Write a summary of mesh artifacts (flat ``{depth}_{mesh}_{filename}`` or legacy folders).
 
-    ``mesh.png`` uses the fixed 2×3 mesh grid; other names stay one row per slug.
+    ``mesh.png`` uses the fixed 2×3 mesh grid; other names stay one row per mesh.
     """
     if filename == "mesh.png" and order is None:
         return write_mesh_summary(dataset_dir, filename, out_png, scan_dir=scan_dir)

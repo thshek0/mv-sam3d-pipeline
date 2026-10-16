@@ -8,19 +8,19 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from helpers import method_output_slug
+from helpers import mesh_name
 from pipeline import main
 from vis import depth_to_pointmap
 
 
-def test_method_output_slug_groups_depth_then_mesh() -> None:
-    """Slug ``{depth}_{mesh}`` for flat ``meshes/{slug}_mesh.glb``."""
-    assert method_output_slug("da3", "sam3d") == "da3_sam3d"
-    assert method_output_slug("da3_posed", "sam3d") == "da3_posed_sam3d"
-    assert method_output_slug("hybrid", "sam3d") == "hybrid_sam3d"
-    assert method_output_slug("rs", "tsdf") == "rs_tsdf"
-    assert method_output_slug("da3_posed", "tsdf") == "da3_posed_tsdf"
-    assert method_output_slug("hybrid", "tsdf") == "hybrid_tsdf"
+def test_mesh_name_groups_depth_then_mesh() -> None:
+    """``{depth}_{mesh}`` is the stem of ``meshes/{depth}_{mesh}_mesh.glb``."""
+    assert mesh_name("da3", "sam3d") == "da3_sam3d"
+    assert mesh_name("da3_posed", "sam3d") == "da3_posed_sam3d"
+    assert mesh_name("hybrid", "sam3d") == "hybrid_sam3d"
+    assert mesh_name("rs", "tsdf") == "rs_tsdf"
+    assert mesh_name("da3_posed", "tsdf") == "da3_posed_tsdf"
+    assert mesh_name("hybrid", "tsdf") == "hybrid_tsdf"
 
 
 def _write_processed_scene(src: Path) -> None:

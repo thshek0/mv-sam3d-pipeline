@@ -343,10 +343,10 @@ def mesh_sam3d(
     seal: bool = False,
     coacd: bool = False,
 ) -> Path:
-    """MV-SAM3D on a processed scene + npz. Writes ``{slug}_mesh.glb`` / ``.png``."""
+    """MV-SAM3D on a processed scene + npz. Writes ``{depth}_{mesh}_mesh.glb`` / ``.png``."""
     import shutil
 
-    from helpers import mesh_slug_from_glb, run_mvsam
+    from helpers import mesh_name_from_glb, run_mvsam
     from post import preview_mesh, seal_mesh, write_coacd
 
     if not mvsam_python:
@@ -357,8 +357,8 @@ def mesh_sam3d(
     shutil.copy2(glb, mesh_glb)
     preview_mesh(mesh_glb, mesh_glb.with_suffix(".png"))
     if seal or coacd:
-        slug = mesh_slug_from_glb(mesh_glb)
-        prefix = f"{slug}_" if slug else ""
+        stem = mesh_name_from_glb(mesh_glb)
+        prefix = f"{stem}_" if stem else ""
         sealed = mesh_glb.parent / f"{prefix}sealed.stl"
         closed = seal_mesh(mesh_glb)
         closed.export(sealed)

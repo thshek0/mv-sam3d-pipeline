@@ -106,8 +106,8 @@ def test_mesh_summary_is_two_by_three(tmp_path: Path) -> None:
     """mesh.png summary is sam3d|tsdf columns × da3|rs|hybrid rows."""
     meshes = tmp_path / "meshes"
     meshes.mkdir()
-    for slug in ("da3_sam3d", "da3_tsdf", "rs_tsdf", "hybrid_sam3d"):
-        Image.new("RGB", (32, 16), (80, 80, 80)).save(meshes / f"{slug}_mesh.png")
+    for name in ("da3_sam3d", "da3_tsdf", "rs_tsdf", "hybrid_sam3d"):
+        Image.new("RGB", (32, 16), (80, 80, 80)).save(meshes / f"{name}_mesh.png")
     out = write_subdir_summary(tmp_path, "mesh.png")
     image = Image.open(out)
     assert image.size[0] >= MESH_SUMMARY_CELL[0] * 2
@@ -145,7 +145,7 @@ def test_depth_summary_only_existing_columns(tmp_path: Path) -> None:
 
 
 def test_reorganize_method_folders_renames_and_keeps_mesh(tmp_path: Path) -> None:
-    """Old posed folders flatten to ``{slug}_mesh.glb`` / ``.png``; junk dropped."""
+    """Old posed folders flatten to ``{depth}_{mesh}_mesh.glb`` / ``.png``; junk dropped."""
     posed = tmp_path / "posed"
     posed.mkdir()
     Image.new("RGB", (4, 4), (10, 10, 10)).save(posed / "mesh.png")
