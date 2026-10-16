@@ -6,6 +6,35 @@ What we kept, measured, and dropped. Product is the mesh (`*_mesh.glb`). `--seal
 
 ---
 
+## Datasets
+
+Counts are from `dataset/<name>/` and the staged `output/<name>/scene/`. **Frames** is one number when every captured view is in the scene. `used/captured` means some views were dropped. **Tags** is whether AprilTag poses were stored. **No** means the RealSense npz is unposed, not that a tag is absent from the photo. Masks are LabelMe. The JSON does not say whether SAM 2 or a person drew the outline. No current folder uses rembg.
+
+| Dataset | Frames | Resolution | Camera | Tags | Masks |
+|---|---|---|---|---|---|
+| gripper (`examples/gripper`) | 12 | 5712×4284 | phone | no | LabelMe |
+| gripper_v2 | 12 | 4032×3024 | phone | no | LabelMe |
+| heater_v2 | 21 | 5712×4284 | phone | no | LabelMe |
+| heater_v3 | 14 | 640×480 | RGB-D; model and preset not in the file | yes | LabelMe |
+| heater_v4 | 17 | 640×480 | D415, High Accuracy | yes | LabelMe |
+| heater_v5 | 12 | 1280×720 | D415, High Accuracy | yes, 12 posed | LabelMe |
+| device1_all | 7 | 1280×720 | D415, High Accuracy | yes, 7 posed | LabelMe |
+| device1_lower | 7/13 | 1280×720 | D415, High Accuracy | yes, 7 posed | LabelMe |
+| device1_upper | 11 | 1280×720 | D415, High Accuracy | yes, 11 posed | LabelMe |
+| device2 | 12 | 1280×720 | D415, High Accuracy | yes, 12 posed | LabelMe |
+| device3 | 9/16 | 1280×720 | D415, High Accuracy | yes, 9 posed | LabelMe brush; 7 other views are a rectangle or polygon |
+| bird1_v1 | 12 | 1280×720 | D415, High Accuracy | no | LabelMe |
+| bird1_v2 | 12 | 640×480 | D415, High Accuracy | no | LabelMe |
+| bird2 | 12 | 1280×720 | D415, High Accuracy | no | LabelMe |
+| bowl | 9/12 | 1280×720 | D415, High Accuracy | no | LabelMe |
+| structure_before | 26/28 | 640×480 | D415, High Density | no | LabelMe |
+| structure_after_v1 | 30 | 640×480 | D415, High Density | yes, 30 posed | LabelMe |
+| structure_after_v2 | 28 | 640×480 | D435I, High Density | yes, 28 posed | LabelMe |
+
+device1_lower drops 6 views that did not pose. bowl and structure_before drop views with no LabelMe file. device3 drops 6 rectangles and 1 polygon that cover almost the whole frame; the scene keeps the 9 brush masks. heater_v3 has intrinsics and 640×480, and v4 on the same setup names the D415.
+
+---
+
 ## Pipeline lessons
 
 | Topic | Finding |
