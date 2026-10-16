@@ -66,12 +66,12 @@ def test_write_capture_dump_roundtrips_convert(tmp_path: Path) -> None:
 
 
 def test_parse_args_and_lock_defaults() -> None:
-    """Default lock is env/camera_lock.json with High Accuracy + laser 150."""
+    """Default lock is env/camera_lock.json with High Density + laser 150."""
     args = parse_args([])
     assert args.lock == DEFAULT_LOCK
     assert args.self_test is False
     lock = json.loads(DEFAULT_LOCK.read_text())
-    assert lock["visual_preset"] == "High Accuracy"
+    assert lock["visual_preset"] == "High Density"
     assert abs(float(lock["depth"]["laser_power"]) - 150.0) < 1e-9
 
 

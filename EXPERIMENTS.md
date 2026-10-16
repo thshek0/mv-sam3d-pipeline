@@ -33,6 +33,8 @@ Counts are from `dataset/<name>/` and the staged `output/<name>/scene/`. **Frame
 
 device1_lower drops 6 views that did not pose. bowl and structure_before drop views with no LabelMe file. device3 drops 6 rectangles and 1 polygon that cover almost the whole frame; the scene keeps the 9 brush masks. heater_v3 has intrinsics and 640×480, and v4 on the same setup names the D415.
 
+New captures use High Density (`env/camera_lock.json`). The rows above keep the preset that was used.
+
 ---
 
 ## Pipeline lessons

@@ -22,7 +22,7 @@ VideoMode = tuple[int, int, int]
 
 DEFAULT_LOCK = REPO / "env" / "camera_lock.json"
 CAPTURE_DIR_FORMAT = os.environ.get("RS_CAPTURE_DIR_FORMAT", "captures_%Y%m%d_%H%M")
-VISUAL_PRESET = os.environ.get("RS_VISUAL_PRESET", "High Accuracy")
+VISUAL_PRESET = os.environ.get("RS_VISUAL_PRESET", "High Density")
 SETTLE_FRAMES = int(os.environ.get("RS_SETTLE_FRAMES", "30"))
 RGB_EXPOSURE_STEP = float(os.environ.get("RS_EXPOSURE_STEP", "100"))
 RGB_GAIN_STEP = float(os.environ.get("RS_GAIN_STEP", "16"))

@@ -157,7 +157,7 @@ D415 capture needs `pyrealsense2` on the camera machine (not the repo `.venv`):
 python src/capture_realsense.py
 ```
 
-SPACE writes `{stem}_rgb.png` / `{stem}_depth.png` / `{stem}.json` under `dataset/captures_*`. Lock file is `env/camera_lock.json` (High Accuracy, laser 150). `1/2` exposure, `3/4` brightness, `9/0` gain, `Q` quit. No camera: `python src/capture_realsense.py --self-test --out /tmp/rs_self_test` writes a synthetic dump and ingests it.
+SPACE writes `{stem}_rgb.png` / `{stem}_depth.png` / `{stem}.json` under `dataset/captures_*`. Lock file is `env/camera_lock.json` (High Density, laser 150). `1/2` exposure, `3/4` brightness, `9/0` gain, `Q` quit. No camera: `python src/capture_realsense.py --self-test --out /tmp/rs_self_test` writes a synthetic dump and ingests it.
 
 ## 9. Tests
 
