@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
-"""Run a dataset from images to all valid depth + mesh combos.
-
-After ``dataset/<name>/`` has RGB (+ depth/meta/LabelMe for RealSense):
+"""Build one depth and one mesh, then write the summary boards once.
 
 .. code-block:: bash
 
-    .venv/bin/python src/run_dataset.py NAME all --rs --tags
-    .venv/bin/python src/run_dataset.py NAME all --rs --unposed
-    .venv/bin/python src/run_dataset.py NAME all --no-rs
+    python src/run_dataset.py NAME --depth rs --mesh tsdf --tags
+    python src/run_dataset.py NAME --all --rs --tags
 
-Optional filters (default = everything allowed for the mode):
+A name alone prints the command table. Existing depth npz and mesh glb files
+are kept; ``--refresh`` rebuilds them. Summaries are always rewritten at the end.
 
-    --depth da3,rs,hybrid,da3_posed
-    --mesh sam3d,tsdf
-
-Steps: ingest | rs | da3 | da3_posed | hybrid | mesh | summarize
+Steps: ingest | depth SOURCE | mesh DEPTH MESH | summarize
 """
 
 from __future__ import annotations
@@ -38,7 +33,7 @@ from helpers import (
     identity_w2c,
     listed_images,
     load_realsense_depth_stack,
-    method_output_slug,
+    mesh_name,
     place_depth_npz,
     save_mask_preview,
     write_dataset_summary,
@@ -169,17 +164,6 @@ def _require_mvsam_python() -> str:
     if not py:
         raise RuntimeError("set SAM3D_PYTHON (or MVSAM_PYTHON)")
     return py
-
-
-def _parse_csv_choices(raw: str | None, allowed: Sequence[str], default: Sequence[str]) -> tuple[str, ...]:
-    """Parse a comma-separated filter list against ``allowed``."""
-    if raw is None or not raw.strip():
-        return tuple(default)
-    items = [part.strip() for part in raw.split(",") if part.strip()]
-    bad = [item for item in items if item not in allowed]
-    if bad:
-        raise ValueError(f"unknown choices {bad}; allowed={list(allowed)}")
-    return tuple(items)
 
 
 def mesh_jobs_for(
@@ -453,9 +437,9 @@ def build_mesh(
     keep_largest: bool = True,
     seal: bool = False,
     coacd: bool = False,
-    refresh_summary: bool = True,
+    refresh_summary: bool = False,
 ) -> Path:
-    """Build ``meshes/{depth}_{mesh}_mesh.glb``; refresh summaries by default."""
+    """Build ``meshes/{depth}_{mesh}_mesh.glb``. Summaries stay a separate step."""
     npz = layout.depth_npz(depth_method)
     if not npz.is_file():
         raise FileNotFoundError(f"missing {npz}; run the depth step first")
@@ -466,9 +450,9 @@ def build_mesh(
         )
     from helpers import mesh_glb_path
 
-    slug = method_output_slug(depth_method, mesh_method)
-    glb = mesh_glb_path(layout.out_root, layout.name, slug)
-    print(f"mesh {slug} → {glb}", flush=True)
+    stem = mesh_name(depth_method, mesh_method)
+    glb = mesh_glb_path(layout.out_root, layout.name, stem)
+    print(f"mesh {stem} → {glb}", flush=True)
     if mesh_method == "tsdf":
         path = mesh_tsdf(
             npz, layout.images, glb,
@@ -485,55 +469,201 @@ def build_mesh(
     return path
 
 
+USAGE = """\
+Choose one depth and one mesh:
+
+  python src/run_dataset.py NAME --depth da3 --mesh sam3d
+  python src/run_dataset.py NAME --depth da3 --mesh tsdf
+  python src/run_dataset.py NAME --depth da3_posed --mesh sam3d --tags
+  python src/run_dataset.py NAME --depth rs --mesh tsdf --tags
+  python src/run_dataset.py NAME --depth hybrid --mesh tsdf --tags
+  python src/run_dataset.py NAME --depth hybrid --mesh sam3d
+
+Every legal pair:
+
+  python src/run_dataset.py NAME --all --rs --tags
+  python src/run_dataset.py NAME --all --rs
+  python src/run_dataset.py NAME --all
+
+--refresh rebuilds depth and mesh files that already exist.
+Summaries are written once at the end.
+Steps: ingest | depth da3|da3_posed|rs|hybrid | mesh DEPTH MESH | summarize
+"""
+
+_DEPTH_ORDER = ("rs", "da3", "da3_posed", "hybrid")
+
+
+def depths_required(depth: str) -> tuple[str, ...]:
+    """Depth npz files ``depth`` needs, parents first."""
+    if depth == "da3":
+        return ("da3",)
+    if depth == "rs":
+        return ("rs",)
+    if depth == "da3_posed":
+        return ("rs", "da3_posed")
+    if depth == "hybrid":
+        return ("rs", "da3", "hybrid")
+    raise ValueError(f"unknown depth {depth!r}")
+
+
+def require_recipe(depth: str, mesh: str, *, tags: bool) -> None:
+    """Raise if this depth/mesh pair is illegal for ``tags``."""
+    if depth == "da3" and tags:
+        raise RuntimeError("--tags is only for RealSense depths (rs, da3_posed, hybrid)")
+    use_rs = depth != "da3"
+    try:
+        validate_mesh_job(depth, mesh, use_rs=use_rs, tags=tags)
+    except RuntimeError:
+        if mesh == "tsdf" and depth in {"rs", "hybrid"} and not tags:
+            raise RuntimeError(
+                f"{depth} + tsdf needs AprilTag poses; pass --tags, or use --mesh sam3d"
+            ) from None
+        if depth == "da3_posed" and not tags:
+            raise RuntimeError("da3_posed needs --tags") from None
+        raise
+
+
+def _dump_is_realsense(dump: Path) -> bool:
+    """True when ``dump`` has RealSense ``*_rgb.png`` frames."""
+    return dump.is_dir() and any(dump.glob(f"*{RGB_SUFFIX}"))
+
+
+def _keep_file(path: Path, *, refresh: bool) -> bool:
+    """True when ``path`` should be left as it is."""
+    if refresh or not path.is_file():
+        return False
+    print(f"skip {path.name} (exists)", flush=True)
+    return True
+
+
+def ensure_scene(
+    layout: DatasetLayout, *, refresh: bool, skip_incomplete: bool, processed: Path | None = None,
+) -> None:
+    """Ingest the dump unless staged images are already present."""
+    if not refresh and layout.images.is_dir() and listed_images(layout.images):
+        print(f"skip scene ({len(listed_images(layout.images))} views)", flush=True)
+        return
+    if _dump_is_realsense(layout.dump):
+        ingest(layout, skip_incomplete=skip_incomplete)
+        return
+    ingest_processed(layout, processed or layout.dump)
+
+
+def ensure_depth(
+    layout: DatasetLayout,
+    source: str,
+    *,
+    tags: bool,
+    refresh: bool,
+    process_res: int,
+    margin: float,
+) -> Path:
+    """Build ``depth/<source>.npz`` unless it exists and ``refresh`` is false."""
+    npz = layout.depth_npz(source)
+    if _keep_file(npz, refresh=refresh):
+        return npz
+    if source == "rs":
+        return build_rs(layout, tags=tags, process_res=process_res, margin=margin)
+    if source == "da3":
+        return build_da3(layout, process_res=process_res)
+    if source == "da3_posed":
+        return build_da3_posed(layout, process_res=process_res)
+    if source == "hybrid":
+        return build_hybrid(layout)
+    raise ValueError(f"unknown depth {source!r}")
+
+
+def _mesh_glb(layout: DatasetLayout, depth: str, mesh: str) -> Path:
+    """``meshes/{depth}_{mesh}_mesh.glb`` without creating the folder."""
+    stem = mesh_name(depth, mesh)
+    return layout.root / "meshes" / f"{stem}_mesh.glb"
+
+
+def ensure_mesh(layout: DatasetLayout, depth: str, mesh: str, *, refresh: bool, mesh_kw: dict[str, object]) -> Path:
+    """Build one mesh unless its glb exists and ``refresh`` is false."""
+    glb = _mesh_glb(layout, depth, mesh)
+    if _keep_file(glb, refresh=refresh):
+        return glb
+    return build_mesh(layout, depth, mesh, refresh_summary=False, **mesh_kw)  # type: ignore[arg-type]
+
+
+def _run_jobs(
+    layout: DatasetLayout,
+    jobs: Sequence[tuple[str, str]],
+    *,
+    tags: bool,
+    refresh: bool,
+    process_res: int,
+    margin: float,
+    skip_incomplete: bool,
+    processed: Path | None,
+    mesh_kw: dict[str, object],
+) -> None:
+    """Ingest, build the depths those jobs need, mesh, then summarize once."""
+    ensure_scene(layout, refresh=refresh, skip_incomplete=skip_incomplete, processed=processed)
+    needed = {source for depth, _mesh in jobs for source in depths_required(depth)}
+    for source in _DEPTH_ORDER:
+        if source in needed:
+            ensure_depth(
+                layout, source, tags=tags, refresh=refresh, process_res=process_res, margin=margin,
+            )
+    for depth, mesh in jobs:
+        ensure_mesh(layout, depth, mesh, refresh=refresh, mesh_kw=mesh_kw)
+    summarize(layout)
+
+
+def run_pair(
+    layout: DatasetLayout,
+    depth: str,
+    mesh: str,
+    *,
+    tags: bool,
+    refresh: bool = False,
+    process_res: int = DEFAULT_PROCESS_RES,
+    margin: float = DEFAULT_MARGIN,
+    skip_incomplete: bool = True,
+    processed: Path | None = None,
+    mesh_kw: dict[str, object] | None = None,
+) -> None:
+    """Build one depth/mesh pair and write summaries once."""
+    require_recipe(depth, mesh, tags=tags)
+    print(f"run {layout.name} depth={depth} mesh={mesh} tags={tags}", flush=True)
+    _run_jobs(
+        layout, ((depth, mesh),), tags=tags, refresh=refresh, process_res=process_res, margin=margin,
+        skip_incomplete=skip_incomplete, processed=processed, mesh_kw=mesh_kw or {},
+    )
+    print(f"DONE → {layout.root}", flush=True)
+
+
 def run_all(
     layout: DatasetLayout,
     *,
     use_rs: bool,
     tags: bool,
+    refresh: bool = False,
     process_res: int = DEFAULT_PROCESS_RES,
     margin: float = DEFAULT_MARGIN,
     skip_incomplete: bool = True,
     depths: Sequence[str] | None = None,
     meshes: Sequence[str] | None = None,
     processed: Path | None = None,
-    voxel_length: float = 0.002,
-    sdf_trunc: float = 0.006,
-    depth_trunc: float = 2.0,
-    keep_largest: bool = True,
-    seal: bool = False,
-    coacd: bool = False,
+    mesh_kw: dict[str, object] | None = None,
 ) -> None:
-    """Ingest → depths → meshes → summarize."""
+    """Every legal depth × mesh for this capture, then one summary pass."""
+    if tags and not use_rs:
+        raise RuntimeError("--tags requires --rs")
     print(f"all {layout.name} use_rs={use_rs} tags={tags}", flush=True)
     jobs = mesh_jobs_for(use_rs=use_rs, tags=tags, depths=depths, meshes=meshes)
-    needed_depths = {d for d, _ in jobs}
-
-    if use_rs:
-        ingest(layout, skip_incomplete=skip_incomplete)
-        build_rs(layout, tags=tags, process_res=process_res, margin=margin)
-    else:
-        ingest_processed(layout, processed or layout.dump)
-
-    if "da3" in needed_depths or "hybrid" in needed_depths:
-        build_da3(layout, process_res=process_res)
-    if "da3_posed" in needed_depths:
-        build_da3_posed(layout, process_res=process_res)
-    if "hybrid" in needed_depths:
-        build_hybrid(layout)
-
-    mesh_kw = dict(
-        voxel_length=voxel_length, sdf_trunc=sdf_trunc, depth_trunc=depth_trunc,
-        keep_largest=keep_largest, seal=seal, coacd=coacd, refresh_summary=True,
+    _run_jobs(
+        layout, jobs, tags=tags, refresh=refresh, process_res=process_res, margin=margin,
+        skip_incomplete=skip_incomplete, processed=processed, mesh_kw=mesh_kw or {},
     )
-    for depth_m, mesh_m in jobs:
-        build_mesh(layout, depth_m, mesh_m, **mesh_kw)
-    summarize(layout)
     print(f"DONE all → {layout.root}", flush=True)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter, epilog=USAGE)
     parser.add_argument("name", help="Dataset folder name under dataset/ and output/")
     parser.add_argument("--dump", type=Path, default=None, help="RealSense dump or processed scene")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT)
@@ -547,89 +677,89 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--keep-largest", action="store_true", default=True)
     parser.add_argument("--seal", action="store_true")
     parser.add_argument("--coacd", action="store_true")
-    parser.add_argument("--depth", default=None, help="Comma filter: da3,rs,hybrid,da3_posed")
-    parser.add_argument("--mesh", default=None, dest="mesh_filter", help="Comma filter: sam3d,tsdf")
+    parser.add_argument("--all", action="store_true", help="Every legal depth × mesh")
+    parser.add_argument("--rs", action="store_true", help="With --all: this capture is a RealSense dump")
+    parser.add_argument("--tags", action="store_true", help="AprilTag poses (required for rs/hybrid TSDF and da3_posed)")
+    parser.add_argument("--refresh", action="store_true", help="Rebuild depth and mesh files that already exist")
+    parser.add_argument("--depth", choices=DEPTH_CHOICES, default=None)
+    parser.add_argument("--mesh", choices=MESH_CHOICES, default=None)
+    parser.add_argument("--no-skip-incomplete", action="store_true")
 
-    sub = parser.add_subparsers(dest="cmd", required=True)
-
-    p_all = sub.add_parser("all", help="Full run for the capability mode")
-    caps = p_all.add_mutually_exclusive_group(required=True)
-    caps.add_argument("--rs", action="store_true", help="RealSense dump (needs --tags or --unposed)")
-    caps.add_argument("--no-rs", action="store_true", help="RGB+masks only → da3")
-    tag_mode = p_all.add_mutually_exclusive_group()
-    tag_mode.add_argument("--tags", action="store_true")
-    tag_mode.add_argument("--unposed", action="store_true")
-    p_all.add_argument("--no-skip-incomplete", action="store_true")
+    sub = parser.add_subparsers(dest="cmd")
 
     p_ingest = sub.add_parser("ingest", help="Dump → scene/images + masks")
     p_ingest.add_argument("--no-skip-incomplete", action="store_true")
     p_ingest.add_argument("--processed", action="store_true", help="Stage processed scene instead of RS dump")
 
-    p_rs = sub.add_parser("rs", help="Build depth/rs.npz")
-    rs_mode = p_rs.add_mutually_exclusive_group(required=True)
-    rs_mode.add_argument("--tags", action="store_true")
-    rs_mode.add_argument("--unposed", action="store_true")
+    p_depth = sub.add_parser("depth", help="Build one depth npz")
+    p_depth.add_argument("source", choices=DEPTH_CHOICES)
+    p_depth.add_argument("--tags", action="store_true")
 
-    sub.add_parser("da3", help="Build depth/da3.npz")
-    sub.add_parser("da3_posed", help="Build depth/da3_posed.npz (needs posed rs)")
-    sub.add_parser("hybrid", help="Build depth/hybrid.npz")
-
-    p_mesh = sub.add_parser("mesh", help="Build one meshes/{depth}_{mesh}_mesh.glb")
+    p_mesh = sub.add_parser("mesh", help="Build one mesh from a depth npz already on disk")
     p_mesh.add_argument("depth", choices=DEPTH_CHOICES)
     p_mesh.add_argument("mesh", choices=MESH_CHOICES)
 
-    sub.add_parser("summarize", help="Refresh dataset/depth/mesh summaries")
+    sub.add_parser("summarize", help="Rewrite dataset, depth, and mesh summary boards")
     return parser.parse_args(argv)
+
+
+def _mesh_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    """Voxel and post flags shared by mesh builds."""
+    return {
+        "voxel_length": args.voxel_length,
+        "sdf_trunc": args.sdf_trunc,
+        "depth_trunc": args.depth_trunc,
+        "keep_largest": args.keep_largest,
+        "seal": args.seal,
+        "coacd": args.coacd,
+    }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry."""
     args = parse_args(argv)
+    if args.cmd is None and not args.all and args.depth is None and args.mesh is None:
+        print(USAGE, end="")
+        return 0
     layout = layout_for(
         args.name, dump=args.dump, out_root=args.output_dir,
         mvsam_root=args.mvsam_root, masks_name=args.masks,
     )
-    depths = _parse_csv_choices(args.depth, DEPTH_CHOICES, DEPTH_CHOICES)
-    meshes = _parse_csv_choices(args.mesh_filter, MESH_CHOICES, MESH_CHOICES)
-    mesh_kw = dict(
-        voxel_length=args.voxel_length, sdf_trunc=args.sdf_trunc, depth_trunc=args.depth_trunc,
-        keep_largest=args.keep_largest, seal=args.seal, coacd=args.coacd,
-    )
-
-    if args.cmd == "all":
-        use_rs = bool(args.rs)
-        if use_rs and not (args.tags or args.unposed):
-            raise RuntimeError("--rs requires --tags or --unposed")
-        if not use_rs and (args.tags or args.unposed):
-            raise RuntimeError("--tags/--unposed only apply with --rs")
-        run_all(
-            layout,
-            use_rs=use_rs,
-            tags=bool(args.tags),
-            process_res=args.process_res,
-            margin=args.margin,
-            skip_incomplete=not args.no_skip_incomplete,
-            depths=depths,
-            meshes=meshes,
-            **mesh_kw,
-        )
-    elif args.cmd == "ingest":
+    mesh_kw = _mesh_kwargs(args)
+    if args.cmd == "ingest":
         if args.processed:
             ingest_processed(layout, layout.dump)
         else:
             ingest(layout, skip_incomplete=not args.no_skip_incomplete)
-    elif args.cmd == "rs":
-        build_rs(layout, tags=bool(args.tags), process_res=args.process_res, margin=args.margin)
-    elif args.cmd == "da3":
-        build_da3(layout, process_res=args.process_res)
-    elif args.cmd == "da3_posed":
-        build_da3_posed(layout, process_res=args.process_res)
-    elif args.cmd == "hybrid":
-        build_hybrid(layout)
+    elif args.cmd == "depth":
+        if args.source == "da3" and args.tags:
+            raise RuntimeError("--tags is only for RealSense depths (rs, da3_posed, hybrid)")
+        ensure_depth(
+            layout, args.source, tags=bool(args.tags), refresh=True,
+            process_res=args.process_res, margin=args.margin,
+        )
     elif args.cmd == "mesh":
-        build_mesh(layout, args.depth, args.mesh, **mesh_kw)
+        build_mesh(layout, args.depth, args.mesh, **mesh_kw)  # type: ignore[arg-type]
     elif args.cmd == "summarize":
         summarize(layout)
+    elif args.cmd is None and args.all:
+        if args.depth is not None or args.mesh is not None:
+            raise RuntimeError("pass --all or --depth/--mesh, not both")
+        run_all(
+            layout, use_rs=bool(args.rs), tags=bool(args.tags), refresh=bool(args.refresh),
+            process_res=args.process_res, margin=args.margin,
+            skip_incomplete=not args.no_skip_incomplete, mesh_kw=mesh_kw,
+        )
+    elif args.cmd is None:
+        if args.rs:
+            raise RuntimeError("--rs is only used with --all; the depth name selects RealSense")
+        if args.depth is None or args.mesh is None:
+            raise RuntimeError("pass both --depth and --mesh\n" + USAGE)
+        run_pair(
+            layout, args.depth, args.mesh, tags=bool(args.tags), refresh=bool(args.refresh),
+            process_res=args.process_res, margin=args.margin,
+            skip_incomplete=not args.no_skip_incomplete, mesh_kw=mesh_kw,
+        )
     else:
         raise RuntimeError(f"unknown cmd {args.cmd}")
     return 0

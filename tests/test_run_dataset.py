@@ -6,6 +6,7 @@ import base64
 import io
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
@@ -16,13 +17,19 @@ from run_dataset import (
     build_hybrid,
     build_mesh,
     build_rs,
+    depths_required,
     ingest,
     layout_for,
+    main,
     mesh_jobs_for,
+    require_recipe,
     summarize,
     validate_mesh_job,
 )
 from vis import write_da3_npz
+
+if TYPE_CHECKING:
+    from _pytest.capture import CaptureFixture
 
 
 def test_mesh_jobs_for_modes() -> None:
@@ -35,6 +42,32 @@ def test_mesh_jobs_for_modes() -> None:
     assert ("rs", "tsdf") in tagged
     assert ("hybrid", "tsdf") in tagged
     assert ("da3_posed", "sam3d") in tagged
+
+
+def test_depths_required_lists_parents_first() -> None:
+    """Hybrid and posed DA3 build RealSense before their own npz."""
+    assert depths_required("da3") == ("da3",)
+    assert depths_required("rs") == ("rs",)
+    assert depths_required("da3_posed") == ("rs", "da3_posed")
+    assert depths_required("hybrid") == ("rs", "da3", "hybrid")
+
+
+def test_require_recipe_rejects_unposed_rs_tsdf() -> None:
+    """RealSense TSDF without tags tells the user to pass --tags."""
+    try:
+        require_recipe("rs", "tsdf", tags=False)
+    except RuntimeError as exc:
+        assert "--tags" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
+def test_main_without_a_recipe_prints_commands(capsys: CaptureFixture[str]) -> None:
+    """A dataset name alone prints the command table and does not run."""
+    assert main(["toy"]) == 0
+    out = capsys.readouterr().out
+    assert "--depth rs --mesh tsdf --tags" in out
+    assert "--all --rs --tags" in out
 
 
 def test_validate_mesh_job_rejects_unposed_rs_tsdf() -> None:

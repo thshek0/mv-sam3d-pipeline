@@ -68,7 +68,7 @@ output/<name>/
 
 A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `images/` + masks with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
 
-`depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay on `output/<name>/`. Meshes are flat under `meshes/` as `{slug}_mesh.glb` + `{slug}_mesh.png` (e.g. `da3_sam3d_mesh.glb`).
+`depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay on `output/<name>/`. Meshes are flat under `meshes/` as `{depth}_{mesh}_mesh.glb` + `{depth}_{mesh}_mesh.png` (e.g. `da3_sam3d_mesh.glb`).
 
 `src/capture_realsense.py` writes `dataset/captures_*` (SPACE to save). With tags: `convert_realsense_dump` → `tags.convert_apriltag_to_da3_npz` → crop. Without tags: `--rs-dump` builds an unposed RS npz. `src/tsdf.py` fuses metric depth (optional masks). `src/da3_posed.py` runs DA3 with known `w2c` + `K`. Download `mesh.glb`; `mesh.png` is the three-view still.
 
@@ -104,19 +104,23 @@ flowchart LR
 - **rs** — D415 Z. With tags: shared poses. Without tags: depth + K, identity extrinsics (boards / per-view).
 - **hybrid** — full-frame: keep valid RS, fill RS holes with scaled DA3. Posed RS also rejects DA in free space carved by another view.
 
-When both DA3 and RS npzs exist, the pipeline always writes `depth/hybrid.npz` as a side product.
+`hybrid` is built only when you ask for it (or for `--all`). It builds `da3` and `rs` first.
 
 ## Mesh
 
-`--mesh sam3d` (default) is MV-SAM3D generation (`meshes/{depth}_sam3d_mesh.glb`, including `rs_sam3d` when `--method rs`). `--mesh tsdf` is Open3D multi-view TSDF on the same npz — it **requires real extrinsics**. Unposed RS / hybrid (no AprilTags, identity `w2c`) is rejected; use SAM3D or `da3` / `da3_posed` TSDF instead.
+One command names the depth and the mesh. It builds only the depth files that pair needs, skips a depth npz or mesh glb that is already on disk, and writes the summary boards once at the end. `--refresh` rebuilds those files. `--tags` means the RealSense dump has AprilTags. Without it, `rs` or `hybrid` with `tsdf` is refused, and `da3_posed` is refused.
 
-| You have | Run |
+`sam3d` is MV-SAM3D (`meshes/{depth}_sam3d_mesh.glb`). `tsdf` is Open3D multi-view fusion on the same npz. TSDF needs real extrinsics.
+
+| You want | Command |
 |---|---|
-| RGB + masks only | `--method da3 --mesh sam3d` (or `--mesh tsdf` — DA3 poses) |
-| RS dump, no tags | `--rs-dump …` + `--method da3` / `hybrid` + `--mesh sam3d` (not TSDF on RS/hybrid) |
-| Tags, closed box | `--method da3_posed --mesh sam3d` |
-| Tags + RS, measured holes | `--method rs --mesh tsdf` |
-| Tags + RS, fill RS holes | `--method hybrid --mesh tsdf` |
+| RGB + masks, generated mesh | `--depth da3 --mesh sam3d` |
+| RGB + masks, fused mesh | `--depth da3 --mesh tsdf` |
+| Tags, generated box | `--depth da3_posed --mesh sam3d --tags` |
+| Tags, measured holes | `--depth rs --mesh tsdf --tags` |
+| Tags, fill RealSense holes | `--depth hybrid --mesh tsdf --tags` |
+| RealSense, no tags, generated mesh | `--depth hybrid --mesh sam3d` |
+| Every legal pair | `--all --rs --tags`, `--all --rs`, or `--all` |
 
 ## Installation
 
@@ -146,27 +150,38 @@ python -m pytest tests
 
 ## New dataset (`dataset/<name>/`)
 
-After capture + LabelMe (or a processed `images/`+`masks/` scene), run one command. It builds every **valid** depth × mesh for the mode and refreshes summaries (including after each mesh).
+After capture + LabelMe (or a processed `images/` + `masks/` scene), name the depth and the mesh. A name alone prints this table and stops.
 
 ```bash
 export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
-NAME=my_capture
-PY=.venv/bin/python
 
-$PY src/run_dataset.py $NAME all --rs --tags       # RealSense + AprilTags
-$PY src/run_dataset.py $NAME all --rs --unposed    # RealSense, no tags
-$PY src/run_dataset.py $NAME all --no-rs           # RGB+masks only → da3
+python src/run_dataset.py my_capture --depth rs --mesh tsdf --tags
+python src/run_dataset.py my_capture --depth da3 --mesh sam3d
+python src/run_dataset.py my_capture --all --rs --tags
 ```
 
-Optional filters: `--depth da3,hybrid` `--mesh sam3d,tsdf`. Steps also work one at a time: `ingest`, `rs`, `da3`, `da3_posed`, `hybrid`, `mesh DEPTH MESH`, `summarize`.
+A second run leaves existing `depth/*.npz` and `meshes/*_mesh.glb` files in place and redraws the boards. `--refresh` rebuilds them after masks, tags, or views change.
+
+Steps, when one board is wrong: `ingest`, `depth da3|da3_posed|rs|hybrid`, `mesh DEPTH MESH`, `summarize`. `depth rs` is unposed unless you pass `--tags`. These steps do not skip existing files. `summarize` only redraws boards.
 
 | Mode | Depths | Meshes |
 |---|---|---|
-| `--no-rs` | `da3` | `da3` × sam3d/tsdf |
-| `--rs --unposed` | `rs`, `da3`, `hybrid` | `da3` × sam3d/tsdf, `rs_sam3d`, `hybrid_sam3d` (no rs/hybrid TSDF) |
-| `--rs --tags` | `rs`, `da3`, `hybrid`, `da3_posed` | all × sam3d/tsdf |
+| `--all` | `da3` | `da3` × sam3d/tsdf |
+| `--all --rs` | `rs`, `da3`, `hybrid` | `da3` × sam3d/tsdf, `rs_sam3d`, `hybrid_sam3d` (no rs/hybrid TSDF) |
+| `--all --rs --tags` | `rs`, `da3`, `hybrid`, `da3_posed` | all × sam3d/tsdf |
 
-Outputs under `output/<name>/`: `dataset_summary.png` (full-frame dump RGBs), `masks_preview.png`, `tags_preview.png` (full-frame overlay + axes when `--tags`), `depth_summary.png`, `mesh_summary.png` (2×3: columns sam3d|tsdf, rows da3|rs|hybrid; da3 row prefers `da3_posed` when tags). Mesh work uses mask-cropped `scene/images/`.
+The command writes these boards once, under `output/<name>/`:
+
+| File | What it shows |
+|---|---|
+| `dataset_summary.png` | captured frames |
+| `masks_preview.png` | whether the mask took in the table |
+| `tags_preview.png` | tag poses, when RealSense was posed |
+| `depth_summary.png` | one column per depth npz on disk (`da3`, `da3_posed`, `rs`, `hybrid`) |
+| `mesh_summary.png` | 2×3 grid, columns sam3d\|tsdf, rows da3\|rs\|hybrid. The da3 row uses `da3_posed` when that mesh exists. Empty cells are pairs not built yet |
+| `meshes/<depth>_<mesh>_mesh.png` | three-view still of that mesh |
+
+Mesh work uses mask-cropped `scene/images/`.
 
 ## Seal and CoACD
 
