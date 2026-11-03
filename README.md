@@ -49,7 +49,7 @@ flowchart LR
 ## Data Format
 
 ```text
-dataset/<name>/              # raw capture only (read-only)
+dataset/<name>/              # raw capture/reference images + annotations; preserve originals
 examples/gripper/
   raw/                       # 00.png + 00.json, …
   processed/
@@ -66,11 +66,98 @@ output/<name>/
 
 `-i` is a processed scene: one RGB per view in `images/`, one RGBA mask per view in `masks/` (or `--masks object` for the gripper example). Same filename, same count. Alpha must have some foreground. The dataset name is that folder’s name (`…/processed` or `…/scene` uses the parent name). You can also pass `output/<name>/` after staging (it looks under `scene/`). `raw/00.png` becomes `images/0.png` after ingest.
 
+Related object runs are grouped the same way under `dataset/` and `output/`:
+
+| Family | Runs |
+| --- | --- |
+| `birds/` | `bird1_v1`, `bird1_v2`, `bird2` |
+| `bowls_and_plates/` | `hestia_bowl`, `plate_green`, `plate_pink`, `plate_patterned` |
+| `heater/` | `heater_v2` through `heater_v5`; source video in `dataset/heater/heater.mp4` |
+| `structure/` | `structure_before`, `structure_after_v1`, `structure_after_v2` |
+| `instruments/` | the four chemical instruments below |
+| `gripper/` | `gripper_v2` captures; public-example run ID `gripper` |
+
+For example, `run_dataset.py heater_v5` resolves its input
+under `dataset/heater/heater_v5/` and outputs under `output/heater/heater_v5/`.
+Explicit family roots are also supported without doubling the family directory.
+The bowl and three plate folders sit directly under `bowls_and_plates/` in both
+dataset and output. Legacy names (`bowl`, `green_plate`, `pink_plate`,
+`capture_test`) resolve to the current names in the pipeline. Plate exports are
+in `output/bowls_and_plates/plate_*/model/` and contain the current simplified
+meshes under their original names. The current plate bundle is
+`output/bowls_and_plates/plate_models.zip`; original plate capture archives are under
+`dataset/bowls_and_plates/source_archives/`. Grouping does not combine captures
+or merge models. Start at [the output overview](output/index.html).
+
+Historical sources are recovered under their corresponding `dataset/` captures.
+Selected experiment results live under `output/<family>/experiments/`, timing
+runs under `output/<family>/benchmarks/`, and cross-object reviews under
+`output/comparisons/`. Local migration ledgers live under `output/maintenance/`.
+See [the retention policy](docs/maintenance/archive-retirement.md) and
+[the local relocation ledger](output/maintenance/archive_retirement/path_map.json).
+Historical logs retain recorded paths; the ledger resolves retired locations.
+
+The gripper public example remains `examples/gripper/`. Its 12-view capture set
+corresponds to `dataset/gripper/gripper_v2/`. The older six-view capture is under
+`dataset/gripper/captures/legacy_6view/`; keep its poses separate from twelve-view
+images. Future example runs write `output/gripper/gripper/`.
+
+The four instruments each have one raw-data root: `dataset/instruments/{cary60,c13472,c16361,c13534}/`.
+Inside it, `captures/<date>_<source>_<batch>/raw/` preserves original captures and
+annotations; `references/pdf/<reference>/raw/` holds PDF-derived images.
+For example: `dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/`.
+Unknown or mixed historical dates use `date_unknown`; RGB-D batch names also
+include their known state. `states/*.json` indexes evidence without duplicating
+originals, and `measurements.json` records source, units and uncertainty.
+
+Stable run IDs such as `c13472_rgbd_open` remain valid: `run_dataset.py` looks up
+the current raw folder in `dataset/instruments/catalog.json`. Per-batch `dataset.json` lets
+processed-scene input infer a unique run ID instead of using generic names such
+as `raw` or `scene`. Mixed/unreviewed batches are rejected: first review their
+state/component labels and stage one consistent selection. State indexes are
+reference lists, not executable reconstruction recipes. Output remains grouped
+as `output/instruments/<model>/<run>/`, with `output/instruments/<model>/model/` the current delivery
+package. Unrelated datasets retain the flat layout shown above.
+
 A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `images/` + masks with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
 
 `depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay on `output/<name>/`. Meshes are flat under `meshes/` as `{depth}_{mesh}_mesh.glb` + `{depth}_{mesh}_mesh.png` (e.g. `da3_sam3d_mesh.glb`).
 
 `src/capture_realsense.py` writes `dataset/captures_*` (SPACE to save). With tags: `convert_realsense_dump` → `tags.convert_apriltag_to_da3_npz` → crop. Without tags: `--rs-dump` builds an unposed RS npz. `src/tsdf.py` fuses metric depth (optional masks). `src/da3_posed.py` runs DA3 with known `w2c` + `K`. Download `mesh.glb`; `mesh.png` is the three-view still.
+
+For current commands, the pipeline flowchart, configurable photo inputs and source reproduction, see [the instrument tools guide](docs/instruments/README.md). The authored CAD/GLB/URDF path can start from source defaults and evidence without an earlier model output.
+
+For dimension-constrained instrument collision models, see [the reusable workflow, C13534 history and next-machine handoff](EXPERIMENTS.md#instrument-modeling-workflow). It combines reconstruction references, calibrated depth, measured dimensions and simple articulated collision parts.
+
+To start another instrument from a short brief, copy [the instrument-model prompt template](docs/instruments/prompt.txt), fill its eight fields and point it at your existing photos/video. The [minimal input guide](EXPERIMENTS.md#starting-an-instrument-with-one-prompt) explains which few views are useful and how to leave unknown measurements explicit.
+
+Each instrument has one current **`output/instruments/<modelname>/model/`** package. Superseded builds and reconstruction runs have been removed.
+
+```text
+output/instruments/<modelname>/
+  model/                     # current compact GLBs, URDF, SCAD and preview package
+    meshes/                  # textured visual_closed.glb and visual_open.glb
+    urdf/                    # robot.urdf and its parts/materials
+    openscad/                # native CAD source and editable dimensions
+    previews/, dimensions/   # current model images and dimensioned views
+    reports/, textures/      # validation/provenance and real photo textures
+    evidence/                # link to dataset/instruments/<modelname>/references/model_evidence/
+  validation/                # optional latest diagnostics and retained failures
+  printing/                  # explicit single-part STL exports, in millimetres
+  current_model.json         # stable current-package pointer
+  index.html                 # opens model/index.html
+
+dataset/instruments/<modelname>/          # original captures, annotations, references and recovered source images
+src/instruments/inputs/       # bootstrap design defaults with measurement/estimate evidence
+```
+
+Rebuild with `.venv/bin/python -m src.instruments build --model cary60` (or `c16361`, `c13472`, `c13534`). The builder uses a temporary `.build_work/` folder, validates exports, replaces `model/`, and removes temporary outputs. It does not accumulate dated builds or backups. Repackage without changing geometry with `.venv/bin/python -m src.instruments publish --model cary60`. Use the same CLI for validation (`validate`) and the sharing ZIP (`share`).
+
+Builds keep compact outputs by default. Use `build --extras` for additional reviews/states, `build --check-cad --keep-validation` for detailed CAD diagnostics, and `stl --model cary60 --part socket_left` for an explicit printing export. Successful validation scratch is removed by default; failures are retained. See [the output policy](docs/instruments/README.md#compact-outputs-and-optional-diagnostics).
+
+The sharing ZIP contains regular files and loads independently; the local evidence directory links into the dataset to avoid duplicate source images. All models use metres, X right / Y rear / Z up and fixed-base loading. Contact accuracy and physical dynamics remain unverified. Tau's total height is user-confirmed 253.3 mm; C13472's envelope is approximately 645 × 440 × 385 mm.
+
+Start at [the four-machine overview](output/instruments/index.html). Historical commands and paths in EXPERIMENTS.md document the development history; they are not current rebuild instructions. The cleanup ledger is `output/maintenance/instruments/instrument_cleanup_20261102/audit.json`.
 
 ## Depth
 
@@ -142,7 +229,7 @@ export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
 python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Writes `output/gripper/` (`scene/images/`, `scene/object/` or `scene/masks/`, `depth/da3.npz`, `meshes/da3_sam3d_mesh.glb`). New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
+Writes `output/gripper/gripper/` (`scene/images/`, `scene/object/` or `scene/masks/`, `depth/da3.npz`, `meshes/da3_sam3d_mesh.glb`). New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
 
 ```bash
 python -m pytest tests
@@ -191,14 +278,14 @@ Mesh work uses mask-cropped `scene/images/`.
 
 ## Runtime
 
-`src/time_run.py` times `da3` → SAM3D on any processed scene. Default `-i` is the gripper example (12 views, **10 repeats**). Writes `archive/<scene>_timed/` (`archive/gripper_timed/` for that example). `--keep-runs` (default) keeps each `run_*/` mesh and npz; `--no-keep-runs` leaves `summary.json` and contact sheets only. `--no-preview` skips `depth_preview.png`.
+`src/time_run.py` times `da3` → SAM3D on any processed scene. Default `-i` is the gripper example (12 views, **10 repeats**). Known families write `output/<family>/benchmarks/<scene>_timed/`; unrecognized scenes use `output/benchmarks/<scene>_timed/` (`output/gripper/benchmarks/gripper_timed/` for that example). `--keep-runs` (default) keeps each `run_*/` mesh and npz; `--no-keep-runs` leaves `summary.json` and contact sheets only. `--no-preview` skips `depth_preview.png`.
 
 ```bash
 python src/time_run.py -i examples/gripper
 python src/time_run.py -i path/to/processed --n 3 --no-keep-runs --no-preview
 ```
 
-Numbers below are the gripper path on NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `archive/gripper_timed/` (not the checked-in example).
+Numbers below are the gripper path on NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `output/gripper/benchmarks/gripper_timed/` (not the checked-in example).
 
 **Result.** End to end is **138.4 ± 2.0 s** (~11.5 s/view). SAM3D is most of that (**121.5 ± 2.1 s**). DA3 is **11.1 ± 0.2 s** (~0.93 s/view). Depth is repeatable (RMSE vs run 0 ≈ **0.25 mm**). The mesh is not bitwise-identical — SAM3D is generative (~254k faces ± 1k; chamfer vs run 0 ≈ **8.6 mm ± 0.06 mm**) — but the 10 stills are the same gripper.
 

@@ -1,5 +1,7 @@
 # Setup
 
+For the authored instrument CAD/GLB/URDF pipeline, use [its independent setup and reproduction guide](docs/instruments/README.md#source-release-and-reproduction) and `env/instruments-requirements.txt`. It does not require the DA3/SAM3D environments below.
+
 Converters run in this repo’s `.venv` (Pillow, tests). rembg, DA3, and MV-SAM3D are **optional** other envs. Point them with env vars; there are no machine-specific paths in this repo.
 
 Driver scripts are in `src/`. Tests are in `tests/` (`pytest.ini` sets `pythonpath = src`). `env/` is **committed** (pip freezes, `camera_lock.json`, MV-SAM3D patch). Weights, clones, and `.venv` are gitignored. Leave existing checkpoints on disk; do not delete them.
@@ -134,14 +136,14 @@ Or pass `--da3-python` / `--mvsam-python`. `DA3_PYTHON` / `MVSAM_PYTHON` overrid
 
 ## 8. Smoke test
 
-Processed scene in `examples/gripper/processed` (`images/` + `object/`). Results go under `output/gripper/`:
+Processed scene in `examples/gripper/processed` (`images/` + `object/`). Results go under `output/gripper/gripper/`:
 
 ```bash
 source .venv/bin/activate
 python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gripper/meshes/da3_sam3d_mesh.glb` and `da3_sam3d_mesh.png`. Missing DA3/npz raises; it does not skip.
+Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/gripper/gripper/meshes/da3_sam3d_mesh.glb` and `da3_sam3d_mesh.png`. Missing DA3/npz raises; it does not skip.
 
 Optional closed solid + convex parts (CoACD `t=0.05`):
 

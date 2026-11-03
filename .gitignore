@@ -22,3 +22,6 @@ LOCAL.md
 .pytest_cache/
 *.egg-info/
 *.npz
+
+# Local runtime session state
+/:memory:.ses
