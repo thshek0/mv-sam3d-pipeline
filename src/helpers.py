@@ -6,6 +6,7 @@ import base64
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -24,6 +25,28 @@ DEFAULT_OUT = REPO / "output"
 
 SCENE_DIR_NAMES = frozenset({"processed", "scene"})
 DEPTH_SOURCES = ("da3", "da3_posed", "rs", "hybrid")
+INSTRUMENT_MODELS = frozenset({"cary60", "c13472", "c16361", "c13534"})
+DATASET_ALIASES = {
+    "bowl": "hestia_bowl",
+    "green_plate": "plate_green",
+    "pink_plate": "plate_pink",
+    "capture_test": "plate_patterned",
+}
+
+
+def dataset_family(name: str) -> str | None:
+    """Stable category for known object runs; unrelated datasets stay flat."""
+    if re.fullmatch(r"gripper(?:_v\d+)?", name):
+        return "gripper"
+    if re.fullmatch(r"bird\d+(?:_v\d+)?", name):
+        return "birds"
+    if re.fullmatch(r"heater(?:_v\d+)?", name):
+        return "heater"
+    if re.fullmatch(r"structure_(?:before|after)(?:_v\d+)?", name):
+        return "structure"
+    if name in DATASET_ALIASES or name in DATASET_ALIASES.values():
+        return "bowls_and_plates"
+    return None
 
 
 def mesh_name(depth_method: str, mesh_method: str = "sam3d") -> str:
@@ -53,33 +76,74 @@ def mesh_name_from_glb(mesh_path: Path) -> str | None:
 
 
 def dataset_name_from_input(src: Path) -> str:
-    """Dataset name for ``-i``: parent when the folder is ``processed`` or ``scene``."""
-    return src.parent.name if src.name in SCENE_DIR_NAMES else src.name
+    """Prefer a batch's explicit identity; reject mixed-state capture batches."""
+    for parent in (src, src.parent, src.parent.parent):
+        metadata = parent / "dataset.json"
+        if metadata.is_file():
+            batch = json.loads(metadata.read_text())
+            if not batch.get("eligible_for_rigid_reconstruction", True):
+                raise ValueError(f"{parent} contains mixed or unreviewed states; select and stage one state first")
+            return batch["run_id"]
+    name = src.parent.name if src.name in SCENE_DIR_NAMES else src.name
+    return DATASET_ALIASES.get(name, name)
+
+
+def dataset_input_dir(name: str, dataset_dir: Path | None = None) -> Path:
+    """Resolve instrument catalog IDs and known object-family input folders."""
+    name = DATASET_ALIASES.get(name, name)
+    base = dataset_dir if dataset_dir is not None else DEFAULT_DATASET
+    catalog = base / "instruments" / "catalog.json"
+    if not catalog.is_file():
+        catalog = base / "catalog.json"
+    if catalog.is_file():
+        entry = json.loads(catalog.read_text()).get("datasets", {}).get(name)
+        if entry:
+            if not entry.get("eligible_for_rigid_reconstruction", True):
+                raise ValueError(f"{name} contains mixed or unreviewed states; select and stage one state first")
+            raw = Path(entry["raw_dir"])
+            repository = base.parent.parent if base.name == "instruments" else base.parent
+            return raw if raw.is_absolute() else repository / raw
+    family = dataset_family(name)
+    if family and base.name != family:
+        return base / family / name
+    return base / name
 
 
 def dataset_root(out_dir: Path, dataset: str) -> Path:
-    """Return ``output/<dataset>/``."""
+    """Group instrument and object families; preserve unrelated dataset layouts.
+
+    Keep the full source/state run name so input-name inference is unchanged.
+    An explicit per-machine output root must not duplicate the machine folder.
+    """
+    dataset = DATASET_ALIASES.get(dataset, dataset)
+    instrument, separator, _ = dataset.partition("_")
+    if separator and instrument in INSTRUMENT_MODELS and out_dir.name != instrument:
+        family_root = out_dir if out_dir.name == "instruments" else out_dir / "instruments"
+        return family_root / instrument / dataset
+    family = dataset_family(dataset)
+    if family and out_dir.name != family:
+        return out_dir / family / dataset
     return out_dir / dataset
 
 
 def dataset_scene_dir(out_dir: Path, dataset: str) -> Path:
-    """Return ``output/<dataset>/scene/`` (images + masks)."""
-    return out_dir / dataset / "scene"
+    """Return the run's ``scene/`` (images + masks), respecting machine grouping."""
+    return dataset_root(out_dir, dataset) / "scene"
 
 
 def dataset_depth_dir(out_dir: Path, dataset: str) -> Path:
-    """Return ``output/<dataset>/depth/``."""
-    return out_dir / dataset / "depth"
+    """Return the run's ``depth/``, respecting machine grouping."""
+    return dataset_root(out_dir, dataset) / "depth"
 
 
 def dataset_depth_npz(out_dir: Path, dataset: str, source: str) -> Path:
-    """Return ``output/<dataset>/depth/{source}.npz``."""
-    return out_dir / dataset / "depth" / f"{source}.npz"
+    """Return the grouped run's ``depth/{source}.npz``."""
+    return dataset_depth_dir(out_dir, dataset) / f"{source}.npz"
 
 
 def dataset_meshes_dir(out_dir: Path, dataset: str) -> Path:
-    """Return ``output/<dataset>/meshes/``."""
-    return out_dir / dataset / "meshes"
+    """Return the run's ``meshes/``, respecting machine grouping."""
+    return dataset_root(out_dir, dataset) / "meshes"
 
 
 def valid_depth(depth: np.ndarray) -> np.ndarray:

@@ -30,15 +30,19 @@ from post import load_triangle_mesh, preview_mesh
 from vis import visualize_depth
 
 DEFAULT_SCENE = REPO / "examples/gripper/processed"
-DEFAULT_GRIPPER_OUT = REPO / "archive/gripper_timed"
+DEFAULT_GRIPPER_OUT = REPO / "output/gripper/benchmarks/gripper_timed"
 
 
 def default_out_dir(src: Path) -> Path:
-    """``archive/gripper_timed`` for the example scene, else ``archive/<name>_timed``."""
+    """Group timings by known object family and preserve the inferred scene ID."""
     resolved = src.expanduser().resolve()
     if resolved == DEFAULT_SCENE.resolve():
         return DEFAULT_GRIPPER_OUT
-    return REPO / "archive" / f"{resolved.name}_timed"
+    from helpers import dataset_family, dataset_name_from_input
+    name = dataset_name_from_input(resolved)
+    family = dataset_family(name)
+    parent = REPO / "output" / family / "benchmarks" if family else REPO / "output/benchmarks"
+    return parent / f"{name}_timed"
 
 
 def discard_run_dirs(root: Path) -> None:
@@ -218,7 +222,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--masks", default="object", help="Mask folder name (gripper example uses object/)")
     parser.add_argument("--n", type=int, default=10)
-    parser.add_argument("--out", type=Path, default=None, help="Repeat folder (default: archive/<scene>_timed)")
+    parser.add_argument("--out", type=Path, default=None, help="Repeat folder (default: output/<family>/benchmarks/<scene>_timed for known families)")
     parser.add_argument(
         "--keep-runs", action=argparse.BooleanOptionalAction, default=True,
         help="Keep run_*/ meshes and npzs (default). --no-keep-runs leaves summary.json and sheets only",

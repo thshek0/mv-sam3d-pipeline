@@ -38,9 +38,11 @@ def test_timed_returns_elapsed() -> None:
 
 
 def test_default_out_dir_uses_scene_name() -> None:
-    """Gripper example keeps the old archive path; other scenes use their folder name."""
+    """Known families group timing runs; unrelated scenes keep their folder name."""
     assert default_out_dir(DEFAULT_SCENE) == DEFAULT_GRIPPER_OUT
-    assert default_out_dir(Path("/tmp/device3")) == REPO / "archive" / "device3_timed"
+    assert default_out_dir(Path("/tmp/device3")) == REPO / "output/benchmarks/device3_timed"
+    assert default_out_dir(Path("/tmp/heater_v5/scene")) == REPO / "output/heater/benchmarks/heater_v5_timed"
+    assert default_out_dir(Path("/tmp/gripper_v2/processed")) == REPO / "output/gripper/benchmarks/gripper_v2_timed"
 
 
 def test_discard_run_dirs_keeps_summary(tmp_path: Path) -> None:

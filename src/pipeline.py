@@ -109,7 +109,7 @@ def resolve_input_scene(src: Path, masks_name: str) -> tuple[Path, str]:
         return src, dataset_name_from_input(src)
     nested = src / "scene"
     if (nested / "images").is_dir() and (nested / masks_name).is_dir():
-        return nested, src.name
+        return nested, dataset_name_from_input(src)
     raise RuntimeError(
         f"{src} is not a processed scene (need images/ and {masks_name}/, "
         f"or scene/images + scene/{masks_name}). "

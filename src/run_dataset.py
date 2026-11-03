@@ -29,6 +29,7 @@ from helpers import (
     crop_views_depth_to_masks,
     dataset_depth_npz,
     dataset_root,
+    dataset_input_dir,
     env_python,
     identity_w2c,
     listed_images,
@@ -116,7 +117,7 @@ def layout_for(
     """Build paths for ``name`` (defaults: ``dataset/<name>``, ``output/``)."""
     return DatasetLayout(
         name=name,
-        dump=(dump or Path("dataset") / name).expanduser().resolve(),
+        dump=(dump or dataset_input_dir(name)).expanduser().resolve(),
         out_root=(out_root or DEFAULT_OUT).expanduser().resolve(),
         mvsam_root=(mvsam_root or DEFAULT_MVSAM).expanduser().resolve(),
         masks_name=masks_name,
@@ -664,7 +665,7 @@ def run_all(
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter, epilog=USAGE)
-    parser.add_argument("name", help="Dataset folder name under dataset/ and output/")
+    parser.add_argument("name", help="Stable dataset name; known object families are resolved automatically")
     parser.add_argument("--dump", type=Path, default=None, help="RealSense dump or processed scene")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--mvsam-root", type=Path, default=DEFAULT_MVSAM)
