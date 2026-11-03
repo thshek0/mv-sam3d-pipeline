@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "model": "c13472",
+  "geometry_sources": [
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9891.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9892.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9893.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9898.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9900.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9901.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9904.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9930.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9935.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9936.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9938.HEIC",
+    "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9939.HEIC"
+  ],
+  "materials": {
+    "white": {
+      "review_image": "IMG_9892.jpg",
+      "original": "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9892.HEIC",
+      "crop_pixels": [
+        400,
+        210,
+        600,
+        260
+      ]
+    },
+    "dark": {
+      "review_image": "previous_exterior.jpg",
+      "original": "dataset/instruments/c13472/captures/date_unknown_photo_closed_01/raw/0.jpg",
+      "crop_pixels": [
+        160,
+        105,
+        230,
+        140
+      ]
+    },
+    "black": {
+      "review_image": "IMG_9939.jpg",
+      "original": "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9939.HEIC",
+      "crop_pixels": [
+        30,
+        350,
+        140,
+        550
+      ]
+    },
+    "metal": {
+      "review_image": "IMG_9901.jpg",
+      "original": "dataset/instruments/c13472/captures/2026-11-02_photo_01/raw/IMG_9901.HEIC",
+      "crop_pixels": [
+        400,
+        170,
+        600,
+        250
+      ]
+    }
+  },
+  "markings": {
+    "source": "dataset/instruments/c13472/captures/date_unknown_photo_closed_01/raw/0.jpg",
+    "review_size": [
+      1000,
+      750
+    ],
+    "items": [
+      {
+        "name": "front_identity",
+        "corners_tl_tr_br_bl": [
+          [
+            310,
+            548
+          ],
+          [
+            534,
+            520
+          ],
+          [
+            534,
+            555
+          ],
+          [
+            310,
+            589
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.02,
+          0.235,
+          0.05,
+          0.082
+        ],
+        "target_y_m": 0
+      }
+    ]
+  }
+}

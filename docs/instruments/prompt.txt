@@ -1,0 +1,64 @@
+Build or refine a metric instrument model using docs/instruments/README.md.
+Read repository instructions and LOCAL.md if present. Continue through geometry,
+review PNGs, state meshes, URDF, validation and publishing the current package.
+
+INSTRUMENT: <manufacturer, model, installed accessory/variant>
+INPUTS: <existing photo/video folders, earlier captures, references>
+DOCUMENTS: <manufacturer PDFs/links or saved research>
+TASK: <static obstacle / open cover / manipulate control / insert sample>
+SIMULATOR: <name, or portable URDF with fixed base>
+MEASUREMENTS: <value + unit + endpoints + source + tolerance, or unknown>
+MOVEMENT: <moving parts, directions, measured travel, video evidence>
+CORRECTIONS: <specific geometry/contact or visual changes>
+
+Use previous evidence as well as the latest capture. Preserve originals under
+ dataset/instruments/<machine>/captures/<date>_<source>_<batch>/raw/.
+Keep documents and review evidence under references/, state indexes under
+states/, and readings in measurements.json. Catalog paths are repository-relative
+in dataset/instruments/catalog.json. Ask when a ruler or feature is ambiguous.
+
+Prefer simple convex collision pieces while retaining openings and contact
+surfaces needed by the task. Keep measured dimensions, photo estimates and
+unknowns distinct. Align evidence before geometric comparisons. Separate moving
+parts; do not fuse open and closed states into a rigid reconstruction. Match
+visible symmetry and continuity where supported by evidence. Do not invent
+internal motions or precision fits from still images.
+
+For visuals, use actual photographed panels, logos and text with recorded source
+corners and UV placement. Sampled material colours are not full-surface textures.
+Keep visual-only markings separate from collision geometry.
+
+Reuse src/instruments/ components. Define dimensions, parts and joint relationships
+once in the machine recipe, using design.py/shared_geometry.py for both native
+OpenSCAD and convex simulation geometry. Store editable dimensions in the current
+parameters.json/design_parameters with measurement evidence. Do not maintain a
+second SCAD geometry recipe. To import numeric edits from parameters_native.scad:
+ .venv/bin/python -m src.instruments build --model <machine> --from-cad-parameters --check-cad
+Arbitrary assembly.scad edits are not imported. Engine checks require OpenSCAD.
+Compare edited-parameter CAD/GLB/URDF exports in temporary validation packages;
+never publish test dimensions as new measurements. CLI:
+ .venv/bin/python -m src.instruments build --model <machine>
+ .venv/bin/python -m src.instruments validate --model <machine>
+ .venv/bin/python -m src.instruments share
+
+Publish output/instruments/<machine>/model/ with the compact defaults: closed/open
+textured GLBs, assembly PNG, combined dimension sheet, SCAD, URDF with all required
+assets, parameters, provenance and check summaries. Use --extras for additional
+reviews/states, --check-cad --keep-validation for retained CAD diagnostics, share
+for ZIPs, and stl --model <machine> --part <semantic-part> for a printing export.
+Failed diagnostics live under <machine>/validation/failures/.
+Use .build_work temporarily; do not retain dated builds or backups. Preserve
+small rebuild inputs under src/instruments/inputs/. Update the shared overview
+at output/instruments/index.html and instruments_review.png. Report concrete
+changes, checks performed and unresolved measurements with links to previews.
+
+For new evidence, update src/instruments/inputs/<machine>/evidence.json:
+ geometry_sources = original files actually used for geometry interpretation;
+ materials = decoded review filenames + original paths + crop rectangles;
+ markings = original source + review resize + four corners + target panel bounds.
+Preserve earlier evidence unless superseded by a documented observation. Inspect
+new crops/corners; they are image-specific. Do not treat adding photos as automatic
+geometry fitting. For a new instrument, author and register its shared recipe;
+reuse exporters, primitives, texturing, packaging and checks. Log assumptions and
+measurements needed. Never describe estimates or sampled checks as physical proof.
+The pipeline graph and source-release requirements are in the guide.

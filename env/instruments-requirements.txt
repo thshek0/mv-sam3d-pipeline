@@ -1,0 +1,11 @@
+# Direct dependencies observed in the tested Linux/Python 3.11 environment.
+# This is not a complete transitive lockfile. OpenSCAD is a separate executable.
+numpy==1.26.4
+scipy==1.14.1
+trimesh==5.1.0
+Pillow==12.3.0
+matplotlib==3.11.2
+open3d==0.19.0
+opencv-python==4.11.0.86
+pybullet==3.2.7
+pytest==9.1.1

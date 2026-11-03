@@ -1,0 +1,72 @@
+{
+  "model": "c13472",
+  "units": "mm and degrees; fractions dimensionless",
+  "values": {
+    "body_width_mm": 645.0,
+    "body_depth_mm": 440.0,
+    "body_height_mm": 385.0,
+    "wall_mm": 6.0,
+    "base_height_fraction": 0.24,
+    "shoulder_height_fraction": 0.78,
+    "front_bevel_fraction": 0.16,
+    "rear_position_fraction": 0.88,
+    "inner_wall_fraction": 0.64,
+    "cover_left_fraction": 0.04,
+    "cover_width_fraction": 0.6,
+    "cover_travel_fraction": 0.32,
+    "stage_center_x_fraction": 0.29457364341085274,
+    "stage_center_y_fraction": 0.4659090909090909,
+    "stage_radius_mm": 65.0,
+    "holder_frame_width_mm": 90,
+    "holder_hole_diameter_mm": 44.0,
+    "holder_collar_diameter_mm": 60.0,
+    "holder_above_floor_mm": 126.60000000000001,
+    "motor_radius_mm": 32.0,
+    "motor_wall_inset_mm": 1,
+    "motor_mount_thickness_mm": 5,
+    "motor_above_floor_mm": 86.60000000000001
+  },
+  "evidence": {
+    "body_width_mm": "User approximate overall closed envelope 645 x 440 x 385 mm; protrusions contained, no feet allowance",
+    "body_depth_mm": "User approximate overall closed envelope 645 x 440 x 385 mm; protrusions contained, no feet allowance",
+    "body_height_mm": "User approximate overall closed envelope 645 x 440 x 385 mm; protrusions contained, no feet allowance",
+    "wall_mm": "estimate",
+    "base_height_fraction": "estimate",
+    "shoulder_height_fraction": "estimate",
+    "front_bevel_fraction": "estimate",
+    "rear_position_fraction": "estimate",
+    "inner_wall_fraction": "estimate",
+    "cover_left_fraction": "estimate",
+    "cover_width_fraction": "estimate",
+    "cover_travel_fraction": "estimate",
+    "stage_center_x_fraction": "estimate",
+    "stage_center_y_fraction": "estimate",
+    "stage_radius_mm": "estimate",
+    "holder_frame_width_mm": "estimate",
+    "holder_hole_diameter_mm": "estimate",
+    "holder_collar_diameter_mm": "estimate",
+    "holder_above_floor_mm": "estimate",
+    "motor_radius_mm": "estimate",
+    "motor_wall_inset_mm": "1 mm estimated liner; attachment to right black wall is user-confirmed",
+    "motor_mount_thickness_mm": "estimate",
+    "motor_above_floor_mm": "estimate"
+  },
+  "metadata": {
+    "units": "metres",
+    "frame": "X right, Y rear, Z up; support plane Z=0",
+    "status": "2026-11-02 review candidate; unconfirmed local dimensions remain estimates",
+    "body_dimension_evidence": "User approximate overall closed envelope 645 x 440 x 385 mm; protrusions contained, no feet allowance",
+    "dimension_code": "U",
+    "joint_evidence": "Closed supplied photo and open lab views support a cover displaced to the right along the visible rail. No operation video or measured stop.",
+    "limitations": [
+      "645 x 440 x 385 mm approximate user envelope preserved.",
+      "Internal dimensions, axis placement and travel remain estimated; no sample-contact tolerance claimed.",
+      "Mount thickness and exact height are estimated; wall attachment is user-confirmed."
+    ],
+    "changes": [
+      "Attach right internal assembly to right inner wall with a continuous mounting flange."
+    ],
+    "iteration": "2026-11-02_v04",
+    "minimum_next_input": "Overall width/depth/height and a short sliding-cover clip or travel measurement; then measure the specific sample-contact surfaces."
+  }
+}

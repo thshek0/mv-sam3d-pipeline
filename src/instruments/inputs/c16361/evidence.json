@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "model": "c16361",
+  "geometry_sources": [
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9878.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9880.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9882.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9883.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9884.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9885.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9886.HEIC",
+    "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9887.HEIC"
+  ],
+  "materials": {
+    "dark": {
+      "review_image": "previous_exterior.jpg",
+      "original": "dataset/instruments/c16361/captures/date_unknown_photo_closed_01/raw/07_S__19005452.jpg",
+      "crop_pixels": [
+        205,
+        190,
+        225,
+        210
+      ]
+    },
+    "metal": {
+      "review_image": "IMG_9886.jpg",
+      "original": "dataset/instruments/c16361/captures/2026-11-02_photo_01/raw/IMG_9886.HEIC",
+      "crop_pixels": [
+        110,
+        40,
+        270,
+        130
+      ]
+    }
+  },
+  "markings": {
+    "source": "dataset/instruments/c16361/captures/date_unknown_photo_closed_01/raw/1249-1.png",
+    "review_size": [
+      500,
+      500
+    ],
+    "items": [
+      {
+        "name": "front_identity",
+        "corners_tl_tr_br_bl": [
+          [
+            320,
+            189
+          ],
+          [
+            410,
+            189
+          ],
+          [
+            410,
+            233
+          ],
+          [
+            320,
+            233
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.32,
+          0.425,
+          0.168,
+          0.219
+        ],
+        "target_y_m": 0
+      },
+      {
+        "name": "front_vents_text",
+        "corners_tl_tr_br_bl": [
+          [
+            99,
+            308
+          ],
+          [
+            354,
+            308
+          ],
+          [
+            354,
+            354
+          ],
+          [
+            99,
+            354
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.025,
+          0.35,
+          0.006,
+          0.039
+        ],
+        "target_y_m": 0
+      }
+    ]
+  }
+}
