@@ -1,0 +1,32 @@
+{
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/MV-SAM3D/**": true,
+    "**/Depth-Anything-3/**": true,
+    "**/output/**": true,
+    "**/dataset/**": true,
+    "**/__pycache__/**": true,
+    "**/.git/objects/**": true,
+    "**/*.safetensors": true,
+    "**/*.bin": true,
+    "**/*.glb": true,
+    "**/*.npz": true,
+    "**/*.npz.gz": true,
+    "**/*.ply": true
+  },
+  "files.exclude": {
+    "**/.venv": true,
+    "**/MV-SAM3D": true,
+    "**/Depth-Anything-3": true,
+    "**/output": true,
+    "**/dataset": true,
+    "**/__pycache__": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/MV-SAM3D": true,
+    "**/Depth-Anything-3": true,
+    "**/output": true,
+    "**/dataset": true
+  }
+}

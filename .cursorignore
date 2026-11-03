@@ -1,0 +1,14 @@
+.venv/
+MV-SAM3D/
+Depth-Anything-3/
+output/
+dataset/
+__pycache__/
+.pytest_cache/
+*.safetensors
+*.bin
+*.glb
+*.npz
+*.mp4
+*.stl
+:memory:.ses
