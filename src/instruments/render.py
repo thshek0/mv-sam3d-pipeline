@@ -5,8 +5,9 @@ import trimesh
 
 
 class Renderer:
-    def __init__(self, parts):
+    def __init__(self, parts, smooth=False):
         self.mesh = trimesh.util.concatenate(list(parts.values()))
+        self.smooth = smooth
         self.scene = o3d.t.geometry.RaycastingScene(nthreads=4)
         self.scene.add_triangles(o3d.core.Tensor(np.asarray(self.mesh.vertices, np.float32)),
                                  o3d.core.Tensor(np.asarray(self.mesh.faces, np.uint32)))
@@ -26,6 +27,11 @@ class Renderer:
         valid = np.isfinite(hit['t_hit'].numpy())
         tri = hit['primitive_ids'].numpy()[valid].astype(int)
         normals = hit['primitive_normals'].numpy()[valid]
+        if self.smooth:
+            uv = hit['primitive_uvs'].numpy()[valid]
+            weights = np.c_[1-uv.sum(axis=1), uv]
+            normals = (self.mesh.vertex_normals[self.mesh.faces[tri]]*weights[..., None]).sum(axis=1)
+            normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
         light = camera + u*.35 + v*.65
         light /= np.linalg.norm(light)
         shade = .55 + .45*np.clip(normals @ light, 0, 1)

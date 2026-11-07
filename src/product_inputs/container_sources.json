@@ -1,0 +1,122 @@
+[
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN016awS431MqdBO76p30_!!3454491486.jpg_q50.jpg_.webp",
+    "use": true,
+    "reason": "underside and taper"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN017Ah6Be1MqdBBh4tRM_!!3454491486.jpg_q50.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN018g921G1MqdBBhc7iC_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01G2AKnj1MqdB9rY2sD_!!3454491486.jpg",
+    "use": true,
+    "reason": "rounded mouth and lip"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01GCh3aq1MqdB8n3efk_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01J87Ic11MqdB9rXyiG_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01KPFWnG1MqdXIr5FEp_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01M9YFPa1MqdDBDwOTs_!!3454491486.jpg_q50.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01MQ2IZw1MqdhrnXDyJ_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01VMfncQ1MqdXJ4AF7u_!!3454491486.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01Zg9qvW1MqdXK7iAKd_!!3454491486.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01a9HEfJ1MqdB60Q49m_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01anWfRv1MqdB5YoKuI_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01c4t0rR1MqdBDVFpAl_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01f1IOjA1MqdB5Yojqb_!!3454491486.jpg",
+    "use": true,
+    "reason": "opening shape"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01lDuw3B1MqdBAWVL1E_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01ly8yPw1MqdB5YojqS_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01qHiNB31MqdBDJAZOU_!!3454491486.jpg_q50.jpg_.webp",
+    "use": true,
+    "reason": "selected size table: 325 x 265 x 200 mm, inner opening 300 x 235 mm"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01tQtLj41MqdB60Q8JV_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01tfEyZv1MqdB9r1kjl_!!3454491486.jpg_q50.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01wTRNns1MqdBDAd6vC_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01xZO1GD1MqdB81jayF_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01xhV86n1MqdB4UGenb_!!3454491486.jpg",
+    "use": false,
+    "reason": "Lid-focused reference excluded: user requests open container only."
+  },
+  {
+    "path": "dataset/hestia-rl/sand_container/O1CN01yDzGn81MqdB5YpoO0_!!3454491486.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  }
+]

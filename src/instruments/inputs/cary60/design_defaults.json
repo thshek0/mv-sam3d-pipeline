@@ -17,7 +17,7 @@
     "chamber_floor_z_mm": 64.0,
     "chamber_wall_mm": 10.0,
     "rear_margin_mm": 12.0,
-    "rear_wall_depth_mm": 22.0,
+    "rear_wall_depth_mm": 32,
     "housing_radius_mm": 24.0,
     "grip_width_mm": 64.0,
     "grip_length_mm": 50.0,
@@ -32,7 +32,8 @@
     "socket_inner_depth_mm": 14.0,
     "socket_outer_width_mm": 27.0,
     "socket_outer_depth_mm": 27.0,
-    "socket_height_mm": 41.0
+    "socket_height_mm": 41.0,
+    "grip_corner_radius_mm": 12.0
   },
   "evidence": {
     "body_width_mm": "Published nominal body envelope",
@@ -50,7 +51,7 @@
     "chamber_floor_z_mm": "estimate",
     "chamber_wall_mm": "estimate",
     "rear_margin_mm": "estimate",
-    "rear_wall_depth_mm": "estimate",
+    "rear_wall_depth_mm": "Manufacturer Cary 60 brochure PDF p15: compartment depth 523 mm; rear wall start = front datum 12 + 523 = 535 mm.",
     "housing_radius_mm": "estimate",
     "grip_width_mm": "estimate",
     "grip_length_mm": "estimate",
@@ -60,12 +61,13 @@
     "holder_plate_above_floor_mm": "estimate",
     "holder_plate_width_mm": "estimate",
     "holder_plate_depth_mm": "estimate",
-    "socket_offset_x_mm": "estimate",
+    "socket_offset_x_mm": "Positive magnitude towards instrument left (-X), corrected to manufacturer cutaway PDF p5 and user review; offset magnitude remains estimated.",
     "socket_inner_width_mm": "estimate",
     "socket_inner_depth_mm": "estimate",
     "socket_outer_width_mm": "estimate",
     "socket_outer_depth_mm": "estimate",
-    "socket_height_mm": "estimate"
+    "socket_height_mm": "estimate",
+    "grip_corner_radius_mm": "IMG_9916: diagonally rounded grip pocket; 12 mm radius is a photo-derived estimate, not a measurement."
   },
   "metadata": {
     "units": "metres",

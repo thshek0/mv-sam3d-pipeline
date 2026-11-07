@@ -14,7 +14,7 @@ import numpy as np
 import trimesh
 
 from ..paths import ROOT
-OUT = ROOT / 'output/instruments/c13534/.build_work'
+OUT = ROOT / 'output/objects/hkqai-instruments/c13534/codex/intermediate/.build_work'
 PACKAGE = OUT / 'urdf'
 CONFIG = OUT / 'collision_controls.json'
 SOURCE = OUT / 'meshes/collision_closed.glb'

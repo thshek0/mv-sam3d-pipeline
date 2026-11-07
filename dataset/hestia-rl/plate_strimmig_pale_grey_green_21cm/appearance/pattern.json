@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "pattern_type": "rim_flutes",
+  "material_description": "Pale grey-green glaze with a UV-baked radial loop-ended rim motif; plain underside",
+  "background_rgb": [163, 178, 148],
+  "highlight_rgb": [221, 229, 209],
+  "shadow_rgb": [139, 154, 124],
+  "motif_count": 96,
+  "inner_radius": 0.745,
+  "outer_radius": 0.938,
+  "loop_length": 0.038,
+  "loop_half_angle": 0.016,
+  "provenance": {
+    "type": "Reference-derived procedural reconstruction, not recovered original artwork",
+    "product": "IKEA STRIMMIG side plate, pale grey-green",
+    "article_number": "006.314.90",
+    "product_page": "https://www.ikea.com/jp/en/p/strimmig-side-plate-stoneware-pale-grey-green-00631490/",
+    "capture_references": ["../raw/0002/color.png", "../raw/0008/color.png"],
+    "observations": "Fine radial rim lines ending in small loops/teardrops, with a plain pale green centre.",
+    "limitations": "Motif count, spacing and glaze colours are approximated from photographs. Relief highlights and shadows are baked into colour and do not respond independently to lighting. No physical ridges, normal map, stickers, glare or wear are reproduced; underside is plain.",
+    "checked_date": "2026-11-03"
+  }
+}

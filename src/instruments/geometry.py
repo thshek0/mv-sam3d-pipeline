@@ -194,14 +194,18 @@ def validate(m,out,path):
         c=bullet.connect(bullet.DIRECT)
         flags=bullet.URDF_USE_SELF_COLLISION|bullet.URDF_USE_SELF_COLLISION_INCLUDE_PARENT|bullet.URDF_INITIALIZE_SAT_FEATURES
         body=bullet.loadURDF(str(path),useFixedBase=True,flags=flags,physicsClientId=c)
-        failures=[];worst=0.;fk_error=0.
+        failures=[];worst=0.;fk_error=0.;cached_worst=0.
         for value in np.linspace(0,open_value(m.p),21):
             bullet.resetJointState(body,0,float(value),physicsClientId=c)
             state=bullet.getLinkState(body,0,computeForwardKinematics=True,physicsClientId=c)
             actual=np.eye(4);actual[:3,:3]=np.array(bullet.getMatrixFromQuaternion(state[5])).reshape(3,3);actual[:3,3]=state[4]
             fk_error=max(fk_error,float(np.max(abs(actual-xml_transform(value)))))
             bullet.performCollisionDetection(physicsClientId=c)
-            for cp in bullet.getContactPoints(body,body,physicsClientId=c):
+            # resetJointState teleports between samples. Persistent manifolds can
+            # retain invalid tangential contacts on touching coplanar faces.
+            # Query the actual base/cover pair afresh at every sampled pose.
+            for cp in bullet.getContactPoints(body,body,physicsClientId=c):cached_worst=max(cached_worst,-cp[8])
+            for cp in bullet.getClosestPoints(body,body,0,linkIndexA=-1,linkIndexB=0,physicsClientId=c):
                 worst=max(worst,-cp[8])
                 if cp[8]<-.0005:failures.append({'joint_position':float(value),'penetration_mm':-cp[8]*1000})
         W,D,H=m.p['body_wdh_m']
@@ -217,6 +221,8 @@ def validate(m,out,path):
         bullet.disconnect(c)
         review.update(engine_tested=True,engine='PyBullet',sampled_states=21,
             maximum_self_penetration_mm=worst*1000,penetrations_over_0_5_mm=failures,
+            contact_query='Fresh base/cover closest-points query at each sampled pose',
+            persistent_manifold_maximum_penetration_mm=cached_worst*1000,
             xml_vs_engine_max_matrix_error=fk_error,opening_ray_hit_heights_m=hits,
             filters='No self-contact exclusions; fixed parts share the base link.',
             simulator_dynamics='Not calibrated; no physical force/clearance tolerance established.')

@@ -78,7 +78,10 @@ def check(dest, executable, model):
                 radii=np.linalg.norm(m.vertices[:,:2]-center,axis=1)
                 ring=m.vertices[np.abs(radii-diam/2)<.02]
                 assert len(ring)>=64
-                np.testing.assert_allclose(ring[:,:2].mean(0),center,atol=.02)
+                # Boolean triangulation adds nonuniform seam vertices; their
+                # arithmetic mean is not the centre of the circular opening.
+                np.testing.assert_allclose((ring[:,:2].min(0)+ring[:,:2].max(0))/2,center,atol=.02)
+                np.testing.assert_allclose(np.ptp(ring[:,:2],axis=0),[diam,diam],atol=.02)
                 assert radii.min()>diam/2-.02
                 results[name]['centered_open_hole_verified']=True
             m=render('wider_body',body_width_mm=values['body_width_mm']+30)
@@ -151,7 +154,8 @@ def check_cary_shared(dest,render,values):
                  socket_inner_width_mm=16,socket_inner_depth_mm=18,cover_travel_mm=200)
     edited=dict(values,**changes)
     with workspace('edited_parameters') as tmp:
-        work=Path(tmp);(work/'meshes').mkdir();(work/'evidence').symlink_to((ROOT/'dataset/instruments'/p['model']/'references/model_evidence').resolve(),target_is_directory=True)
+        from .inputs import stage_evidence
+        work=Path(tmp);(work/'meshes').mkdir();stage_evidence(p['model'],work)
         include=work/'parameters.scad'
         include.write_text('\n'.join(f'{k} = {v};' for k,v in edited.items()))
         p['design_parameters']=read_parameter_include(include,values)
@@ -160,7 +164,8 @@ def check_cary_shared(dest,render,values):
         errors={}
         for part in cary60.definition(edited).parts:
             native=render('shared_'+part.name,part=part.name,**changes)
-            sim=m.parts[part.name]
+            if part.kind=='subtract':assert len(native.split())==1,(part.name,'Disconnected Boolean solid')
+            sim=trimesh.util.concatenate([q for n,q in m.parts.items() if n==part.name or n.startswith(part.name+'__')])
             np.testing.assert_allclose(native.bounds,sim.bounds*1000,atol=.02,err_msg=part.name)
             # Native circles are smoother; straight-edged primitives should agree in volume.
             relative=abs(native.volume-sim.volume*1e9)/(sim.volume*1e9)

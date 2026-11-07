@@ -1,0 +1,107 @@
+[
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN011chh7OzVIgH32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN019ZTopj23YLKABJOCx_!!687587267.png_q50.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01IFdgYLDwi7D32pSZ_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01Ie7Qhs23YLIWsLbEo_!!687587267.png_q50.jpg_.webp",
+    "use": true,
+    "reason": "body and both pan dimensions"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01Is0Xq4AahHK32pSa_!!687587267.jpg",
+    "use": true,
+    "reason": "underside and four feet"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01It4WnL23YLIZ0OmYk_!!687587267.png_q50.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01P23Xj2GFq4F32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01SWmdzz2IOStDSyCfH_!!850439276.jpg_460x460q90.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01TcRhyz23YLIYjLn0f_!!687587267.png_q50.jpg_.webp",
+    "use": true,
+    "reason": "round-pan body"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01VEei20Qc6vB32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01WuamQFQzy0E32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01XPB4nK23YLJHBVBne_!!687587267.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01XPB4nK23YLJHBVBne_!!687587267.png_.webp",
+    "use": false,
+    "reason": "Duplicate/compressed repeat of index 11"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01bk8cMjaq2KC32pSZ_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01g4EyslE2qFD32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01in5jEDcykhD32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01oBhyWDE7RtI43lmS_!!4611686018427380946-2-item_pic.png_460x460q90.jpg_.webp",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01sIQCrA23YLIZNyHKv_!!687587267.png_q50.jpg_.webp",
+    "use": true,
+    "reason": "rear ports (visual evidence only)"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01tKH2R3sYHVD32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01upi6NCh4emH32pEf_!!687587267.png",
+    "use": true,
+    "reason": "housing variant comparison"
+  },
+  {
+    "path": "dataset/hestia-rl/electronic_balance/O1CN01zdM0Y48NItJ32pSa_!!687587267.jpg",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "pattern_type": "leaf_wreath",
+  "material_description": "Off-white opal glass with a UV-baked leaf border; plain underside",
+  "background_rgb": [
+    240,
+    238,
+    231
+  ],
+  "highlight_rgb": [
+    253,
+    252,
+    246
+  ],
+  "shadow_rgb": [
+    208,
+    209,
+    199
+  ],
+  "motif_count": 36,
+  "stem_radius": 0.785,
+  "inner_radius": 0.735,
+  "outer_radius": 0.865,
+  "leaf_sweep": 0.075,
+  "leaf_half_width": 0.018,
+  "provenance": {
+    "type": "Reference-derived procedural reconstruction, not recovered original artwork",
+    "product": "IKEA PARADISISK side plate, off-white",
+    "article_number": "004.834.61",
+    "product_page": "https://www.ikea.com/eg/en/p/paradisisk-side-plate-off-white-00483461/",
+    "capture_references": [
+      "../raw/0002/color.png",
+      "../raw/0008/color.png"
+    ],
+    "observations": "A pale paired-leaf wreath on an off-white rim; the dataset name plate_paradisisk_off_white_20cm is retained but the product is not pink.",
+    "limitations": "Leaf count, spacing, outlines and colours are approximated from photographs. Relief highlights and shadows are baked into colour and do not respond independently to lighting. No physical embossing, normal map, stickers, glare or wear are reproduced; underside is plain.",
+    "checked_date": "2026-11-03"
+  }
+}

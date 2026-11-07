@@ -726,6 +726,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.name, dump=args.dump, out_root=args.output_dir,
         mvsam_root=args.mvsam_root, masks_name=args.masks,
     )
+    if args.mesh == 'tsdf':
+        from dataclasses import replace
+        from output_layout import method_dir
+        layout = replace(layout, out_root=method_dir(layout.out_root, layout.name, 'tsdf'))
     mesh_kw = _mesh_kwargs(args)
     if args.cmd == "ingest":
         if args.processed:
@@ -763,6 +767,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     else:
         raise RuntimeError(f"unknown cmd {args.cmd}")
+    from output_layout import navigation, output_root
+    navigation(output_root(layout.out_root, layout.name))
     return 0
 
 

@@ -10,7 +10,7 @@ from .render import Renderer
 from .paths import ROOT
 
 def save(path,value):path.write_text(json.dumps(value,indent=2)+'\n')
-def outdir(model):return ROOT/'output/instruments'/model/'.build_work'
+def outdir(model):return ROOT/'output/objects/hkqai-instruments'/model/'codex/intermediate/.build_work'
 
 
 def export_scad(out):
@@ -30,7 +30,7 @@ def extras(model,out,p,review,parts):
  sources=dict.fromkeys(evidence(model)['geometry_sources'])
  for name in sources:sources[name]=hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
  save(out/'provenance.json',dict(status='Current authored model',iteration=p.get('iteration','current'),sources_sha256=sources,
-  method='Updated existing parameterized convex geometry from photo topology and explicit measurements; no DA3/SAM3D rerun.',
+  method='Shared parametric solids with explicit Boolean material removal; convex simulation pieces derived from the same geometry. Specification drawings and measurements guide geometry; photos are interpreted manually.',
   regenerate=f'.venv/bin/python -m src.instruments build --model {model}',changes=p['changes'],limitations=p['limitations'],
   photo_registration=False,physical_contact_accuracy_validated=False,openscad='Native CSG; see openscad/README.txt for parameter ownership and csg_validation.json for actual engine checks'))
  save(out/'review.json',review)
@@ -73,7 +73,9 @@ def export_qy_model(out,params):
   regenerate='.venv/bin/python -m src.instruments build --model c13534')
  save(out/'collision_controls.json',cfg)
  save(out/'collision_doors.json',door_config)
- shutil.copy2(Path(__file__).with_name('inputs')/'c13534/confirmed_measurements.json',out/'confirmed_measurements.json')
+ from .paths import ROOT
+ readings=json.loads((ROOT/'dataset/hkqai-instruments/c13534/measurements.json').read_text())['confirmed']
+ save(out/'confirmed_measurements.json',readings)
  exporter.OUT=out;exporter.PACKAGE=out/'urdf';exporter.CONFIG=out/'collision_controls.json';exporter.SOURCE=out/'meshes/collision_closed.glb'
  manifest=exporter.generate();review=exporter.validate(manifest)
  # Independent simulator loader from this new package, including its self filters.

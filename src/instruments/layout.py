@@ -23,6 +23,19 @@ RELOCATIONS = {
 }
 
 
+def flatten_reviews(stage):
+    """Place the two standard review images beside the model entry point."""
+    for folder, name in (('previews', 'assembly.png'), ('dimensions', 'overview.png')):
+        source, target = stage / folder / name, stage / name
+        if source.exists():
+            if target.exists() and source.read_bytes() != target.read_bytes():
+                raise ValueError(f'Refusing to replace differing review image: {name}')
+            source.replace(target)
+        directory = stage / folder
+        if directory.is_dir() and not any(directory.iterdir()):
+            directory.rmdir()
+
+
 def normalize(stage, model):
     """Idempotently organize a private staging copy, before hashes/ZIP are made."""
     for old, new in RELOCATIONS.items():

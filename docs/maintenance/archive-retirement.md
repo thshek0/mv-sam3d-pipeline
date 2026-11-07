@@ -1,5 +1,9 @@
 # Retiring the local archive and preparing commits
 
+Layout note: the subsequent family/object/method migration is documented in
+README.md and output/maintenance/method_layout_20261103/. Paths below describe
+the earlier retirement and are resolved through the migration ledgers.
+
 Status: implemented, 2026-11-03. The root archive folder has been removed.
 The local record is `output/maintenance/archive_retirement/`: `preflight.json`
 contains the original inventory, `migration.json` records every disposition,
@@ -40,6 +44,13 @@ Existing accepted instrument models and the checked-in gripper example remain th
 stable references.
 
 ## Migration acceptance checks
+
+For future migrations, retain path/hash ledgers in JSON and concise outcomes in
+existing documentation. Do not create directory-listing HTML or copy generated
+navigation into metadata backups. The only generated navigation page is
+`output/index.html`; sharing ZIPs likewise get one root overview with direct
+product links. Keep substantive model/comparison reviews. Family, object, method,
+product-listing, package and maintenance folders use direct directory links.
 
 1. Record every old path, destination/deletion reason and file hash before edits.
 2. Recover unique capture/annotation/reference data, including backup members.

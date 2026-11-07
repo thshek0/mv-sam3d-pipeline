@@ -1,0 +1,138 @@
+{
+  "knots_radius_mm": [
+    51.25,
+    60.0,
+    70.0,
+    80.0,
+    90.0,
+    100.0,
+    106.0,
+    110.0
+  ],
+  "knots_bottom_mm": [
+    5.0,
+    6.377552587097743,
+    9.831899824854919,
+    15.508883230171016,
+    22.84836026120161,
+    31.270499245154397,
+    35.95020906648328,
+    38.7
+  ],
+  "optimization_success": true,
+  "evaluations": 35,
+  "views": {
+    "IMG_9972": {
+      "role": "fit",
+      "pose": [
+        98.93856498066816,
+        -0.6250941710849921,
+        58.54643752228913,
+        27.271276326192563,
+        202.39665191413724
+      ],
+      "anchor_median_px": 1.2119496885785255,
+      "previous": {
+        "median_px": 3.3599850282461543,
+        "p90_px": 6.188332483655433
+      },
+      "revised": {
+        "median_px": 0.758904484428168,
+        "p90_px": 3.538551793530763
+      },
+      "simplified_profile": {
+        "median_px": 0.761624673678726,
+        "p90_px": 3.538551793530763,
+        "scope": "Simplified meridional profile; excludes the small angular polygon approximation."
+      }
+    },
+    "IMG_9974": {
+      "role": "held_out",
+      "pose": [
+        100.90125494939792,
+        0.956335366406269,
+        -56.827420942154475,
+        18.999916855636727,
+        183.78066409721345
+      ],
+      "anchor_median_px": 1.1665040199125043,
+      "previous": {
+        "median_px": 4.033675321818371,
+        "p90_px": 6.456927567978187
+      },
+      "revised": {
+        "median_px": 1.6102363794651506,
+        "p90_px": 6.112812424360721
+      },
+      "simplified_profile": {
+        "median_px": 1.462519956764047,
+        "p90_px": 6.112812424360721,
+        "scope": "Simplified meridional profile; excludes the small angular polygon approximation."
+      }
+    },
+    "IMG_9977": {
+      "role": "fit",
+      "pose": [
+        107.49523720254089,
+        1.95241919406907,
+        -35.823034972880706,
+        15.106628616817144,
+        209.48677283784218
+      ],
+      "anchor_median_px": 1.027308327860341,
+      "previous": {
+        "median_px": 2.879145120061412,
+        "p90_px": 5.357644290564731
+      },
+      "revised": {
+        "median_px": 0.5004392839919449,
+        "p90_px": 1.6324361253242878
+      },
+      "simplified_profile": {
+        "median_px": 0.39582601998295064,
+        "p90_px": 1.6324361253242878,
+        "scope": "Simplified meridional profile; excludes the small angular polygon approximation."
+      }
+    },
+    "IMG_9978": {
+      "role": "held_out",
+      "pose": [
+        102.26713326294238,
+        -0.047894886877033874,
+        -27.176000217989074,
+        8.733278838722264,
+        193.6666052609285
+      ],
+      "anchor_median_px": 2.0501948513799677,
+      "previous": {
+        "median_px": 6.47772694335716,
+        "p90_px": 10.382624046336586
+      },
+      "revised": {
+        "median_px": 3.8204166879605133,
+        "p90_px": 9.200716626412342
+      },
+      "simplified_profile": {
+        "median_px": 3.875842277304565,
+        "p90_px": 9.200716626412342,
+        "scope": "Simplified meridional profile; excludes the small angular polygon approximation."
+      }
+    }
+  },
+  "limitations": [
+    "Hand-traced silhouettes and approximate EXIF camera intrinsics.",
+    "Fit cameras use foot and rim circles; held-out cameras use circle anchors only.",
+    "No fixture CAD or confirmed gap reading; physical seating is not validated."
+  ],
+  "shell": {
+    "inner_wall": "Tracks corrected outer wall using previous inferred thickness; blended into original floor and lip.",
+    "measured_envelope_mm": [
+      220,
+      220,
+      40
+    ],
+    "predicted_visual_triangles": 4864,
+    "profile_simplification_height_error_mm": 0.09354650000000042,
+    "inner_wall_is_measured": false
+  }
+}

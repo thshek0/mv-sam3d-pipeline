@@ -1,0 +1,62 @@
+[
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153343_665185_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153350_897976_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153406_150021_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153418_386494_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153433_495185_rgb.png",
+    "use": true,
+    "reason": "interior and rim"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153439_296953_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153452_094806_rgb.png",
+    "use": true,
+    "reason": "side profile"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153458_507818_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153506_636313_rgb.png",
+    "use": true,
+    "reason": "top view and usable metric depth"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153514_875473_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153530_055059_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  },
+  {
+    "path": "dataset/hestia-rl/hestia_bowl_v1/20261013_153537_710182_rgb.png",
+    "use": false,
+    "reason": "Redundant view, unrelated size/variant, or non-geometric marketing/protocol content"
+  }
+]

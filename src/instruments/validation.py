@@ -4,18 +4,54 @@ import hashlib
 import json
 import re
 import shutil
+import tempfile
 import xml.etree.ElementTree as ET
 from .paths import ROOT, MODELS
 from .physics import pybullet
 from .storage.diagnostics import session, workspace
 
 
+def check_cad_package(folder):
+    """Verify the portable CAD and evidence contract without simulation dependencies."""
+    manifest = json.loads((folder / 'manifest.json').read_text())
+    assert manifest['format'] == 'openscad'
+    actual = {str(p.relative_to(folder)) for p in folder.rglob('*') if p.is_file()}
+    assert actual == set(manifest['files']) | {'manifest.json'}
+    for name, item in manifest['files'].items():
+        assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == item['sha256'], name
+    for name in ('assembly.scad', 'parameters_native.scad', 'common.scad'):
+        assert (folder / 'openscad' / name).is_file(), name
+    for path in (folder / 'openscad').glob('*.scad'):
+        for ref in re.findall(r'(?:include|use)\s*<([^>]+)>', path.read_text()):
+            assert (path.parent / ref).is_file(), ref
+    summary = folder / 'reports/cad_summary.json'
+    if summary.exists():
+        for name, digest in json.loads(summary.read_text()).get('native_source_sha256', {}).items():
+            assert hashlib.sha256((folder / 'openscad' / name).read_bytes()).hexdigest() == digest, name
+    motion = folder / 'reports/motion.json'
+    if motion.exists():
+        for name, digest in json.loads(motion.read_text())['native_source_sha256'].items():
+            assert hashlib.sha256((folder / 'openscad' / name).read_bytes()).hexdigest() == digest, name
+    for ref in re.findall(r'(?:href|src)="([^"]+)"', (folder / 'index.html').read_text()):
+        assert (folder / ref).exists(), ref
+    assert not (folder / 'urdf').exists()
+    assert not (folder / 'meshes').exists()
+    return dict(package_hashes=True, native_dependencies_resolve=True, index_links_resolve=True)
+
+
 def validate(models=MODELS, keep_validation=False):
-    pb = pybullet()
     reports = {}
     for model in models:
-        root = ROOT / 'output/instruments' / model / 'model'
-        with session(root.parent, keep=keep_validation) as diagnostics:
+        root = ROOT / 'output/objects/hkqai-instruments' / model / 'codex/products'
+        if json.loads((root / 'manifest.json').read_text()).get('format') == 'openscad':
+            with tempfile.TemporaryDirectory(prefix='standalone_cad_') as temp:
+                folder = Path(temp)
+                shutil.copytree(root, folder, dirs_exist_ok=True)
+                reports[model] = check_cad_package(folder)
+            print(model, 'standalone CAD package checked', flush=True)
+            continue
+        pb = pybullet()
+        with session(root.parent / 'intermediate', keep=keep_validation) as diagnostics:
             with workspace('standalone_package') as temp:
                 folder = Path(temp)
                 shutil.copytree(root, folder, dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.zip'))

@@ -19,9 +19,6 @@
     "grip_width_mm": 90,
     "grip_depth_mm": 27,
     "lid_corner_radius_mm": 10,
-    "fastener_radius_mm": 32,
-    "fastener_diameter_mm": 6,
-    "fastener_height_mm": 3,
     "knob_inset_mm": 33,
     "knob_shaft_offset_mm": 16,
     "knob_offset_mm": 27,
@@ -33,7 +30,9 @@
     "latch_inset_mm": 15,
     "latch_width_mm": 14,
     "latch_depth_mm": 15,
-    "latch_height_mm": 8
+    "latch_height_mm": 8,
+    "floor_hole_pattern_radius_mm": 32,
+    "floor_small_hole_diameter_mm": 6
   },
   "evidence": {
     "body_width_mm": "manufacturer",
@@ -53,9 +52,6 @@
     "grip_width_mm": "estimate",
     "grip_depth_mm": "estimate",
     "lid_corner_radius_mm": "estimate",
-    "fastener_radius_mm": "estimate",
-    "fastener_diameter_mm": "estimate",
-    "fastener_height_mm": "estimate",
     "knob_inset_mm": "estimate",
     "knob_shaft_offset_mm": "estimate",
     "knob_offset_mm": "estimate",
@@ -67,7 +63,9 @@
     "latch_inset_mm": "estimate",
     "latch_width_mm": "estimate",
     "latch_depth_mm": "estimate",
-    "latch_height_mm": "estimate"
+    "latch_height_mm": "estimate",
+    "floor_hole_pattern_radius_mm": "User confirmed 2026-11-04: eight small through-holes replace the eight modeled floor fasteners, plus the larger centre hole. Pattern radius/diameter retain previous estimated locations/sizes; not measured.",
+    "floor_small_hole_diameter_mm": "User confirmed 2026-11-04: eight small through-holes replace the eight modeled floor fasteners, plus the larger centre hole. Pattern radius/diameter retain previous estimated locations/sizes; not measured."
   },
   "metadata": {
     "units": "metres",
@@ -81,7 +79,7 @@
       "Curve radius is an estimated transition matching existing 15.4 mm projection; not measured."
     ],
     "changes": [
-      "Center floor hole in chamber in X and Y; make fasteners and grip symmetric.",
+      "Centre hole plus eight small through-holes; no raised floor fasteners.",
       "Join front enclosure to housing with mirrored curved side transitions."
     ],
     "iteration": "2026-11-02_v04",

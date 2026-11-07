@@ -110,6 +110,10 @@ def resolve_input_scene(src: Path, masks_name: str) -> tuple[Path, str]:
     nested = src / "scene"
     if (nested / "images").is_dir() and (nested / masks_name).is_dir():
         return nested, dataset_name_from_input(src)
+    for relative in ('intermediate/scene', 'sam3d/intermediate/scene', 'tsdf/intermediate/scene', 'codex/intermediate/scene'):
+        nested = src / relative
+        if (nested/'images').is_dir() and (nested/masks_name).is_dir():
+            return nested, dataset_name_from_input(nested)
     raise RuntimeError(
         f"{src} is not a processed scene (need images/ and {masks_name}/, "
         f"or scene/images + scene/{masks_name}). "
@@ -209,7 +213,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not listed_images(input_scene / "images"):
         raise RuntimeError(f"No images in {input_scene / 'images'}")
 
-    out_root = args.output_dir.resolve()
+    from output_layout import method_dir
+    out_root = method_dir(args.output_dir.resolve(), name, args.mesh)
     root = dataset_root(out_root, name)
     scene_dir = dataset_scene_dir(out_root, name)
     images_dir = scene_dir / "images"
@@ -292,6 +297,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         da3_npz=da3_side, rs_npz=rs_side,
         da3_posed_npz=da3_posed_side, hybrid_npz=hybrid_side,
     )
+    from output_layout import navigation, output_root
+    navigation(output_root(out_root, name))
     return 0
 
 

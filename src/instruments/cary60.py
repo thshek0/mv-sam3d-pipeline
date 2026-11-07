@@ -1,6 +1,7 @@
 """One Cary part/joint recipe consumed by both native CAD and simulation exports."""
 from .shared_geometry import Assembly,Expr
 from .geometry import WHITE,DARK,BLACK,METAL
+import math
 
 
 CONSTRAINTS=[
@@ -11,6 +12,7 @@ CONSTRAINTS=[
     ('chamber_floor_z_mm+holder_plate_above_floor_mm+socket_height_mm < body_height_mm-cover_thickness_mm','Holder exceeds cover clearance'),
     ('grip_depth_mm > 0 and grip_depth_mm < cover_thickness_mm and grip_width_mm < cover_width_mm','Invalid grip pocket'),
     ('grip_front_offset_mm > 0 and grip_front_offset_mm+grip_length_mm < cover_length_mm','Grip outside lid'),
+    ('grip_corner_radius_mm > 0 and 2*grip_corner_radius_mm < min(grip_width_mm,grip_length_mm)','Invalid grip corner radius'),
     ('holder_plate_above_floor_mm > 12 and receiver_gap_mm > 0 and receiver_thickness_mm > 0','Invalid holder/receiver dimensions'),
 ]
 
@@ -28,39 +30,41 @@ def definition(values):
     def rod(name,center,d,length):a.add(name,'rod',[center,d,length,'z'],tags=('holder',),color=METAL)
     rounded('right_housing',[xb,0,0],[W,D,H],p['housing_radius_mm'])
     rounded('left_end_housing',[0,0,0],[xa,D,H],p['housing_radius_mm'])
-    box('compartment_floor',[xa,ya,0],[xb,D-p['rear_margin_mm'],floor],DARK)
-    box('compartment_left_wall',[xa,ya,floor],[xa+wall,D-p['rear_margin_mm'],H-9])
-    box('compartment_right_wall',[xb-wall,ya,floor],[xb,D-p['rear_margin_mm'],H-9])
-    box('rear_wall',[xa,D-p['rear_wall_depth_mm'],floor],[xb,D,H-9],DARK)
+    a.add('compartment_shell','subtract',[
+        ['block',[[xa,ya,0],[xb,D,H-9]]],
+        [['block',[[xa+wall,ya-1,floor],[xb-wall,D-p['rear_wall_depth_mm'],H]]]]],color=DARK)
     rounded('removable_front_door',[xa,0,12],[xb,22,H-9],9,DARK)
     receiver_top=H-p['cover_thickness_mm']-p['receiver_gap_mm']
     box('fixed_cover_receiver',[xa,yb,receiver_top-p['receiver_thickness_mm']],
         [xb,D-p['receiver_rear_margin_mm'],receiver_top],DARK)
     gx0=cx-p['grip_width_mm']/2;gx1=cx+p['grip_width_mm']/2
     gy0=ya+p['grip_front_offset_mm'];gy1=gy0+p['grip_length_mm'];gz=H-p['grip_depth_mm']
-    # The same convex partition is used in both backends, preserving the real pocket.
-    for name,lo,hi in [
-        ('lid_base',[xa,ya,H-p['cover_thickness_mm']],[xb,yb,gz]),
-        ('lid_left',[xa,ya,gz],[gx0,yb,H]),('lid_right',[gx1,ya,gz],[xb,yb,H]),
-        ('lid_front',[gx0,ya,gz],[gx1,gy0,H]),('lid_rear',[gx0,gy1,gz],[gx1,yb,H])]:
-        box(name,lo,hi,DARK,('cover',),'cover')
+    # Plan view, X right / Y up: only the upper-left and lower-right corners round.
+    r=p['grip_corner_radius_mm']
+    grip=[[gx0,gy0],[gx1-r,gy0]]
+    grip += [[gx1-r+r*round(math.cos(math.radians(-90+i*90/16)),12),
+              gy0+r+r*round(math.sin(math.radians(-90+i*90/16)),12)] for i in range(1,17)]
+    grip += [[gx1,gy1],[gx0+r,gy1]]
+    grip += [[gx0+r+r*round(math.cos(math.radians(90+i*90/16)),12),
+              gy1-r+r*round(math.sin(math.radians(90+i*90/16)),12)] for i in range(1,17)]
+    a.add('lid_shell','subtract',[
+        ['block',[[xa,ya,H-p['cover_thickness_mm']],[xb,yb,H]]],
+        [['xy_prism',[grip,gz,H+1]]]],group='cover',tags=('cover',),color=DARK)
     a.add('holder_foot','xy_prism',[[[x-60,y-25],[x-60,y+25],[x+60,y+25],[x+60,y-25],[x,y-65]],floor,floor+8],tags=('holder',),color=BLACK)
     for name,lo,hi in [
         ('holder_bridge_left',[x-50,y-19,floor+8],[x-38,y+19,z-4]),
         ('holder_bridge_right',[x+38,y-19,floor+8],[x+50,y+19,z-4])]:box(name,lo,hi,BLACK,('holder',))
     box('holder_plate',[x-p['holder_plate_width_mm']/2,y-p['holder_plate_depth_mm']/2,z-4],
         [x+p['holder_plate_width_mm']/2,y+p['holder_plate_depth_mm']/2,z],METAL,('holder',))
-    sx=x+p['socket_offset_x_mm'];wi=p['socket_inner_width_mm'];di=p['socket_inner_depth_mm']
+    sx=x-p['socket_offset_x_mm'];wi=p['socket_inner_width_mm'];di=p['socket_inner_depth_mm']
     wo=p['socket_outer_width_mm'];do=p['socket_outer_depth_mm'];top=z+p['socket_height_mm']
-    for name,lo,hi in [
-        ('socket_left',[sx-wo/2,y-do/2,z],[sx-wi/2,y+do/2,top]),
-        ('socket_right',[sx+wi/2,y-do/2,z],[sx+wo/2,y+do/2,top]),
-        ('socket_front',[sx-wi/2,y-do/2,z],[sx+wi/2,y-di/2,top]),
-        ('socket_rear',[sx-wi/2,y+di/2,z],[sx+wi/2,y+do/2,top])]:box(name,lo,hi,BLACK,('holder','socket'))
+    a.add('socket_shell','subtract',[
+        ['block',[[sx-wo/2,y-do/2,z],[sx+wo/2,y+do/2,top]]],
+        [['block',[[sx-wi/2,y-di/2,z-1],[sx+wi/2,y+di/2,top+1]]]]],tags=('holder','socket'),color=BLACK)
     rod('holder_lower_clamp_knob',[x,y-25,floor+10.5],20,5)
-    rod('holder_adjuster_shaft',[x-25,y,z+8],6,16)
-    rod('holder_adjuster_knob',[x-25,y,z+18.5],14,5)
-    rod('holder_threaded_post',[x-40,y-2,z+10],6,20)
+    rod('holder_adjuster_shaft',[x+25,y,z+8],6,16)
+    rod('holder_adjuster_knob',[x+25,y,z+18.5],14,5)
+    rod('holder_threaded_post',[x+40,y-2,z+10],6,20)
     for i,xx in enumerate([x-47,x+47]):rod(f'holder_plate_screw_{i}',[xx,y+16,z+1.5],6,3)
     for label,xx in [('left',xa+12),('right',xb-13)]:
         box('inner_'+label+'_rail',[xx-2,ya,floor+56],[xx+2,ya+255,floor+101],DARK)

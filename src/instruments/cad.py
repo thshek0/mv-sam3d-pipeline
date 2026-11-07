@@ -22,14 +22,16 @@ def export(out):
  (dest/'parameters_native.scad').write_text('// Edit here or override with -D. Units: mm / degrees; *_fraction values are dimensionless.\n// Unnamed construction offsets in assembly.scad remain photo/model estimates.\n'+''.join(f'// {evidence.get(k,"Photo/model estimate; not a precision measurement")}\n{k} = {json.dumps(v)};\n' for k,v in values.items()))
  (dest/'parameters_native.json').write_text(json.dumps({'model':model,'units':'mm and degrees; fractions dimensionless','values':values,'evidence':{k:evidence.get(k,'estimate') for k in values}},indent=2)+'\n')
  if before!=signature():
+  for name in ('motion.json','cad_summary.json','subtractive_solids.json'):
+   (out/'reports'/name).unlink(missing_ok=True)
   for path in dest.glob('csg_*'):
    if path.suffix in ('.json','.stl','.png'):path.unlink()
- (dest/'README.txt').write_text('FILE ROLES\nassembly.scad: generated entry point; OPEN this file.\nparameters_native.scad: editable numeric dimensions.\ncommon.scad: required reusable geometry helpers.\n\nAll four machines share their CAD, simulation geometry and joint definitions.\nCanonical parameters: ../parameters.json -> design_parameters (mm/degrees).\nImport numeric SCAD parameter edits and regenerate CAD, textured GLBs, collision meshes and URDF with:\n.venv/bin/python -m src.instruments build --model '+model+' --from-cad-parameters --check-cad\nChecks require OpenSCAD on PATH or OPENSCAD=/path/to/openscad.\nTopology edits belong in src/instruments/'+model+'.py. Arbitrary generated SCAD code is not imported.\nCurves can have finer CAD tessellation than convex simulation pieces. CAD STL snapshots contain no textures or joints.\nSee ../reports/cad_summary.json for check coverage. Use --keep-validation to retain detailed checks and comparisons. Local contact dimensions and motion limits remain provisional.\n')
+ (dest/'README.txt').write_text('Open assembly.scad; edit dimensions in parameters_native.scad. Keep common.scad alongside them. Units: mm/degrees. No external libraries needed.\nChoose pose=custom to use position sliders. Enable animate_motion and View > Animate (FPS 20, Steps 100) for an open/close cycle. Motion limits are estimates; animation does not solve contact or forces.\nImport edited dimensions into the authoring pipeline with: .venv/bin/python -m src.instruments build --model '+model+' --from-cad-parameters --check-cad\nThe published package contains native CAD and full evidence. Simulation meshes are internal build products.\n')
  return dest
 
 def check(dest,executable=None,keep_validation=False):
  from .storage.diagnostics import session, capture
- with session(dest.parent.parent, keep=keep_validation):
+ with session(dest.parent.parent / 'intermediate' if dest.parent.name == 'products' else dest.parent.parent, keep=keep_validation):
   for name in ('parameters.json', 'openscad/assembly.scad', 'openscad/parameters_native.scad', 'openscad/common.scad'):
    capture(dest.parent/name, 'inputs_and_reports/'+name)
   report=_check(dest,executable)
@@ -68,13 +70,22 @@ def _check(dest,executable=None):
    width=v['clear_width_mm'];depth=v['chamber_rear_y_mm']+v['front_projection_mm']-v['wall_mm'];thick=v['floor_thickness_mm']
    np.testing.assert_allclose(mesh.extents,[width,depth,thick],atol=.02)
    np.testing.assert_allclose(mesh.bounds[1,2],v['overall_height_mm']-v['lid_height_mm']-v['chamber_depth_mm'],atol=.02)
-   r=v['hole_diameter_mm']/2;hole_area=64/2*r*r*np.sin(2*np.pi/64)
+   r=v['hole_diameter_mm']/2;small_r=v['floor_small_hole_diameter_mm']/2
+   hole_area=64/2*(r*r+8*small_r*small_r)*np.sin(2*np.pi/64)
    np.testing.assert_allclose(mesh.volume,(width*depth-hole_area)*thick,rtol=2e-5)
+   assert len(mesh.split())==1 and mesh.euler_number==2-2*9, (name,'Expected nine through-holes')
    expected=[v['chamber_center_x_mm'],(-v['front_projection_mm']+v['wall_mm']+v['chamber_rear_y_mm'])/2]
    distances=np.linalg.norm(mesh.vertices[:,:2]-expected,axis=1);hole_vertices=mesh.vertices[distances<r+.02]
    assert len(hole_vertices)>0
    np.testing.assert_allclose(hole_vertices[:,:2].mean(0),expected,atol=.02)
    results[name]['hole_center_verified']=True
+   centers=[expected]+[(np.array(expected)+v['floor_hole_pattern_radius_mm']*np.array([np.cos(a),np.sin(a)])).tolist() for a in np.arange(8)*np.pi/4]
+   for center,radius in zip(centers,[r]+[small_r]*8):
+    distance=np.linalg.norm(mesh.vertices[:,:2]-center,axis=1)
+    np.testing.assert_allclose(distance.min(),radius,atol=.02)
+    assert (np.abs(distance-radius)<.02).sum()>=64
+   results[name]['small_through_holes_verified']=8
+   results[name]['total_through_holes_verified']=9
   mesh=render('taller_wider',{'overall_height_mm':283.3,'clear_width_mm':210})
   np.testing.assert_allclose(mesh.bounds[1,2],283.3,atol=.02)
   from .shared_validation import check as shared_check

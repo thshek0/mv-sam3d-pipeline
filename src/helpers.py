@@ -15,6 +15,10 @@ from typing import Any, Callable, Sequence, TypeVar
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+try:
+    from .output_layout import intermediate_dir, products_dir, object_dir, METHODS, ALIASES, INSTRUMENT_FAMILY, canonical_name, identity, trial_group
+except ImportError:
+    from output_layout import intermediate_dir, products_dir, object_dir, METHODS, ALIASES, INSTRUMENT_FAMILY, canonical_name, identity, trial_group
 
 T = TypeVar("T")
 
@@ -26,27 +30,13 @@ DEFAULT_OUT = REPO / "output"
 SCENE_DIR_NAMES = frozenset({"processed", "scene"})
 DEPTH_SOURCES = ("da3", "da3_posed", "rs", "hybrid")
 INSTRUMENT_MODELS = frozenset({"cary60", "c13472", "c16361", "c13534"})
-DATASET_ALIASES = {
-    "bowl": "hestia_bowl",
-    "green_plate": "plate_green",
-    "pink_plate": "plate_pink",
-    "capture_test": "plate_patterned",
-}
+DATASET_ALIASES = ALIASES
 
 
 def dataset_family(name: str) -> str | None:
-    """Stable category for known object runs; unrelated datasets stay flat."""
-    if re.fullmatch(r"gripper(?:_v\d+)?", name):
-        return "gripper"
-    if re.fullmatch(r"bird\d+(?:_v\d+)?", name):
-        return "birds"
-    if re.fullmatch(r"heater(?:_v\d+)?", name):
-        return "heater"
-    if re.fullmatch(r"structure_(?:before|after)(?:_v\d+)?", name):
-        return "structure"
-    if name in DATASET_ALIASES or name in DATASET_ALIASES.values():
-        return "bowls_and_plates"
-    return None
+    """Canonical input family for known object runs; unrelated datasets stay flat."""
+    family, _ = identity(name)
+    return family if family in ('hestia-rl', 'hkqai-trial') else None
 
 
 def mesh_name(depth_method: str, mesh_method: str = "sam3d") -> str:
@@ -61,9 +51,19 @@ def mesh_artifact_path(meshes_dir: Path, name: str, artifact: str) -> Path:
 
 
 def mesh_glb_path(out_dir: Path, dataset: str, name: str) -> Path:
-    """Return ``output/<dataset>/meshes/{name}_mesh.glb`` and create ``meshes/``."""
-    meshes = dataset_meshes_dir(out_dir, dataset)
+    """Return a mesh path under family/object/method/products and create its directory."""
+    method = 'tsdf' if name.endswith('_tsdf') else 'sam3d'
+    meshes = dataset_meshes_dir(out_dir, dataset, method)
     meshes.mkdir(parents=True, exist_ok=True)
+    if method == 'tsdf':
+        # A matrix run stages one common input set; expose it from both methods.
+        for leaf in ('scene', 'depth'):
+            source = intermediate_dir(object_dir(out_dir, dataset), dataset, 'sam3d')/leaf
+            dest = intermediate_dir(object_dir(out_dir, dataset), dataset, 'tsdf')/leaf
+            if source.exists() and not dest.exists():
+                import os
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.symlink_to(os.path.relpath(source, dest.parent), target_is_directory=True)
     return mesh_artifact_path(meshes, name, "mesh.glb")
 
 
@@ -83,16 +83,24 @@ def dataset_name_from_input(src: Path) -> str:
             batch = json.loads(metadata.read_text())
             if not batch.get("eligible_for_rigid_reconstruction", True):
                 raise ValueError(f"{parent} contains mixed or unreviewed states; select and stage one state first")
-            return batch["run_id"]
+            return canonical_name(batch["run_id"])
+    # Canonical generated scene: <object>/<method>/intermediate[/<run>]/scene.
+    for parent in (src, *src.parents):
+        if parent.name == 'intermediate' and parent.parent.name in METHODS:
+            rel = src.relative_to(parent)
+            if rel.parts and rel.parts[0] not in ('scene', 'depth'):
+                return canonical_name(rel.parts[0])
+            return canonical_name(parent.parent.parent.name)
+    if src.name in METHODS: return canonical_name(src.parent.name)
     name = src.parent.name if src.name in SCENE_DIR_NAMES else src.name
-    return DATASET_ALIASES.get(name, name)
+    return canonical_name(name)
 
 
 def dataset_input_dir(name: str, dataset_dir: Path | None = None) -> Path:
     """Resolve instrument catalog IDs and known object-family input folders."""
-    name = DATASET_ALIASES.get(name, name)
+    name = canonical_name(name)
     base = dataset_dir if dataset_dir is not None else DEFAULT_DATASET
-    catalog = base / "instruments" / "catalog.json"
+    catalog = base / INSTRUMENT_FAMILY / "catalog.json"
     if not catalog.is_file():
         catalog = base / "catalog.json"
     if catalog.is_file():
@@ -101,29 +109,24 @@ def dataset_input_dir(name: str, dataset_dir: Path | None = None) -> Path:
             if not entry.get("eligible_for_rigid_reconstruction", True):
                 raise ValueError(f"{name} contains mixed or unreviewed states; select and stage one state first")
             raw = Path(entry["raw_dir"])
-            repository = base.parent.parent if base.name == "instruments" else base.parent
+            repository = base.parent.parent if base.name == INSTRUMENT_FAMILY else base.parent
             return raw if raw.is_absolute() else repository / raw
     family = dataset_family(name)
+    group = trial_group(name)
+    if group:
+        if base.name == group and base.parent.name == 'hkqai-trial':
+            folder = base
+        else:
+            folder = (base if base.name == 'hkqai-trial' else base/'hkqai-trial')/group
+        return folder if name == group else folder/name
     if family and base.name != family:
         return base / family / name
     return base / name
 
 
 def dataset_root(out_dir: Path, dataset: str) -> Path:
-    """Group instrument and object families; preserve unrelated dataset layouts.
-
-    Keep the full source/state run name so input-name inference is unchanged.
-    An explicit per-machine output root must not duplicate the machine folder.
-    """
-    dataset = DATASET_ALIASES.get(dataset, dataset)
-    instrument, separator, _ = dataset.partition("_")
-    if separator and instrument in INSTRUMENT_MODELS and out_dir.name != instrument:
-        family_root = out_dir if out_dir.name == "instruments" else out_dir / "instruments"
-        return family_root / instrument / dataset
-    family = dataset_family(dataset)
-    if family and out_dir.name != family:
-        return out_dir / family / dataset
-    return out_dir / dataset
+    """Canonical reconstruction working directory; explicit method roots supported."""
+    return intermediate_dir(out_dir, dataset)
 
 
 def dataset_scene_dir(out_dir: Path, dataset: str) -> Path:
@@ -141,9 +144,9 @@ def dataset_depth_npz(out_dir: Path, dataset: str, source: str) -> Path:
     return dataset_depth_dir(out_dir, dataset) / f"{source}.npz"
 
 
-def dataset_meshes_dir(out_dir: Path, dataset: str) -> Path:
-    """Return the run's ``meshes/``, respecting machine grouping."""
-    return dataset_root(out_dir, dataset) / "meshes"
+def dataset_meshes_dir(out_dir: Path, dataset: str, method='sam3d') -> Path:
+    """Current reconstruction deliverables, separated by mesh method."""
+    return products_dir(out_dir, dataset, method)
 
 
 def valid_depth(depth: np.ndarray) -> np.ndarray:
@@ -180,8 +183,7 @@ def depth_rmse(a: np.ndarray, b: np.ndarray) -> float:
 
 def run_output_dir(out_dir: Path, dataset: str, name: str) -> Path:
     """Deprecated alias: ensure ``meshes/`` and return it (flat ``{depth}_{mesh}_*`` files)."""
-    _ = name
-    path = dataset_meshes_dir(out_dir, dataset)
+    path = dataset_meshes_dir(out_dir, dataset, 'tsdf' if name.endswith('_tsdf') else 'sam3d')
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -599,6 +601,10 @@ def write_summary_grid(
 
 def mesh_scan_root(dataset_dir: Path) -> Path:
     """Prefer ``dataset/meshes/`` when present; else ``dataset`` (legacy / tests)."""
+    if dataset_dir.name == 'intermediate' and dataset_dir.parent.name in METHODS:
+        return dataset_dir.parent.parent
+    if dataset_dir.parent.name == 'intermediate' and dataset_dir.parent.parent.name in METHODS:
+        return dataset_dir.parent.parent.parent
     meshes = dataset_dir / "meshes"
     return meshes if meshes.is_dir() else dataset_dir
 
@@ -666,6 +672,10 @@ def _mesh_summary_cell(root: Path, depth: str, mesh: str, filename: str) -> Path
     if depth == "da3":
         candidates = [f"da3_posed_{mesh}", f"da3_{mesh}"]
     for name in candidates:
+        canonical = root / mesh / 'products' / f'{name}_{filename}'
+        if canonical.is_file(): return canonical
+        for canonical in sorted((root / mesh / 'products').glob(f'*/{name}_{filename}')):
+            if canonical.is_file(): return canonical
         flat = root / f"{name}_{filename}"
         if flat.is_file():
             return flat

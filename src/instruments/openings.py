@@ -2,6 +2,36 @@
 import numpy as np
 import trimesh
 
+
+def circular_holes_plate(lo,hi,holes,z0,z1):
+ """Convex grid cells and annular sectors around nonoverlapping circular bores."""
+ boxes=[(x-d/2,y-d/2,x+d/2,y+d/2) for x,y,d in holes]
+ for i,box in enumerate(boxes):
+  assert lo[0]<box[0]<box[2]<hi[0] and lo[1]<box[1]<box[3]<hi[1], 'Hole outside plate'
+  for other in boxes[:i]:
+   assert box[2]<=other[0] or other[2]<=box[0] or box[3]<=other[1] or other[3]<=box[1], 'Hole bounding boxes overlap'
+ xs=sorted({lo[0],hi[0],*(v for box in boxes for v in (box[0],box[2]))})
+ ys=sorted({lo[1],hi[1],*(v for box in boxes for v in (box[1],box[3]))})
+ rectangles=[]
+ for ya,yb in zip(ys,ys[1:]):
+  start=None
+  for xa,xb in zip(xs,xs[1:]):
+   x,y=(xa+xb)/2,(ya+yb)/2
+   keep=not any(a<x<c and b<y<d for a,b,c,d in boxes)
+   if keep and start is None:start=xa
+   if not keep and start is not None:rectangles.append([start,ya,xa,yb]);start=None
+  if start is not None:rectangles.append([start,ya,xs[-1],yb])
+ merged=[]
+ for rectangle in rectangles:
+  previous=next((q for q in merged if q[0]==rectangle[0] and q[2]==rectangle[2] and q[3]==rectangle[1]),None)
+  if previous is None:merged.append(rectangle)
+  else:previous[3]=rectangle[3]
+ parts=[]
+ for xa,ya,xb,yb in merged:
+  mesh=trimesh.creation.box([xb-xa,yb-ya,z1-z0]);mesh.apply_translation([(xa+xb)/2,(ya+yb)/2,(z0+z1)/2]);parts.append(mesh)
+ for (x,y,d),box in zip(holes,boxes):parts+=circle_plate(box[:2],box[2:],(x,y),d/2,z0,z1)
+ return parts
+
 def circle_plate(lo,hi,center,radius,z0,z1,segments=32):
  """Rectangle minus a polygonal circular aperture, decomposed into convex sectors."""
  cx,cy=center;x0,y0=lo;x1,y1=hi

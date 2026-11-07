@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "background_rgb": [238, 234, 214],
+  "blue_rgb": [62, 100, 145],
+  "blue_outline_rgb": [47, 77, 116],
+  "gold_rgb": [158, 134, 75],
+  "gold_outline_rgb": [111, 91, 48],
+  "motifs_per_ring": 10,
+  "rings": [
+    {"radius": 0.29, "phase_degrees": 84, "dot_radius": 0.020, "stem_length": 0.080, "stem_width": 0.006},
+    {"radius": 0.41, "phase_degrees": 102, "dot_radius": 0.027, "stem_length": 0.100, "stem_width": 0.006},
+    {"radius": 0.57, "phase_degrees": 120, "dot_radius": 0.036, "stem_length": 0.120, "stem_width": 0.007},
+    {"radius": 0.81, "phase_degrees": 138, "dot_radius": 0.054, "stem_length": 0.180, "stem_width": 0.008},
+    {"radius": 1.02, "phase_degrees": 156, "dot_radius": 0.071, "stem_length": 0.200, "stem_width": 0.009}
+  ],
+  "provenance": {
+    "type": "Reference-derived procedural reconstruction, not recovered original artwork",
+    "product_ean": "4939560701750",
+    "product_page": "https://jp.daisonet.com/products/4939560701750",
+    "reference_image_url": "https://cdn.shopify.com/s/files/1/0557/3646/7629/files/ab546b7decd7f633624ce95f7b726278.jpg?v=1755562788",
+    "reference_image": "product_reference.jpg",
+    "capture_references": ["../raw/0007/color.png", "../raw/0008/color.png"],
+    "observations": "Five staggered rings of ten alternating blue/gold dots with inward stems, growing toward the rim; outer dots clipped by the rim.",
+    "limitations": "Ring spacing, colours and dot outlines are approximated from photographs. No calibration stickers, price label, glare, print grain or wear is reproduced. Underside is plain; not colour-calibrated.",
+    "retrieved_date": "2026-11-03"
+  }
+}

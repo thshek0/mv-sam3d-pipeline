@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "families": {
+    "hkqai-instruments": {
+      "format": "scad",
+      "method": "codex",
+      "thumbnails": ["products/assembly.png", "products/overview.png"],
+      "objects": {
+        "c13472": {"variants": ["c13472"]},
+        "c13534": {"variants": ["c13534"]},
+        "c16361": {"variants": ["c16361"]},
+        "cary60": {"variants": ["cary60"]}
+      }
+    },
+    "hestia-rl": {
+      "format": "mujoco",
+      "method": "codex",
+      "objects": {
+        "sand_container": {"variants": ["container_open"]},
+        "electronic_balance": {"variants": ["electronic_balance_round", "electronic_balance_square"]},
+        "hestia_bowl_v1": {"variants": ["bowl"]},
+        "spoon_home_black": {"variants": ["spoon_home_black"]},
+        "spoon_daiso_pink": {"variants": ["spoon_daiso_pink"]},
+        "plate_harmynta_white_22cm": {"variants": ["plate_harmynta_white_22cm_rl"]},
+        "plate_maehata_pop_blue_23cm": {"variants": ["plate_maehata_pop_blue_23cm_rl"]},
+        "plate_paradisisk_off_white_20cm": {"variants": ["plate_paradisisk_off_white_20cm_rl"]},
+        "plate_strimmig_pale_grey_green_21cm": {"variants": ["plate_strimmig_pale_grey_green_21cm_rl"]},
+        "bird_swallow": {
+          "format": "stl", "method": "sam3d", "variants": ["bird_swallow_rl"],
+          "print_scale": "preserve_source_set_in_slicer"
+        },
+        "bird_mahjong": {
+          "format": "stl", "method": "sam3d", "variants": ["bird_mahjong_rl"],
+          "print_scale": "preserve_source_set_in_slicer"
+        }
+      }
+    }
+  }
+}

@@ -15,7 +15,7 @@
     "door_clearance_mm": 2.0,
     "lower_door_height_mm": 200.0,
     "upper_door_height_mm": 230.0,
-    "hinge_axis_outboard_mm": 4.0,
+    "hinge_axis_outboard_mm": 7,
     "hinge_radius_mm": 4.0,
     "hinge_height_mm": 36.0,
     "hinge_leaf_thickness_mm": 3.0,
@@ -94,7 +94,9 @@
     "upper_hinge_fraction_0": 0.7913043478260867,
     "upper_hinge_fraction_1": 0.10869565217391279,
     "lower_hinge_fraction_0": 0.77,
-    "lower_hinge_fraction_1": 0.25
+    "lower_hinge_fraction_1": 0.25,
+    "door_lining_thickness_mm": 1.5,
+    "door_lining_edge_inset_mm": 4.0
   },
   "evidence": {
     "body_width_mm": "Manufacturer body envelope, excluding hardware",
@@ -110,7 +112,7 @@
     "door_clearance_mm": "estimate",
     "lower_door_height_mm": "estimate",
     "upper_door_height_mm": "estimate",
-    "hinge_axis_outboard_mm": "estimate",
+    "hinge_axis_outboard_mm": "Manufacturer dimensional drawing PDF p8: 11 mm left projection, less modeled pin radius 4 mm = 7 mm axis offset. Pin radius and leaf details remain estimates.",
     "hinge_radius_mm": "estimate",
     "hinge_height_mm": "estimate",
     "hinge_leaf_thickness_mm": "estimate",
@@ -189,7 +191,9 @@
     "upper_hinge_fraction_0": "Photo/model estimate",
     "upper_hinge_fraction_1": "Photo/model estimate",
     "lower_hinge_fraction_0": "Photo/model estimate",
-    "lower_hinge_fraction_1": "Photo/model estimate"
+    "lower_hinge_fraction_1": "Photo/model estimate",
+    "door_lining_thickness_mm": "IMG_9845: black panels on the moving door interiors; thickness is an unmeasured modeling estimate.",
+    "door_lining_edge_inset_mm": "IMG_9845: exposed white border around black door linings; inset is a photo-derived estimate."
   },
   "metadata": {
     "limitations": [

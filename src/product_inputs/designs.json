@@ -1,0 +1,92 @@
+{
+  "container": {
+    "outer_mm": [
+      325,
+      265,
+      200
+    ],
+    "opening_mm": [
+      300,
+      235
+    ],
+    "bottom_mm": [
+      270,
+      210
+    ],
+    "wall_mm": 1.2,
+    "rim_thickness_mm": 2,
+    "corner_radius_mm": 20,
+    "bottom_corner_mm": 18,
+    "evidence": "Outer dimensions: selected variant in dataset/hestia-rl/sand_container/New Text Document.txt. Opening: matching 2/1 row in selected size-table image. Taper, thickness and corner radii are image-based estimates. Open container only; lid omitted at user request."
+  },
+  "scale": {
+    "body_mm": [
+      192.5,
+      280,
+      80
+    ],
+    "square_pan_mm": [
+      185,
+      168
+    ],
+    "round_pan_diameter_mm": 125,
+    "pan_center_y_mm": 42,
+    "foot_height_mm": 10,
+    "housing_bottom_mm": 8,
+    "housing_front_height_mm": 32,
+    "housing_top_mm": 68,
+    "slope_end_y_mm": -48,
+    "pan_bottom_mm": 76,
+    "corner_radius_mm": 12,
+    "evidence": "Body envelope and pan dimensions are printed on the selected product-size image. Pan orientation follows its wider transverse side. Internal support, feet, housing slopes and pan thickness are estimates. Square blue pan follows the photographed protective-film appearance; round pan is silver."
+  },
+  "bowl": {
+    "diameter_mm": 120,
+    "height_mm": 60,
+    "wall_mm": 1.2,
+    "floor_mm": 4.2,
+    "underside_mm": 2.2,
+    "foot_outer_radius_mm": 38,
+    "foot_inner_radius_mm": 35.7,
+    "profile_z_outer_inner_mm": [
+      [
+        4.2,
+        40.5,
+        36.5
+      ],
+      [
+        6,
+        43,
+        40.5
+      ],
+      [
+        11,
+        46,
+        44.8
+      ],
+      [
+        18,
+        47.5,
+        46.3
+      ],
+      [
+        58.5,
+        54,
+        52.8
+      ],
+      [
+        59.2,
+        60,
+        58.8
+      ],
+      [
+        60,
+        60,
+        58.8
+      ]
+    ],
+    "sections": 48,
+    "collision_sections": 24,
+    "evidence": "Approximate 120 x 60 mm envelope from RealSense frame 20261013_153506_636313. Revised against side frame 20261013_153452_094806 and interior frame 20261013_153433_495185: curved heel, narrow raised foot, thin wall and flared pale rim. Profile and thickness are visual estimates, not measured. Envelope uncertainty remains about +/-10 mm. Visual uses 48 radial sectors; collision uses 24 with maximum circular chord deviation 0.514 mm."
+  }
+}

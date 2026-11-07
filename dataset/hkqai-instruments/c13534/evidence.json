@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "model": "c13534",
+  "geometry_sources": [
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9864.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9865.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9866.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9869.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9870.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9871.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9872.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9924.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9925.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9926.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9927.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9928.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-10-30/raw/IMG_9845.png",
+    "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9867.png"
+  ],
+  "materials": {
+    "white": {
+      "review_image": "IMG_9928.jpg",
+      "original": "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9928.png",
+      "crop_pixels": [
+        250,
+        40,
+        700,
+        140
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "dark": {
+      "review_image": "exterior.jpg",
+      "original": "dataset/hkqai-instruments/c13534/online_sources/pdf_images/qy_angled_photo.png",
+      "crop_pixels": [
+        350,
+        180,
+        375,
+        205
+      ],
+      "review_size": [
+        424,
+        329
+      ]
+    },
+    "metal": {
+      "review_image": "IMG_9926.jpg",
+      "original": "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9926.png",
+      "crop_pixels": [
+        540,
+        20,
+        610,
+        170
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "thread": {
+      "review_image": "IMG_9925.jpg",
+      "original": "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9925.png",
+      "crop_pixels": [
+        340,
+        25,
+        420,
+        230
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "silver": {
+      "review_image": "IMG_9865.jpg",
+      "original": "dataset/hkqai-instruments/c13534/user_captures/2026-11-02/raw/IMG_9865.png",
+      "crop_pixels": [
+        730,
+        650,
+        780,
+        690
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "black": {
+      "review_image": "IMG_9845.jpg",
+      "original": "dataset/hkqai-instruments/c13534/user_captures/2026-10-30/raw/IMG_9845.png",
+      "crop_pixels": [
+        310,
+        490,
+        390,
+        580
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    }
+  },
+  "markings": {
+    "source": "dataset/hkqai-instruments/c13534/online_sources/pdf_images/qy_angled_photo.png",
+    "review_size": [
+      424,
+      329
+    ],
+    "items": [
+      {
+        "name": "front_identity",
+        "corners_tl_tr_br_bl": [
+          [
+            337,
+            132
+          ],
+          [
+            389,
+            126
+          ],
+          [
+            389,
+            158
+          ],
+          [
+            337,
+            164
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.558,
+          0.65,
+          0.28,
+          0.335
+        ],
+        "target_y_m": 0.0158
+      }
+    ]
+  },
+  "reference_images": {
+    "IMG_9838.jpg": "dataset/hkqai-instruments/c13534/user_captures/2026-10-30/raw/IMG_9838.png"
+  },
+  "motion_sources": [
+    "dataset/hkqai-instruments/c13534/user_captures/2026-10-30/raw/IMG_9855.MOV"
+  ],
+  "package_references": {
+    "hamamatsu-c13534.pdf": "dataset/hkqai-instruments/c13534/online_sources/hamamatsu-c13534.pdf",
+    "qy_dimension_drawing.png": "dataset/hkqai-instruments/c13534/online_sources/pdf_images/qy_dimension_drawing.png"
+  },
+  "geometry_policy": {
+    "primary": "Manufacturer specification diagrams and dimension tables for the exact model and installed variant govern geometry wherever available.",
+    "workflow": "Use the original PDF and its dimensioned views to establish envelope, datums, profiles and feature positions before interpreting perspective photos. Cropped diagrams are navigation aids; preserve PDF vector detail.",
+    "user_captures": "Confirm installed accessory, visible details and movement; physical measurements fill undocumented dimensions with endpoints, units and uncertainty.",
+    "online_photos": "Support appearance and details absent from specification drawings; do not override dimensioned geometry from perspective appearance.",
+    "conflicts": "Record the source values and affected feature, check variant and measurement endpoints, and resolve the discrepancy explicitly before adopting a deviation. Do not silently override or average.",
+    "unknowns": "Label photo-derived and undocumented dimensions as estimates; do not invent missing engineering detail."
+  },
+  "specification_sources": [
+    {
+      "file": "dataset/hkqai-instruments/c13534/online_sources/hamamatsu-c13534.pdf",
+      "pdf_pages": [
+        8
+      ],
+      "kind": "dimensioned_drawing",
+      "features": "Overall housing envelope and dimensioned profiles; distinguish local door spans from overall dimensions.",
+      "diagram_crop": "dataset/hkqai-instruments/c13534/online_sources/pdf_images/qy_dimension_drawing.png"
+    }
+  ],
+  "specification_status": "available_for_listed_features",
+  "specification_page_numbering": "1-based PDF page index, not printed page labels",
+  "geometry_review": {
+    "2026-11-04": "IMG_9845 governs open door appearance: black inset inner front/left panels and upper roof liner move with the white shell; lower door has no roof."
+  },
+  "known_issues": [
+    {
+      "id": "lower_left_infill_height",
+      "component": "lower_left_infill",
+      "status": "corrected_pending_user_review",
+      "reported_by": "user",
+      "reported_on": "2026-11-04",
+      "description": "Lower left infill has the wrong height.",
+      "resolution": "Small lower-left floor plinth rebuilt independently from the room wall: top = lower floor +18 mm, a photo estimate.",
+      "review_sources": [
+        "IMG_9866",
+        "IMG_9867",
+        "IMG_9869"
+      ]
+    }
+  ],
+  "native_authoring": "src/instruments/native/c13534/assembly.scad"
+}

@@ -12,7 +12,7 @@ def dimension_sheet(stage):
     sheet = folder / 'overview.png'
     sources = [folder / (name + '.png') for name in VIEWS]
     if not all(path.exists() for path in sources):
-        if not sheet.exists():
+        if not sheet.exists() and not (stage / 'overview.png').exists():
             raise FileNotFoundError('No complete dimension views or combined sheet')
         return
     images = []

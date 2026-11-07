@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "model": "c16361",
+  "geometry_sources": [
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9878.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9880.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9882.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9883.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9884.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9885.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9886.png",
+    "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9887.png"
+  ],
+  "materials": {
+    "dark": {
+      "review_image": "exterior.jpg",
+      "original": "dataset/hkqai-instruments/c16361/online_sources/exterior_annotated/raw/07_S__19005452.jpg",
+      "crop_pixels": [
+        205,
+        190,
+        225,
+        210
+      ],
+      "review_size": [
+        380,
+        285
+      ]
+    },
+    "metal": {
+      "review_image": "IMG_9886.jpg",
+      "original": "dataset/hkqai-instruments/c16361/user_captures/2026-11-02/raw/IMG_9886.png",
+      "crop_pixels": [
+        110,
+        40,
+        270,
+        130
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    }
+  },
+  "markings": {
+    "source": "dataset/hkqai-instruments/c16361/online_sources/exterior_annotated/raw/1249-1.png",
+    "review_size": [
+      500,
+      500
+    ],
+    "items": [
+      {
+        "name": "front_identity",
+        "corners_tl_tr_br_bl": [
+          [
+            320,
+            189
+          ],
+          [
+            410,
+            189
+          ],
+          [
+            410,
+            233
+          ],
+          [
+            320,
+            233
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.32,
+          0.425,
+          0.168,
+          0.219
+        ],
+        "target_y_m": 0
+      },
+      {
+        "name": "front_vents_text",
+        "corners_tl_tr_br_bl": [
+          [
+            99,
+            308
+          ],
+          [
+            354,
+            308
+          ],
+          [
+            354,
+            354
+          ],
+          [
+            99,
+            354
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.025,
+          0.35,
+          0.006,
+          0.039
+        ],
+        "target_y_m": 0
+      }
+    ]
+  },
+  "package_references": {
+    "hamamatsu-c16361.pdf": "dataset/hkqai-instruments/c16361/online_sources/hamamatsu-c16361.pdf",
+    "tau_dimension_drawing.png": "dataset/hkqai-instruments/c16361/online_sources/pdf_images/tau_dimension_drawing.png"
+  },
+  "front_reference": "dataset/hkqai-instruments/c16361/online_sources/pdf_images/tau-001.png",
+  "geometry_policy": {
+    "primary": "Manufacturer specification diagrams and dimension tables for the exact model and installed variant govern geometry wherever available.",
+    "workflow": "Use the original PDF and its dimensioned views to establish envelope, datums, profiles and feature positions before interpreting perspective photos. Cropped diagrams are navigation aids; preserve PDF vector detail.",
+    "user_captures": "Confirm installed accessory, visible details and movement; physical measurements fill undocumented dimensions with endpoints, units and uncertainty.",
+    "online_photos": "Support appearance and details absent from specification drawings; do not override dimensioned geometry from perspective appearance.",
+    "conflicts": "Record the source values and affected feature, check variant and measurement endpoints, and resolve the discrepancy explicitly before adopting a deviation. Do not silently override or average.",
+    "unknowns": "Label photo-derived and undocumented dimensions as estimates; do not invent missing engineering detail."
+  },
+  "specification_sources": [
+    {
+      "file": "dataset/hkqai-instruments/c16361/online_sources/hamamatsu-c16361.pdf",
+      "pdf_pages": [
+        5
+      ],
+      "kind": "dimensioned_drawing",
+      "features": "Housing envelope and accessory outlines; installed low-box variant has overall H253.3 mm, not the tall variant H298.3 mm.",
+      "diagram_crop": "dataset/hkqai-instruments/c16361/online_sources/pdf_images/tau_dimension_drawing.png"
+    }
+  ],
+  "specification_status": "available_for_listed_features",
+  "specification_page_numbering": "1-based PDF page index, not printed page labels",
+  "geometry_review": {
+    "2026-11-04_floor": "User explicitly confirms eight small through-holes in place of the modeled floor fasteners, in addition to the existing larger centre hole. The eight-hole pattern and bore sizes remain estimates."
+  }
+}

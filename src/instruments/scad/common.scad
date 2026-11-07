@@ -27,6 +27,13 @@ module plate_hole(lo,hi,center,d,z0,z1) {
         translate([center.x,center.y,z0-.01]) cylinder(d=d,h=z1-z0+.02);
     }
 }
+module plate_holes(lo,hi,holes,z0,z1) {
+    render(convexity=20) difference() {
+        block([lo.x,lo.y,z0],[hi.x,hi.y,z1]);
+        for(hole=holes)
+            translate([hole.x,hole.y,z0-.01]) cylinder(d=hole.z,h=z1-z0+.02);
+    }
+}
 module radial_profile(center,profile,axis="z",segments=16) {
     translate(center) rotate(axis=="x" ? [0,90,0] : axis=="y" ? [-90,0,0] : [0,0,0])
         rotate_extrude() polygon(profile);

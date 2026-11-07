@@ -11,7 +11,20 @@ checkpoints/
 *.mp4
 *.stl
 intermediate/
-/dataset/
+# Keep raw datasets local; share only small authoring metadata needed by tests.
+/dataset/*
+!/dataset/hkqai-instruments/
+/dataset/hkqai-instruments/*
+!/dataset/hkqai-instruments/*/
+/dataset/hkqai-instruments/*/*
+!/dataset/hkqai-instruments/*/evidence.json
+!/dataset/hestia-rl/
+/dataset/hestia-rl/*
+!/dataset/hestia-rl/*/
+/dataset/hestia-rl/*/*
+!/dataset/hestia-rl/plate_*/appearance/
+/dataset/hestia-rl/plate_*/appearance/*
+!/dataset/hestia-rl/plate_*/appearance/pattern.json
 /input/
 /work/
 /output/
@@ -25,3 +38,6 @@ LOCAL.md
 
 # Local runtime session state
 /:memory:.ses
+/.aws/
+/.codex/
+/.agents/

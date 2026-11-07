@@ -164,7 +164,8 @@ def render_front_reference(model,out,parts):
  image=Image.fromarray(TextureRenderer(parts).image([1,0,0],[0,0,1],[0,-1,0],[-10,460,-10,275],1000))
  background=Image.new('RGBA',image.size,'white');background.alpha_composite(image)
  current=background.convert('RGB');current.save(out/'front_textured.png')
- source=root/'dataset/instruments'/model/'references/pdf'/f'{model}_pdf_closed/raw/0.png'
+ from .inputs import evidence
+ source=root/evidence(model)['front_reference']
  reference=Image.open(source).convert('RGB');w,h=reference.size
  reference=reference.crop((int(w*.06),int(h*.39),int(w*.45),int(h*.60)))
  reference.thumbnail((850,650));current.thumbnail((850,650))

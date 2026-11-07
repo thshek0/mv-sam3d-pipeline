@@ -633,3 +633,131 @@ Useful experimental meshes, final DualBRep STEP files, previews and metrics now 
 Estimated net disk recovery: 3.60 GiB, excluding small new navigation/audit files and filesystem overhead. Verified current instrument package files unchanged, 97 annotation/image pairs and numeric array preservation; 18 NPZ path records were updated. Twenty-five previously missing historical image references were recorded without guessing replacements. Created navigation for retained experiments and audits, simplified obsolete LOCAL guidance with its previous text preserved locally, and removed the final obsolete archive-link rewrite from the publisher. Model sharing excludes both diagnostics and historical experiments. Detailed results: output/maintenance/archive_retirement/{summary,migration,path_map,reference_updates}.json. Dataset/output content stays ignored by Git.
 
 Post-migration validation: all 150 tests passed; all four current packages passed hash/material/link/PyBullet checks. Verified 695 navigation links and found no dangling dataset/output symlinks. The regenerated model-sharing ZIP excludes historical experiments and diagnostics.
+
+
+## OpenSCAD local GUI setup and remote headless check (2026-11-04)
+
+Downloaded the official OpenSCAD 2026.11.01 x86-64 AppImage (about 81 MiB) and
+its SHA-256 file into `work/apps/openscad/` on the remote Ubuntu 24.04 machine.
+Verified SHA-256 `42b0dd9ce38025c3a39e96151c0825330829dc6dccf4e277acdc98bb0368116e`.
+Added `/home/shekanson/.local/bin/openscad`, forwarding arguments through
+`--appimage-extract-and-run` because normal AppImage mounting failed without
+FUSE support. `openscad --version` reports 2026.11.01. No system package or
+remote desktop launcher was installed.
+
+The user clarified that the intended GUI destination was their local Linux
+computer. Added [local installation and shortcut instructions](docs/openscad/README.md),
+including model transfer, the remote installation inventory, and exact optional
+uninstall commands. No local installation was performed from this remote session.
+
+Retained the remote copy because the existing instrument CAD checks and printing
+exports already use OpenSCAD through PATH or OPENSCAD. Verified a Boolean
+cube-minus-cylinder STL export with DISPLAY, WAYLAND_DISPLAY and QT_QPA_PLATFORM
+unset: 208 triangles, watertight positive-volume mesh, 874.695 mm³. Temporary
+smoke-check files were removed; no current model outputs were changed. This
+does not establish full instrument-suite compatibility with the new development
+build; those checks and PNG rendering were not run in this session.
+
+## HARMYNTA specification and delivery-location correction (2026-11-07)
+
+The user required compliance with the existing Markdown output layout and a
+spec-driven workflow. The earlier assistant-created `output/SolidWorks/` root
+violated the README. Relocated its existing two-file delivery to
+`output/objects/hestia-rl/plate_harmynta_white_22cm/codex/exports/solidworks_20261107/`
+and removed the empty erroneous parent. Canonical CAD remains in the object's
+`products/cad/`; no geometry was regenerated or changed during this correction.
+
+Added [the plate specification and decision log](src/plates/SPEC.md), including
+requirement IDs, provenance, conflicting ring-width measurements, inferred
+geometry, numerical acceptance checks and the pending physical fit test. Earlier
+geometry work is explicitly recorded retrospectively. [AGENTS.md](AGENTS.md) now
+requires specifications before implementation, checks linked to requirements,
+and documented decisions, failures and limitations. Updated LOCAL and README
+pointers. This enforces an agent workflow, not an automated CI prose validator.
+
+Verification: STEP and delivery manifest hashes are unchanged; the canonical
+STEP matches the delivery, all CAD source-registry references and delivery source
+hashes resolve, and the output root contains only README-permitted entries.
+Relocation evidence is in the object's
+`codex/intermediate/solidworks_20261107/delivery_relocation.json`. Earlier logs
+retain their historical paths; the relocation record supplies the correction.
+No geometry tests were repeated for this documentation and relocation change.
+
+### Simpler plate layout and verified rebuild (2026-11-07)
+
+The user preferred simplifying the directory over expanding the specification.
+Shortened `src/plates/SPEC.md` to requirements, authoritative inputs, environment,
+one rebuild command and key limitations. The single current SolidWorks file is
+now `codex/products/HARMYNTA_220mm.step`, with no extra `cad/` nesting. Removed the
+byte-identical `exports/solidworks_20261107/` STEP after hash verification; its
+manifest and previous verification/registry are retained under the existing
+`intermediate/solidworks_20261107/`. Earlier entries describe the previous layout.
+
+Fixed `src.plates.solidworks` to refresh its standard CAD registry after a
+successful build. Rebuilt in an isolated temporary workspace using only the
+builder, profile JSON and referenced photo-fit report. The entire STEP DATA
+section exactly matches the previous delivery, despite export timestamp changes.
+Canonical rebuild geometry, registry source/output hashes, temporary standard
+export and single-current-STEP/layout checks passed. Python 3.12.14,
+pythonocc-core 7.9.0, NumPy 2.1.2 and SciPy 1.16.2 were used. Evidence is in
+`intermediate/solidworks_20261107/{reproduction,simplification}.json` and build logs.
+No separate reproduction framework was added. This proves reproduction of the
+saved CAD revision in the installed environment, not physical fit or a fresh
+dependency installation/photo reconstruction.
+
+## Project-wide specification-driven development (2026-11-07)
+
+Requirements: P01, P04, P09, P10, P11 in [SPEC.md](SPEC.md).
+The user clarified that specification-driven development must govern the whole
+project; the earlier plate-focused response did not address that scope. Their
+preference for a simple structure remains in force.
+
+Added one root specification covering all project areas, with stable requirements,
+the shared specify → implement → verify → record workflow, storage/source contracts,
+reproduction criteria, existing domain references and relevant verification suites.
+Updated `AGENTS.md` to require it before every task, and linked the same entry point
+from README and LOCAL. The plate specification is explicitly supplemental. Existing
+domain documents and EXPERIMENTS remain the detailed guidance and development log;
+no new spec directory, generator, CI framework or approval process was added.
+
+Validation: checked all local Markdown links/anchors in SPEC, AGENTS, LOCAL and the
+plate supplement with a Python path/heading check; verified the 11 unique P01–P11
+requirement IDs and project entry-point references. Checks passed. This was a
+documentation/instruction change; no code, geometry or dataset was modified, and
+no runtime test suite or project-wide rebuild was run. Existing implementations
+are not retroactively certified: applicable requirements and evidence must be
+checked as each area is changed. The workflow is mandatory for future work, but
+automated checks do not prove completeness of prose or physical accuracy.
+
+### Small documentation cleanup (2026-11-07; P01, P10)
+
+Removed repeated workflow instructions from AGENTS, LOCAL and README; they now
+point to root SPEC.md. Kept all P01–P11 requirements and domain details. Verified
+44 local links/anchors and the README entry points. No files were moved, and no
+code, models or datasets changed; no new tooling or runtime tests were needed.
+
+2026-11-07 (P01): Made root SPEC.md the explicit single source of truth; supporting
+documents reference its rules. Shortened AGENTS.md accordingly. Documentation only.
+
+## Git sharing cleanup (2026-11-07; P02, P04, P06, P09–P11)
+
+Kept the complete README gripper example and ignored caches. Added ignores for
+local tool directories and made shared commands portable; local OpenSCAD details
+remain in LOCAL.md. Promoted the small accepted HARMYNTA fit report into source
+inputs. Its CAD rebuild now needs no pre-existing dataset/output tree and rejects
+a report that disagrees with the profile; STEP geometry remains identical.
+
+The first source-only test run exposed seven dependencies on ignored metadata.
+Included the existing four instrument evidence JSONs and three procedural plate
+pattern JSONs in place through narrow ignore exceptions; raw datasets remain
+ignored. All 238 tests pass with the installed dependencies, including in a
+source-only temporary checkout. Large external assets still require separate
+transfer; no public download location or fresh dependency installation is claimed.
+
+Removed four byte-identical DA3 temporary archives, retaining their canonical
+copies and checking references; recovered 1,268,110,256 bytes (1.18 GiB). Unique
+temporary files were preserved. Paths/hashes are recorded in
+`output/maintenance/git_sharing_cleanup_20261107.json`; CAD checks are in its
+object's `intermediate/solidworks_20261107/git_rebuild.json`. Temporary checkout
+verification copies were removed afterward. Existing source, documentation and
+tests are included in the Git snapshot without restructuring them.

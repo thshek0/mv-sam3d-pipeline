@@ -7,16 +7,17 @@ from . import geometry as base
 from .paths import ROOT
 
 def save(path,obj):path.write_text(json.dumps(obj,indent=2)+'\n')
-def current_model_dir(model):return ROOT/'output/instruments'/model/'model'
+def current_model_dir(model):return ROOT/'output/objects/hkqai-instruments'/model/'codex/products'
 def setup(model):
- out=ROOT/'output/instruments'/model/'.build_work'
+ out=ROOT/'output/objects/hkqai-instruments'/model/'codex/intermediate/.build_work'
  if out.exists():
   import tempfile
   failures=out.parent/'validation/failures';failures.mkdir(parents=True,exist_ok=True)
   retained=Path(tempfile.mkdtemp(prefix='previous_build_',dir=failures))
   out.rename(retained/'build_work')
  out.mkdir(parents=True)
- shutil.copytree(ROOT/'dataset/instruments'/model/'references/model_evidence',out/'evidence',dirs_exist_ok=True)
+ from .inputs import stage_evidence
+ stage_evidence(model,out)
  current=current_model_dir(model)/'parameters.json'
  if current.exists():
   shutil.copy2(current,out/'parameters.json')
@@ -26,7 +27,10 @@ def setup(model):
  # CAD export invalidates these cached checks if any generated SCAD input changes.
  if (current_model_dir(model)/'openscad').exists():
   shutil.copytree(current_model_dir(model)/'openscad',out/'openscad',dirs_exist_ok=True)
- return out,json.loads((out/'parameters.json').read_text())
+ p=json.loads((out/'parameters.json').read_text())
+ p.pop('sources',None)  # Superseded duplicate list; can contain retired source paths.
+ p['evidence_config']=f'dataset/hkqai-instruments/{model}/evidence.json'
+ return out,p
 
 def simple(model,p):
  from .design import build as shared_build
@@ -54,9 +58,16 @@ def run_simple(model,out,p):
 
 
 def build(models,from_cad_parameters=False,check_cad=False,keep_validation=False,extras=False):
+ from .native_build import build as native_build
+ return native_build(models,from_cad_parameters=from_cad_parameters,check_cad=check_cad,
+                     keep_validation=keep_validation,extras=extras)
+
+
+def _legacy_build(models,from_cad_parameters=False,check_cad=False,keep_validation=False,extras=False):
+ """Retired exporter retained for historical regressions; not current authoring."""
  from .storage.diagnostics import session
  for model in models:
-  with session(current_model_dir(model).parent,keep=keep_validation):
+  with session(current_model_dir(model).parent/'intermediate',keep=keep_validation):
    _build_one(model,from_cad_parameters,check_cad,extras)
 
 

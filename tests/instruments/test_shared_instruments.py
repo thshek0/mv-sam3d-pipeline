@@ -24,6 +24,13 @@ def test_tau_opening_depth_center_and_hinge_follow_parameters():
  pivot=np.r_[m.p['joint_origin_m'],1]
  np.testing.assert_allclose(m.transform(np.deg2rad(80))@pivot,pivot)
  assert m.p['joint_axis']==[-1,0,0]
+ assert not any(name.startswith('floor_fastener_') for name in m.parts)
+ for angle in np.arange(8)*np.pi/4:
+  xy=center+v['floor_hole_pattern_radius_mm']*np.array([np.cos(angle),np.sin(angle)])
+  point=np.r_[xy,263.3-v['lid_height_mm']-50-v['floor_thickness_mm']/2]/1000
+  assert not any(np.all(np.einsum('ij,ij->i',point-q.triangles_center,q.face_normals)<=1e-10) for q in pieces)
+ expected=(210*(v['chamber_rear_y_mm']+v['front_projection_mm']-v['wall_mm'])-np.pi*(6**2+8*(v['floor_small_hole_diameter_mm']/2)**2))*v['floor_thickness_mm']
+ np.testing.assert_allclose(sum(q.volume for q in pieces)*1e9,expected,rtol=1e-4)
 
 def test_orientation_motor_moves_with_wall_and_hole_remains_centered():
  m,v=edited('c13472',body_width_mm=665,holder_hole_diameter_mm=48,cover_travel_fraction=.30)
@@ -34,7 +41,9 @@ def test_orientation_motor_moves_with_wall_and_hole_remains_centered():
  center=np.array([665*v['stage_center_x_fraction'],v['body_depth_mm']*v['stage_center_y_fraction']])
  vertices=np.vstack([q.vertices for n,q in m.parts.items() if n.startswith('holder_frame__')])*1000
  np.testing.assert_allclose(np.linalg.norm(vertices[:,:2]-center,axis=1).min(),24,atol=1e-7)
- np.testing.assert_allclose(m.world_parts(.1995)['cover_top'].bounds-m.parts['cover_top'].bounds,[[.1995,0,0]]*2)
+ for name,q in m.parts.items():
+  if name.startswith('cover_shell__'):
+   np.testing.assert_allclose(m.world_parts(.1995)[name].bounds-q.bounds,[[.1995,0,0]]*2)
 
 def test_qy_room_pins_selector_and_nested_handle_frames():
  m,v=edited('c13534',door_width_mm=230,lower_clear_width_mm=135,lower_pin_spacing_mm=44,door_open_angle_deg=85,selector_travel_mm=35)
@@ -51,6 +60,17 @@ def test_qy_room_pins_selector_and_nested_handle_frames():
  # The generated turn frame stays anchored to the corresponding wider door.
  turn=m.transforms({})['upper_handle_turn']
  np.testing.assert_allclose(turn[0,3],.230*v['latch_x_fraction'])
+ # Inner black panels must travel with their respective door, not the fixed chamber.
+ for label in ('upper','lower'):
+  panels=[n for n in m.parts if n.startswith(label+'_inner_lining__')]
+  assert panels
+  closed=m.scene({});opened=m.scene({label+'_door':85})
+  for name in panels:
+   assert m.info[name]['group']==label+'_door'
+   assert np.mean(m.parts[name].visual.vertex_colors[:,:3])<40
+   before,_=closed.graph[name];after,_=opened.graph[name]
+   assert not np.allclose(before,after)
+   np.testing.assert_allclose(after,m.transforms({label+'_door':85})[label+'_door'])
 
 @pytest.mark.parametrize('name',['c16361','c13472','c13534'])
 def test_all_parameter_schemas_roundtrip_numeric_scad(name,tmp_path):

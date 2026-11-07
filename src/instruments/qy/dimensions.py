@@ -22,10 +22,10 @@ import trimesh
 from .urdf import xml_fk
 
 from ..paths import ROOT
-OUT = ROOT / 'output/instruments/c13534/.build_work'
+OUT = ROOT / 'output/objects/hkqai-instruments/c13534/codex/intermediate/.build_work'
 PACKAGE = OUT / 'urdf'
 DEST = OUT / 'dimensions'
-DRAWING = ROOT / 'dataset/instruments/c13534/references/pdf/qy_dimension_drawing.png'
+DRAWING = ROOT / 'dataset/hkqai-instruments/c13534/online_sources/pdf_images/qy_dimension_drawing.png'
 COLORS = dict(M='#1967b4', U='#087e62', E='#a85e10', G='#566674')
 plt.rcParams.update({'font.family': 'DejaVu Sans', 'font.size': 11})
 
@@ -85,22 +85,21 @@ def bounds(parts, names):
 def measure(parts):
     p = json.loads((OUT / 'collision_doors.json').read_text())['parameters']
     user = json.loads((OUT / 'confirmed_measurements.json').read_text())
-    research = json.loads((ROOT / 'dataset/instruments/c13534/references/pdf/dimension_reference.json').read_text())
+    research = json.loads((ROOT / 'dataset/hkqai-instruments/c13534/measurements.json').read_text())['manufacturer']
     published = research['catalog_dimensions_and_proxy_caveats']['c13534']
     body_names = [n for n in parts if n in {
         'right_housing', 'rear_housing', 'base_support', 'tower_middle_band',
-        'tower_rear_wall', 'chamber_floor', 'upper_top', 'upper_side', 'lower_side',
-        'upper_closing_return', 'lower_closing_return'} or n.startswith(('upper_front_', 'lower_front_', 'control_'))]
+        'tower_rear_wall', 'chamber_floor'} or n.startswith(('upper_shell__', 'lower_shell__', 'control_'))]
     b = bounds(parts, body_names)
     all_bounds = bounds(parts, parts)
     tower = bounds(parts, [n for n in body_names if n not in {'right_housing', 'rear_housing', 'base_support'}])
     door = bounds(parts, [n for n in body_names if n.startswith('upper_')])
     strip = bounds(parts, [n for n in body_names if n.startswith('control_')])
-    strip_vertices = parts['control_top'].vertices * 1000
+    strip_vertices = np.vstack([q.vertices for n,q in parts.items() if n.startswith('control_frame__')]) * 1000
     strip_right_front_y = float(strip_vertices[np.isclose(strip_vertices[:, 0], strip[1, 0]), 1].min())
     strip_left_front_y = float(strip_vertices[np.isclose(strip_vertices[:, 0], strip[0, 0]), 1].min())
     # Recover the outer curved profile from vertices, not from its parameter values.
-    vertices = np.vstack([parts[n].vertices for n in parts if n.startswith('lower_front_')]) * 1000
+    vertices = np.vstack([parts[n].vertices for n in parts if n.startswith('lower_shell__')]) * 1000
     xs = np.unique(np.round(vertices[:, 0], 4))
     profile = np.array([(x, vertices[np.isclose(vertices[:, 0], x, atol=0.0002), 1].min()) for x in xs])
     reference_x = p['door_depth_reference_x_m'] * 1000  # Approximate ruler location from photo.
@@ -122,11 +121,13 @@ def measure(parts):
             'Published dimension applied to enclosure/support; projecting hardware measured separately.')
     add('lower_housing_top', 'Lower housing top above table', parts['right_housing'].bounds[1, 2]*1000,
         'M', published['lower_top_height_mm'])
-    # These additional labels are directly readable in the archived dimension drawing.
+    # These additional labels are directly readable in the manufacturer dimension drawing.
     base = bounds(parts, ['base_support'])
     add('base_height', 'Base/support height', base[1, 2] - base[0, 2], 'M', 33)
     add('base_width', 'Base/support width', base[1, 0] - base[0, 0], 'M', 596)
     add('base_depth', 'Base/support depth', base[1, 1] - base[0, 1], 'M', 470)
+    add('left_hardware_projection', 'Left hinge projection beyond enclosure', -all_bounds[0,0], 'M', 11,
+        'PDF page 8 dimension; hinge axis follows projection minus modeled pin radius.')
     for key, label, value, field in [
         ('tower_width', 'Tower width', tower[1, 0]-tower[0, 0], 'tower_including_control_strip_mm'),
         ('door_width', 'Door projected width', door[1, 0]-door[0, 0], 'door_projected_width_mm'),
@@ -257,7 +258,7 @@ def render_sheets(parts, m):
         dimension(ax, (dw, h), (tw, h), h+35, f('strip_width')+' strip', 'U', fontsize=10)
         dimension(ax, (0, h), (tw, h), h+79, f('tower_width')+' tower', 'U')
         for level in ['upper', 'lower']:
-            q = parts[level+'_side'].bounds*1000
+            q = bounds(parts,[n for n in parts if n.startswith(level+'_shell__')])
             dimension(ax, (110, q[0, 2]), (110, q[1, 2]), 110, f(level+'_door_height'), 'E', True, 10)
         label(ax, 496, 190, 'Right housing', 'G', fontsize=10)
 
@@ -384,7 +385,7 @@ def main():
     parts, inputs, error = read_parts()
     inputs += [OUT / 'meshes/collision_closed.glb', OUT / 'collision_doors.json',
                OUT / 'collision_controls.json', OUT / 'confirmed_measurements.json',
-               ROOT / 'dataset/instruments/c13534/references/pdf/dimension_reference.json', DRAWING]
+               ROOT / 'dataset/hkqai-instruments/c13534/measurements.json', DRAWING]
     hashes = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     m = measure(parts)
     render_sheets(parts, m)

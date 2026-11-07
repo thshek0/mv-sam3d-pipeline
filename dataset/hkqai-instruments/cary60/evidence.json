@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "model": "cary60",
+  "geometry_sources": [
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9914.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9916.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9917.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9918.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9920.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9921.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9922.png",
+    "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9923.png",
+    "dataset/hkqai-instruments/cary60/online_sources/pdf_images/cary_cutaway.png"
+  ],
+  "materials": {
+    "white": {
+      "review_image": "IMG_9916.jpg",
+      "original": "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9916.png",
+      "crop_pixels": [
+        40,
+        300,
+        250,
+        700
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "dark": {
+      "review_image": "exterior.jpg",
+      "original": "dataset/hkqai-instruments/cary60/online_sources/exterior_annotated/raw/2022-01-17183852+0000IMG_6142.jpg",
+      "crop_pixels": [
+        265,
+        180,
+        285,
+        195
+      ],
+      "review_size": [
+        380,
+        380
+      ]
+    },
+    "metal": {
+      "review_image": "IMG_9921.jpg",
+      "original": "dataset/hkqai-instruments/cary60/user_captures/2026-11-02/raw/IMG_9921.png",
+      "crop_pixels": [
+        450,
+        650,
+        650,
+        740
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    }
+  },
+  "markings": {
+    "source": "dataset/hkqai-instruments/cary60/online_sources/exterior_annotated/raw/2022-01-17183852+0000IMG_6142.jpg",
+    "review_size": [
+      900,
+      900
+    ],
+    "items": [
+      {
+        "name": "front_identity",
+        "corners_tl_tr_br_bl": [
+          [
+            182,
+            413
+          ],
+          [
+            277,
+            439
+          ],
+          [
+            277,
+            477
+          ],
+          [
+            182,
+            451
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.215,
+          0.33,
+          0.106,
+          0.147
+        ],
+        "target_y_m": 0
+      }
+    ]
+  },
+  "package_references": {
+    "cary60-brochure.pdf": "dataset/hkqai-instruments/cary60/online_sources/cary60-brochure.pdf",
+    "cary60-user-guide.pdf": "dataset/hkqai-instruments/cary60/online_sources/cary60-user-guide.pdf",
+    "low_5990-7789JAJP.pdf": "dataset/hkqai-instruments/cary60/online_sources/low_5990-7789JAJP.pdf"
+  },
+  "geometry_policy": {
+    "primary": "Manufacturer specification diagrams and dimension tables for the exact model and installed variant govern geometry wherever available.",
+    "workflow": "Use the original PDF and its dimensioned views to establish envelope, datums, profiles and feature positions before interpreting perspective photos. Cropped diagrams are navigation aids; preserve PDF vector detail.",
+    "user_captures": "Confirm installed accessory, visible details and movement; physical measurements fill undocumented dimensions with endpoints, units and uncertainty.",
+    "online_photos": "Support appearance and details absent from specification drawings; do not override dimensioned geometry from perspective appearance.",
+    "conflicts": "Record the source values and affected feature, check variant and measurement endpoints, and resolve the discrepancy explicitly before adopting a deviation. Do not silently override or average.",
+    "unknowns": "Label photo-derived and undocumented dimensions as estimates; do not invent missing engineering detail."
+  },
+  "specification_sources": [
+    {
+      "file": "dataset/hkqai-instruments/cary60/online_sources/cary60-brochure.pdf",
+      "pdf_pages": [
+        15,
+        16
+      ],
+      "kind": "dimension_tables",
+      "features": "Sample compartment dimensions and unpacked instrument W477 x D567 x H196 mm; packed dimensions are not model geometry."
+    },
+    {
+      "file": "dataset/hkqai-instruments/cary60/online_sources/cary60-user-guide.pdf",
+      "pdf_pages": [
+        16
+      ],
+      "kind": "dimension_table",
+      "features": "Unpacked instrument W477 x D567 x H196 mm; does not establish installed holder dimensions or cover travel."
+    },
+    {
+      "file": "dataset/hkqai-instruments/cary60/online_sources/cary60-brochure.pdf",
+      "pdf_pages": [
+        5
+      ],
+      "kind": "undimensioned_cutaway",
+      "features": "Holder left/right arrangement only. The cutaway does not establish local dimensions or clearance.",
+      "diagram_crop": "dataset/hkqai-instruments/cary60/online_sources/pdf_images/cary_cutaway.png"
+    }
+  ],
+  "specification_status": "available_for_listed_features",
+  "specification_page_numbering": "1-based PDF page index, not printed page labels",
+  "geometry_review": {
+    "2026-11-04": "User correction: holder socket on instrument left (-X), adjusters on right (+X), following cary_cutaway.png; handgrip has upper-left/lower-right rounding in plan."
+  },
+  "known_issues": [
+    {
+      "id": "lid_shell_extrusion",
+      "component": "lid_shell.handgrip",
+      "status": "corrected_pending_user_review",
+      "reported_by": "user",
+      "reported_on": "2026-11-04",
+      "description": "Recessed handgrip position and size were wrong; user clarified scope on 2026-11-04.",
+      "resolution": "User clarified the affected feature is the recessed handgrip, not the sliding cover outline. Native pocket now has a right offset and longer footprint following IMG_9917; dimensions remain photo estimates.",
+      "review_sources": [
+        "IMG_9917"
+      ]
+    }
+  ],
+  "native_authoring": "src/instruments/native/cary60/assembly.scad"
+}

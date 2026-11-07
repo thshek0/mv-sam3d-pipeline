@@ -1,0 +1,7 @@
+{
+  "note": "Unmeasured starting values, not calibrated physical properties. Inertia assumes uniform density across the collision pieces. Scale models are rigid props without weighing sensors.",
+  "mass_kg": {"bowl": 0.15, "container": 1.0, "scale": 1.5},
+  "friction": [0.6, 0.005, 0.0001],
+  "solref": [0.01, 1.0],
+  "solimp": [0.9, 0.95, 0.001]
+}

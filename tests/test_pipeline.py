@@ -50,7 +50,7 @@ def test_main_raises_without_da3_on_processed_scene() -> None:
             assert "da3" in str(exc).lower()
         else:
             raise AssertionError("expected RuntimeError for missing DA3")
-        staged = root / "out" / "toy" / "scene"
+        staged = root / "out/objects/misc/toy/sam3d/intermediate/scene"
         assert (staged / "images" / "0.png").is_file()
         assert (staged / "masks" / "0.png").is_file()
         assert Image.open(staged / "masks" / "0.png").mode == "RGBA"

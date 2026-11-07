@@ -109,7 +109,13 @@ def tsdf_from_da3_npz(
     if mask_dir is not None:
         stem = mesh_path.name[: -len("_mesh.glb")] if mesh_path.name.endswith("_mesh.glb") else None
         vis_name = f"{stem}_depth_visibility_preview.png" if stem else "depth_visibility_preview.png"
-        write_depth_visibility_preview(depth, images, mask_dir, mesh_path.parent / vis_name)
+        diagnostics = mesh_path.parent
+        if diagnostics.name == 'products':
+            diagnostics = diagnostics.parent / 'intermediate/diagnostics'
+        elif diagnostics.parent.name == 'products':
+            diagnostics = diagnostics.parent.parent / 'intermediate' / diagnostics.name / 'diagnostics'
+        diagnostics.mkdir(parents=True, exist_ok=True)
+        write_depth_visibility_preview(depth, images, mask_dir, diagnostics / vis_name)
     mesh = volume.extract_triangle_mesh()
     if keep_largest:
         mesh = keep_largest_triangle_component(mesh)

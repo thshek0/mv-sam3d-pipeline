@@ -11,6 +11,7 @@ CONSTRAINTS=[
  ('latch_x_fraction >= front_x_fraction_5 and latch_x_fraction < 1','Latch outside modeled front segment'),
  ('door_open_angle_deg > 0 and door_open_angle_deg <= 100 and selector_travel_mm > 0','Invalid demonstration motion'),
  ('front_x_fraction_0 == 0 and front_x_fraction_6 == 1','Profile endpoints must meet door sides'),
+ ('door_lining_thickness_mm > 0 and door_lining_thickness_mm < door_thickness_mm and door_lining_edge_inset_mm > 0','Invalid inner door lining'),
 ]+[(f'front_x_fraction_{i+1} > front_x_fraction_{i}','Front profile X must increase') for i in range(6)]
 
 def definition(values):
@@ -18,7 +19,7 @@ def definition(values):
  bh=p['base_height_mm'];cf=p['control_front_y_mm'];rear=p['tower_rear_y_mm'];hy=rear-p['rear_strip_depth_mm'];t=p['door_thickness_mm'];gap=p['door_clearance_mm']
  lower0=bh;lower1=bh+p['lower_door_height_mm'];upper0=H-p['upper_door_height_mm'];floor=p['lower_floor_z_mm'];stage=p['lower_stage_z_mm']
  f=[[p[f'front_x_fraction_{i}']*dw,p[f'front_y_mm_{i}']] for i in range(7)];seam=f[-1][1]
- full=f+[[dw,hy+gap/2],[0,hy+gap/2]];doorpoly=f+[[dw,hy-gap/2],[0,hy-gap/2]]
+ full=f+[[dw,hy+gap/2+.01],[0,hy+gap/2+.01]];doorpoly=f+[[dw,hy-gap/2],[0,hy-gap/2]]
  rx0=dw+p['recess_left_fraction']*p['strip_width_mm'];rx1=dw+p['recess_right_fraction']*p['strip_width_mm'];rz0=p['recess_bottom_z_mm'];rz1=p['recess_top_z_mm'];panel=cf+p['recess_back_offset_mm']
  cx=dw/2;lx=cx-p['lower_clear_width_mm']/2;rx=cx+p['lower_clear_width_mm']/2;py=p['lower_pin_y_mm'];ucx=dw*p['upper_dish_x_fraction'];ucy=p['upper_dish_y_mm'];dish=upper0+p['upper_dish_above_door_bottom_mm']
  a=Assembly(values,CONSTRAINTS)
@@ -27,15 +28,15 @@ def definition(values):
  def box(n,lo,hi,group='fixed',color=WHITE,tags=('body',),**kw):a.add(n,'block',[lo,hi],group,tags,color,**kw)
  def prism(n,poly,z0,z1,group='fixed',color=WHITE,tags=('body',)):a.add(n,'xy_prism',[poly,z0,z1],group,tags,color)
  def rod(n,c,d,h,group='fixed',color=METAL,axis='z',tags=('body',),**kw):a.add(n,'rod',[c,d,h,axis],group,tags,color,**kw)
- def strip_y(x):return seam+(cf-seam)*(x-dw)/p['strip_width_mm']
- box('right_housing',[tw,cf,bh],[W,D,p['rear_housing_height_mm']],color=[66,73,78,255])
- box('rear_housing',[0,rear-.01,bh],[tw+.01,D,p['rear_housing_height_mm']],color=[66,73,78,255])
+ box('right_housing',[tw-.01,cf,bh-.01],[W,D,p['rear_housing_height_mm']],color=[66,73,78,255])
+ box('rear_housing',[0,rear-.01,bh-.01],[tw+.01,D,p['rear_housing_height_mm']],color=[66,73,78,255])
  box('base_support',[37,63,0],[W-37,D-40,bh],color=DARK)
  prism('tower_middle_band',full,lower1+gap,upper0-gap)
- box('tower_rear_wall',[0,hy+gap/2,bh],[dw,rear,H])
- for n,x0,x1,z0,z1 in [('control_top',dw,tw,rz1,H),('control_bottom',dw,tw,bh,rz0),('control_left',dw,rx0,rz0,rz1),('control_right',rx1,tw,rz0,rz1)]:
-  prism(n,[[x0,strip_y(x0)],[x1,strip_y(x1)],[x1,rear],[x0,rear]],z0,z1)
- box('control_recess_back',[rx0,panel,rz0],[rx1,rear,rz1],color=DARK)
+ box('tower_rear_wall',[0,hy+gap/2,bh-.01],[dw+.01,rear-.01,H])
+ a.add('control_frame','subtract',[
+  ['xy_prism',[[[dw,seam],[tw,cf],[tw,rear],[dw,rear]],bh-.01,H]],
+  [['block',[[rx0,-100,rz0],[rx1,rear+1,rz1]]]]],group='fixed',color=WHITE)
+ box('control_recess_back',[rx0-.01,panel,rz0-.01],[rx1+.01,rear,rz1+.01],color=DARK)
  inner=[[Expr(f'min(max({x.code},{(t+gap).code}),{(dw-t-gap).code})'),y+t+gap] for x,y in f]+[[dw-t-gap,hy],[t+gap,hy]]
  prism('chamber_floor',inner,bh,bh+p['chamber_floor_thickness_mm'],color=DARK)
  states={'closed':{},'handles_released':{},'upper_open':{},'lower_open':{},'open':{}}
@@ -49,10 +50,23 @@ def definition(values):
   a.link(pop,turn,'revolute',axis=(-1,0,0),limit=p['handle_pop_angle_deg'])
   for state in ('handles_released',label+'_open','open'):states[state].update({pop:p['handle_pop_angle_deg'],turn:p['handle_turn_angle_deg']})
   for state in (label+'_open','open'):states[state][door]=p['door_open_angle_deg']
-  for i,(u,v) in enumerate(zip(f[:-1],f[1:])):prism(f'{label}_front_{i:02}',[u,v,[v[0],v[1]+t],[u[0],u[1]+t]],z0,z1,door,tags=tags)
-  box(label+'_side',[0,f[0][1],z0],[t,hy-gap/2,z1],door,tags=tags)
-  box(label+'_closing_return',[dw-t,seam,z0],[dw,cf+t,z1],door,tags=tags)
-  if label=='upper':prism('upper_top',doorpoly,H-t,H,door,tags=tags)
+  cavity=[[Expr(f'min(max({xx.code},{t.code}),{(dw-t).code})'),yy+t] for xx,yy in f]+[[dw-t,hy+1],[t,hy+1]]
+  cut_top=z1-t if label=='upper' else z1+1
+  a.add(label+'_shell','subtract',[
+   ['xy_prism',[doorpoly,z0,z1]],
+   [['xy_prism',[cavity,z0-1,cut_top]],
+    ['block',[[dw-t,cf+t,z0-1],[dw+1,hy+1,cut_top]]]]],group=door,tags=tags,color=WHITE)
+  # IMG_9845: black inner front/side panels travel with each white door shell.
+  # The upper door also carries a black roof lining; the lower door stays open above.
+  lining=p['door_lining_thickness_mm'];edge=p['door_lining_edge_inset_mm']
+  end=dw-t-edge
+  skin=[[Expr(f'min(max({xx.code},{(t-.01).code}),{end.code})'),yy+t-.01] for xx,yy in f]+[[end,hy-gap/2-edge],[t-.01,hy-gap/2-edge]]
+  hollow=[[Expr(f'min(max({xx.code},{(t+lining).code}),{end.code})'),yy+t+lining] for xx,yy in f]+[[end,hy+1],[t+lining,hy+1]]
+  skin_top=z1-t+.01 if label=='upper' else z1-edge
+  hollow_top=z1-t-lining if label=='upper' else z1+1
+  a.add(label+'_inner_lining','subtract',[
+   ['xy_prism',[skin,z0+edge,skin_top]],
+   [['xy_prism',[hollow,z0-1,hollow_top]]]],group=door,tags=tags,color=BLACK)
   a.add(label+'_latch_plate','capsule_y',[[x,fy+(1-p['latch_projection_mm'])/2,z],p['latch_plate_width_mm'],p['latch_plate_height_mm'],p['latch_projection_mm']+1],door,tags,DARK)
   a.add(label+'_handle_grip','ellipsoid',[[0,-p['handle_thickness_mm']/2,-p['handle_length_mm']/2],[p['handle_width_mm']/2,p['handle_thickness_mm']/2,p['handle_length_mm']/2]],pop,tags,BLACK,local=True)
   box(label+'_handle_root',[-6,-6,-12],[6,.8,0],pop,DARK,tags,local=True)
@@ -62,7 +76,7 @@ def definition(values):
    rod(f'{label}_hinge_{i}_pin',[pivot[0],hy,zz],2*p['hinge_radius_mm'],p['hinge_height_mm'],hardware=True)
    for moving in (False,True):
     lo=hy-p['hinge_leaf_half_span_mm'] if moving else hy+gap/2;hi=hy-gap/2 if moving else hy+p['hinge_leaf_half_span_mm']
-    box(f'{label}_hinge_{i}_'+('moving_leaf' if moving else 'fixed_leaf'),[-p['hinge_leaf_thickness_mm'],lo,zz-p['hinge_height_mm']/2],[.2,hi,zz+p['hinge_height_mm']/2],door if moving else 'fixed',METAL,tags if moving else ('body',),hardware=True)
+    box(f'{label}_hinge_{i}_'+('moving_leaf' if moving else 'fixed_leaf'),[pivot[0]-p['hinge_leaf_thickness_mm']/2,lo,zz-p['hinge_height_mm']/2],[.2,hi,zz+p['hinge_height_mm']/2],door if moving else 'fixed',METAL,tags if moving else ('body',),hardware=True)
  sx=(rx0+rx1)/2;sz=rz0+p['selector_height_fraction']*(rz1-rz0)
  a.link('mode_selector','fixed','prismatic',[sx,panel,sz],(0,-1,0),p['selector_travel_mm']);states['open']['mode_selector']=p['selector_travel_mm']
  face=p['selector_face_offset_mm'];thick=p['selector_head_thickness_mm'];tags=('selector',)

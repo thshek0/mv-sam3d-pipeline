@@ -13,8 +13,8 @@ from .storage.diagnostics import session, workspace, command_log
 def export(model, part, pose='closed', keep_validation=False):
     import trimesh
     from .design import parameters, module
-    machine = ROOT / 'output/instruments' / model
-    current = machine / 'model'
+    machine = ROOT / 'output/objects/hkqai-instruments' / model
+    current = machine / 'codex/products'
     params = json.loads((current / 'parameters.json').read_text())
     values, _ = parameters(params)
     names = {p.name for p in module(model).definition(values).parts}
@@ -23,7 +23,7 @@ def export(model, part, pose='closed', keep_validation=False):
     executable = os.environ.get('OPENSCAD') or shutil.which('openscad')
     if not executable:
         raise RuntimeError('Set OPENSCAD or install OpenSCAD to export a native STL.')
-    with session(machine, keep=keep_validation):
+    with session(machine / 'codex/intermediate', keep=keep_validation):
         with workspace('printing') as folder:
             work = Path(folder)
             # Regenerate from authoritative parameters, not potentially edited/stale SCAD.
@@ -45,7 +45,7 @@ def export(model, part, pose='closed', keep_validation=False):
                           positive_volume=True, connected_components=len(mesh.split()),
                           parameters_sha256=hashlib.sha256((current / 'parameters.json').read_bytes()).hexdigest(),
                           limitation='Geometry checks only. Fit, wall thickness, material, supports and printer settings require review.')
-            dest = machine / 'printing'
+            dest = current / 'printing'
             dest.mkdir(exist_ok=True)
             shutil.copy2(path, dest / path.name)
             (dest / path.with_suffix('.json').name).write_text(json.dumps(report, indent=2) + '\n')

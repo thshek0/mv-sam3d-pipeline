@@ -1,284 +1,205 @@
 # Instrument modeling
 
-Use one command interface from the repository root:
+Native OpenSCAD is the authoritative geometry source. Start with [prompt.md](prompt.md).
+The current four models are `cary60`, `c16361`, `c13472`, and `c13534`.
+For the installed OpenSCAD GUI and remote rendering see [the setup guide](../openscad/README.md).
+
+For the compact colleague handoff, open the
+[delivery gallery](../../output/packages/delivery/index.html) and copy or ZIP
+`output/packages/delivery/hkqai-instruments/<model>/`. It contains the native SCAD
+files, two previews and opening instructions. No meshes, simulation files or
+evidence datasets are required. Generate a new collection with
+`.venv/bin/python -m src.delivery --output <new-folder>`; see the main README's
+[delivery instructions](../../README.md#ready-to-share-folders).
+
+## Edit and rebuild
+
+Edit `src/instruments/native/<model>/assembly.scad` for topology and assembly
+relationships, and `parameters_native.scad` for dimensions. `native/common.scad`
+provides small shared helpers; each model directory links to it. Published copies
+contain three ordinary SCAD files, with no external libraries or meshes required.
+
+The modules describe fixed housings, moving assemblies and functional components.
+Door linings and handles inherit their door transform; nested handle motions are
+local to that door. Native loops express repeated holes and hardware. Dimensions
+are in millimetres and angles in degrees. Estimated values are labeled in the
+parameter source and remain estimates after export.
 
 ```bash
-.venv/bin/python -m src.instruments build --model cary60
-.venv/bin/python -m src.instruments publish --model cary60
+.venv/bin/python -m src.instruments build --model cary60 --check-cad
 .venv/bin/python -m src.instruments validate
 .venv/bin/python -m src.instruments share
 ```
 
-`build` regenerates geometry, visual textures, URDF, dimension views and the current package. Omit `--model` to build all four instruments. `publish` refreshes packaging without regenerating geometry. `validate` checks a standalone copy for hashes, material paths and PyBullet loading; no ZIP is required. `share` creates `output/instruments/instruments_share.zip`; rerun it after model changes to refresh that snapshot.
+Omit `--model` to rebuild all four sequentially. `cad --check` uses the same native
+build path. `publish` refreshes packaging/evidence from existing model assets;
+it does not regenerate geometry. OpenSCAD is required for every build. Set
+`OPENSCAD` if it is not on PATH. Python needs NumPy, trimesh and Pillow; pytest is
+used for repository checks. Poppler is needed for PDF source-sheet generation.
+No GPU, reconstruction weights, PyBullet or URDF are involved in a native build.
 
-Current models live in `output/instruments/<machine>/model/`. If no current model exists, the builder initializes from the source defaults. Original captures and evidence live in `dataset/instruments/<machine>/`. Builds use a temporary `.build_work/` folder and replace the current package only after export validation. A failed build leaves that work folder available for diagnosis. Dated build directories and release backups are not created.
+For a colleague's SCAD edits, copy the reviewed files back into the corresponding
+`src/instruments/native/<model>/` directory before rebuilding. Shared helper edits
+belong in `native/common.scad`. The former `--from-cad-parameters` import is retired
+and gives an explicit migration message. A build never reads geometry back from
+`products/parameters.json`; that file is an evaluated snapshot of native parameters.
 
-Start a new machine with [prompt.txt](prompt.txt). Record measurements with units, endpoints, source and uncertainty. Use previous captures as well as the newest ones. Never fuse different moving states as one rigid scene or present unmeasured details as verified contact geometry.
+## Viewing and simplification
 
-For sharing, choose the archive by purpose:
+Open `openscad/assembly.scad` in the delivered folder. The top-level Customizer
+controls `pose`, motion, `part`, `details`, `fillets`, and `simplified`.
 
-- `share` → `output/instruments/instruments_share.zip`: current GLB, URDF, OpenSCAD, previews and portable evidence for viewing/simulation.
-- `share --project` → `output/instruments/instruments_project.zip`: Python source, recipes, current parameter snapshots, input manifests, guide/prompt, tests, dependency versions and all instrument datasets for rebuilding. Includes original photos/videos and manufacturer references, but no environment or generated meshes. Extract and follow its root `README.md`.
+- `pose="closed"` / `"open"` displays the two endpoints.
+- `pose="custom"` enables the `opening` slider for Cary, Tau and C13472.
+- QY has separate door, handle turn/pop and selector sliders, plus `upper_open`,
+  `lower_open` and `handles_released` poses.
+- Set `animate_motion=true`, View > Animate, FPS=20 and Steps=100 for an
+  approximately five-second open/close cycle, subject to rendering speed.
+- `simplified=true` disables cosmetic fillets and small hardware. `fillets=false`
+  disables edge rounding alone; `details=false` disables cosmetic hardware alone.
+  Functional bores, chamber openings, grip pockets and kinematic datums remain.
+  Structural bevels and curved enclosure profiles are not cosmetic fillets.
+- `part` selects a named component or group (`body`, `cover`, `holder`, `interior`,
+  or QY `upper_door` / `lower_door`). Read the short component calls in the source
+  for available names. Unsupported selections produce empty geometry.
 
-The project archive is a colleague handoff with source and data; it is larger than
-a code-only public release. Model archives exclude the project ZIP, so repeated
-sharing does not nest the archives inside one another.
-
-## Compact outputs and optional diagnostics
-
-Ordinary builds retain textured closed/open GLBs, the assembly PNG, one combined
-five-view dimension PNG, editable SCAD, URDF and every required collision/visual
-asset, parameters, provenance, limitations and numerical check summaries.
-Per-part URDF meshes are intentional: keep convex collision pieces separate.
-The build may use extra intermediate exports for checks; compact publication
-omits these reproducible artifacts. ZIP files are made only by `share`.
+The models demonstrate motion transforms, not forces, interlocks or contact dynamics.
+For one solid STL in mm:
 
 ```bash
-# Optional review images, motion GIF, collision GLBs and all supported poses
-.venv/bin/python -m src.instruments build --model cary60 --extras
-# Native CAD checks plus retained edited-parameter models and engine logs
-.venv/bin/python -m src.instruments build --model cary60 --check-cad --keep-validation
-# Retain the standalone loading-check package
-.venv/bin/python -m src.instruments validate --model cary60 --keep-validation
-# Explicit printing export: one semantic CAD part; STL coordinates are millimetres
-.venv/bin/python -m src.instruments stl --model cary60 --part socket_left
+.venv/bin/python -m src.instruments stl --model cary60 --part socket_shell
 ```
 
-`--keep-validation` retains only the checks invoked; it does not imply `--check-cad`.
-Successful scratch work is removed by default. Requested diagnostics replace
-`<machine>/validation/latest/`; failed checks retain their files and traceback in
-`<machine>/validation/failures/`. A failed build also retains `.build_work`;
-a subsequent attempt moves it into failures rather than mixing it with fresh work.
-Diagnostics and historical experiments are excluded from model sharing ZIPs. STL exports live in `<machine>/printing/`
-and include a report; watertightness is not proof of fit or printer suitability.
-Use the recipe's semantic part name (composite collision pieces may have suffixes).
+Explicit STLs go to `codex/intermediate/printing/`, keeping the normal delivery slim.
+Simulation geometry must be derived from native part exports; any later conversion
+to metres, convex decomposition or articulation requires its own validation.
+The older Python recipes/exporters remain for historical regression tests and are
+not current authoring inputs or an alternative route for rebuilding these models.
 
-`publish --extras` can only retain extras already present; use `build --extras`
-to regenerate missing ones. `publish --keep-validation` preserves existing
-reviews while converting a package to the compact layout. This is not a new check.
-Original photos/videos and measurement records are never pruned by output policy.
+## Current corrections and limits
 
-The current refactor centralizes storage and diagnostic handling. Machine recipes
-and the existing simple/QY exporters remain in `src/instruments`; a unified
-reconstruction/generation/authoring facade is not implemented by this cleanup.
+- Cary recessed handgrip: user clarified that the problem was the pocket, not the
+  whole sliding cover. IMG_9917 supports a right-offset, longer pocket. The native
+  candidate uses a 58 x 90 mm footprint, centre offset +35 mm, front offset 15 mm,
+  and two diagonal 16 mm corner arcs. These are photo estimates for review.
+  The cutaway p5 holder handedness remains instrument-left socket/right adjusters.
+- QY lower-left infill: IMG_9866, IMG_9867 and IMG_9869 show the small plinth at floor
+  level. Its top is now floor +18 mm (estimated), independently editable. It no
+  longer fills the room height. Black linings move with both doors, as in IMG_9845.
+- Tau retains eight small through-holes plus the centre hole. Count/type are user
+  confirmed; small-hole diameter and pitch-circle radius remain estimates.
 
-## Where things belong
+These are review candidates. Software checks do not establish physical fit.
+The dataset evidence.json records correction sources and pending user review.
+
+## Validation and outputs
+
+The builder exports actual OpenSCAD STL solids for closed, open, intermediate and
+simplified configurations and rejects warnings, errors and invalid meshes. With
+`--check-cad`, checks also exercise selected part transforms, animation times,
+real recess/through-hole topology, pocket position, and simplified functional
+openings. QY shell and lining transforms are sampled separately; this does not
+certify a continuous collision-free sweep. Moving Boolean shells are evaluated
+before transforms to avoid F5 phantom faces.
+
+`--keep-validation` retains meshes, engine logs and intermediate motion PNGs under
+`codex/intermediate/validation/native_latest/`. `--extras` also retains these
+private diagnostics. Failed work remains in `.native_build/` for inspection; a
+failed build does not replace the published package.
 
 ```text
-dataset/instruments/<machine>/
-  captures/<date>_<source>_<batch>/raw/   original photos/video/depth/annotations
-  references/pdf/                       manufacturer documents and drawings
-  references/model_evidence/            selected/decoded working references
-  references/recovered_sources/         preserved sources from earlier experiments
-  measurements.json                     readings, endpoints and uncertainty
-  states/                               which images show which physical state
+src/instruments/native/
+  common.scad
+  <model>/assembly.scad, parameters_native.scad, common.scad -> ../common.scad
 
-output/instruments/
-  index.html, instruments_review.png    four-machine overview
-  instruments_share.zip                 portable snapshot of all four
-  <machine>/model/
-    index.html, README.txt               entry points
-    parameters.json                     authoritative editable dimensions
-    manifest.json                        asset hashes (ZIPs are on demand)
-    meshes/                             visual_closed.glb, visual_open.glb
-    urdf/                               robot.urdf, separate parts, loader/settings
-    openscad/                           assembly, parameter include, helpers
-    previews/                           assembly.png (closed/open review)
-    dimensions/                         overview.png; numerical measurements if available
-    reports/                            validation, parts, provenance, limitations
-    textures/                           photo patches, markings and provenance
-    evidence/                           link to dataset; ZIP embeds regular copies
+dataset/hkqai-instruments/<model>/
+  evidence.json, measurements.json, states.json
+  user_captures/                         dated originals and annotations
+  online_sources/                       PDFs, downloads, retained PDF images
 
-src/instruments/                        reusable implementation and machine recipes
-  storage/                              shared output policy and validation lifecycle
-  inputs/<machine>/                     bootstrap parameters and evidence
-  qy/                                   QY articulation/export helpers
-  scad/common.scad                      reusable native CAD primitives
-tests/instruments/                      regression tests
-docs/instruments/                       this guide and the copyable prompt
+output/objects/hkqai-instruments/<model>/codex/products/
+  openscad/assembly.scad, parameters_native.scad, common.scad
+  assembly.png                          native closed/open views
+  overview.png                          native orthographic views and dimensions
+  parameters.json                       evaluated snapshot; not authoring input
+  reports/cad_summary.json               engine checks and source hashes
+  evidence/                             complete current dataset snapshot
+  README.txt, index.html, manifest.json
 ```
 
-One current package per machine. Earlier inference comparisons, where retained, live
-in a separate experiments/ folder and are excluded from model sharing ZIPs. Keep source evidence in the dataset and reusable code
-in `src/instruments`; temporary build files stay in `.build_work/` and disappear after
-successful publication. `layout.py` applies the same layout every time. It removes
-identical aliases, groups review files, and drops previous-iteration comparison PNGs.
-Unknown files are retained; a differing mesh alias stops publication for review.
+Previews and dimension sheets come directly from the same SCAD as the model.
+`validate` checks a standalone copy's hashes, dependencies and links. The shared
+review is `output/comparisons/hkqai-instruments/current_review.png`; navigation starts
+at `output/index.html`. No URDF, GLB or duplicate preview/dimension folder is
+published. Only `share` makes ZIPs:
 
-Use `meshes/visual_<state>.glb` for appearance. `build --extras` also retains
-`meshes/collision_<state>.glb` for review. URDF always includes its collision pieces. Old `closed.glb`, `*_controls_*.glb` and model-named URDF
-aliases are retired; `urdf/robot.urdf` is the single loading entry point.
-QY derived assembly metadata and confirmed-reading snapshots live in `reports/`.
-Old paths in historical provenance record their original build inputs; the package
-manifest includes the report/preview relocation map.
+- `output/packages/instruments_models.zip`: three SCAD files per model, root
+  preview/dimension images and concise viewing instructions; no evidence or JSON.
+- `output/packages/instruments_sources.zip`: raw-image sheets grouped by model
+  and user/online origin. Native photo pixels, JPEG quality 94; cited PDF pages
+  rendered at 300 dpi into lossless PNG sheets. No annotation layers, depth,
+  video or unselected catalog images. Selection audit is outside the archive at
+  `output/maintenance/instrument_source_sheets.json`.
 
-The working pipeline is: evidence + prompt → reviewed shape/motion interpretation
-→ one parametric recipe → deterministic exports → checks and user corrections.
-The first interpretation stage requires judgment; it is not automatic image-to-CAD.
+Optional `share --project` includes authoring source, docs, tests and datasets for
+rebuilding. It is unnecessary for viewing/editing the native model handoff.
 
-## Pipeline and consistency contract
+## Evidence handling
 
-```mermaid
-flowchart TD
-    A["Photos + video + PDFs + prompt"] --> B["Interpret shape and motion; confirm measurements"]
-    B --> C["Shared definition: parameters + parts + joints"]
-    C --> D["OpenSCAD exporter"]
-    C --> E["Simulation exporter"]
-    D --> F["Native CAD + STL"]
-    E --> G["Visual GLB + convex collision meshes + URDF"]
-    H["Configured photo crops and markings"] --> G
-    F --> I["Cross-format geometry and motion checks"]
-    G --> I
-    I --> J["Dimensioned previews + human review"]
-    J --> K["One current package per machine"]
-    J -. "Corrections update the definition" .-> C
-```
+`user_captures/` groups your dated photographs and RGB-D captures with their annotations.
+Annotated batches end in `_annotated`; distinct physical states remain separate.
+Full-resolution PNGs replace HEICs after pixel, EXIF and color-profile verification.
+The dataset has no separate review/preview folder. Builds generate review images
+in output from canonical sources at each material record's `review_size`, preserving
+the coordinate frame for `crop_pixels`. The user confirmed that the older exterior
+images are online downloads: these live under `online_sources/exterior_annotated/`.
+QY's `user_captures/undated_annotated/` contains three processed image/mask pairs
+taken by the user, with capture date and correspondence to originals still unknown.
+Image format does not determine source origin; annotations stay with their source batch.
 
-The branches are separate export backends, not independent attempts to infer the
-machine. Both consume the same named dimensions, part relationships and joints.
-OpenSCAD is not an intermediate STL that we convert into an articulated URDF.
+`online_sources/` holds verified online material, including one copy of each source PDF.
+`online_sources/pdf_images/` keeps selected embedded images/masks at native resolution and
+selected diagram crops. `online_sources/index.json`
+maps retained embedded images to their source PDF, page, dimensions and hash;
+identical occurrences share a file. Omitted image counts document curation without
+keeping stale paths. Instruments without a PDF need no extraction index. Complete pages and vector drawings remain
+in the PDFs, so full-page PNG caches are omitted. Small embedded photographs
+remain limited by their source resolution. C13472 has no local source PDF.
 
-| Check | Assurance | Limit |
-| --- | --- | --- |
-| Part bounds and volumes | Native CAD and convex parts follow the same dimensions | Curves have explicit tessellation tolerances; this is not pointwise surface equality |
-| GLB/URDF transforms | Joint origins, axes and exported poses agree | Dynamics and latch behavior are not physically verified |
-| Edited-parameter experiments | Changes reach both exporters | Tested edits do not cover every possible parameter combination |
-| Sampled simulator sweeps | Detect modeled penetration along tested motion | No continuous-motion or real-world contact guarantee |
-| Portable package validation | Meshes, materials, images and links resolve after extraction | It does not measure the real instrument |
+Geometry follows the matching manufacturer's specification diagrams and dimension
+tables wherever available. `evidence.json` records `geometry_policy` and
+`specification_sources`, with 1-based PDF page numbers: QY page 8, Tau page 5,
+Cary brochure pages 15–16 and user guide page 16. Use original PDF vector detail
+for drawings; raster crops are navigation aids. Establish dimensioned profiles,
+datums and feature positions before interpreting perspective photos. User captures
+confirm the installed variant, detail and motion; measurements fill undocumented
+dimensions. Record and resolve conflicts explicitly, checking variant and endpoints
+before adopting a deviation. Missing specifications and photo estimates stay labeled.
 
-Fixed parameters, recipes, evidence and software versions produce repeatable model
-geometry. New photos can change the interpretation; similar input photos alone do
-not guarantee identical geometry. Cross-version serialized bytes, ZIP timestamps
-and rendering are not promised to be identical. Use geometric checks for comparison.
-
-## Reuse with more photos
-
-Each machine has two editable source input files under `src/instruments/inputs/<machine>/`:
-
-- `design_defaults.json`: initial numeric dimensions, measurement evidence and descriptive metadata. Used when no current model exists. For an existing model, its `parameters.json/design_parameters` takes precedence.
-- `evidence.json`: geometry-source paths, material crop rectangles and photographed marking placements. Paths are relative to the data workspace; `review_image` is relative to the machine's `references/model_evidence/` folder. Crop coordinates refer to that exact decoded image; marking corners refer to its configured resized `review_size`.
-
-The current [Tau manifest](../../src/instruments/inputs/c16361/evidence.json) is a complete example. A material record looks like:
-
-```json
-{
-  "review_image": "new_front.jpg",
-  "original": "dataset/instruments/c16361/captures/2026-11-03_photo_01/raw/new_front.jpg",
-  "crop_pixels": [40, 30, 200, 160]
-}
-```
-
-1. Preserve new originals under the dated capture folder. Decode selected HEIC/video frames into `references/model_evidence/` with orientation and frame timestamps recorded; the builder consumes reviewed images, not raw video inference.
-2. Use [prompt.txt](prompt.txt) to describe the task, state, corrections and measurements. Update `geometry_sources` for evidence actually used. Adding a file to the folder alone does not make it a geometry constraint.
-3. Review measurements and topology. Edit shared parameters for sizes, or the machine recipe for new parts/joints. Update material crops/marking corners in `evidence.json` when using new images; do not reuse old pixel coordinates blindly.
-4. Run `build --model MODEL --check-cad`, review dimension/interior PNGs, then run `validate` and `share`. Arbitrary generated SCAD edits do not propagate; use the documented numeric import or change the shared recipe.
-
-Machine-specific capture selection and photo placement are now data, not separate
-Python scripts. CAD, convex primitives, texturing, packaging and checks are reused.
-The initial four recipes remain machine-specific. For a fifth instrument, add its
-recipe/defaults/evidence, register its ID in `paths.py`, and extend the necessary
-view, decal-anchor and validation cases. The simple-cover and QY articulated paths
-are not yet a universal plugin interface. Do not claim arbitrary photo-to-CAD.
-
-## Source release and reproduction
-
-The reusable code is repository-native Python under the root MIT license. A source
-release needs `src/instruments/`, its `inputs/` and `scad/` assets, this guide/prompt,
-the instrument tests and the dependency file. The existing routing tests also use
-`src/helpers.py`, so running the full test set assumes the source repository.
-Original lab captures and manufacturer documents stay outside the code release;
-users supply the evidence referenced by their manifests. The model sharing ZIP is
-a viewing/simulation package, not a source-code distribution.
-
-A separate environment can use the observed direct dependency versions:
+To refresh the index after curating images, without restoring removed images, run:
 
 ```bash
-python3.11 -m venv .venv-instruments
-.venv-instruments/bin/python -m pip install -r env/instruments-requirements.txt
-.venv-instruments/bin/python -m pytest tests/instruments -q
-.venv-instruments/bin/python -m src.instruments build --model c16361 --check-cad
+.venv/bin/python -m src.instruments.pdf_evidence
 ```
 
-OpenSCAD must be on PATH or configured with `OPENSCAD`. Review rendering currently
-uses Linux DejaVu fonts at `/usr/share/fonts/truetype/dejavu/`; this is the tested
-platform. The dependency file records direct versions, not a full platform lock.
-A fresh internet installation has not been tested in this workspace. Standard
-PyBullet installation is preferred; `INSTRUMENT_PYBULLET_PATH` supports an existing
-external installation (the local temporary fallback is not a release requirement).
-No DA3, SAM3D weights or GPU inference are needed for these authored models.
+Only when full native extraction is wanted, install Poppler's `pdfinfo` and
+`pdfimages` and add `--extract`. That explicit mode recreates missing embedded images.
 
-Set `INSTRUMENT_WORKSPACE=/absolute/workspace` to keep `dataset/` and `output/`
-outside the source checkout. Source defaults, evidence manifests and recipes stay
-with the code. A first build uses checked-in defaults and supplied evidence;
-no prior mesh/model output is required. Subsequent builds preserve current editable
-parameters. The four initial builds were tested in an empty output workspace using
-the supplied evidence, including portable URDF loading. All exported geometry,
-poses and texture pixels were checked against the accepted models; this does not
-constitute testing on arbitrary unseen photos.
+Use `--model cary60` to select one instrument. The model package's `evidence/`
+folder is a complete local snapshot; publishing never writes it back into the dataset. The share command creates separate slim deliveries and does not copy this entire folder into either ZIP.
+The package manifest maps each evidence file to its canonical dataset source and hash.
+Original photos, videos, annotations, PDFs and retained extracted images are included.
+Dataset-prefixed paths in the copied metadata resolve under the package evidence folder.
 
-## Reusable implementation
 
-- `src/instruments/__main__.py`: CLI only; imports the selected operation lazily.
-- `builder.py`, `construction.py`, `geometry.py`, `openings.py`: current geometry assembly, convex primitives, motion, export and geometric checks.
-- `design.py`, `shared_geometry.py`, and `<machine>.py`: shared parameter ownership, part/joint recipes, native SCAD and convex-mesh backends, and restricted numeric parameter import.
-- `render.py`, `textures.py`, `decals.py`: mesh-derived previews and photo-based visual assets.
-- `qy/`: articulated transforms (`kinematics.py`), URDF export, dimension reporting and portable simulator loader. Geometry lives in `c13534.py`; no executable imports from archived experiments.
-- `storage/`: compact output policy, combined dimension sheet, optional diagnostic retention and failure preservation.
-- `publish.py`, `layout.py`, `validation.py`, `sharing.py`: package lifecycle and standalone verification.
-- `printing.py`: explicit single-part native STL export in millimetres with solid checks.
-- `inputs/`: bootstrap design defaults with evidence and confirmed QY measurements; current editable values live in each package's `parameters.json/design_parameters`.
-- `physics.py`: PyBullet dependency loading; supports `INSTRUMENT_PYBULLET_PATH`. The existing local temporary installation remains a fallback.
-- `tests/instruments/`: parameter import, geometry relationships, articulation and CLI regression tests.
+## Implementation
 
-Historical experiment commands in EXPERIMENTS.md are a chronology, not current entry points. Raw sources and accepted geometry should not change during tooling cleanup. Photographic textures and estimated contact surfaces retain the limitations recorded in each package.
+`native_build.py` copies native source, calls OpenSCAD, validates exported meshes,
+and generates review images. It never emits geometry expressions from Python.
+`publish.py` stages the compact package and copies the current evidence dataset.
+`sharing.py` and `source_sheets.py` produce the two deliveries. Dataset observations
+and native SCAD remain authoritative; generated output can be recreated.
 
-## Native parametric OpenSCAD
-
-All four instruments use one shared part/joint recipe for native OpenSCAD and simulation meshes. The recipes are `cary60.py`, `c16361.py`, `c13472.py` and `c13534.py`; `shared_geometry.py` supplies both backends. `scad/common.scad` is the only hand-written SCAD library. Per-machine assembly files are generated, not separate maintained geometry recipes.
-
-```bash
-.venv/bin/python -m src.instruments cad --model cary60 --check
-.venv/bin/python -m src.instruments cad --check  # all four
-```
-
-Checks require OpenSCAD on PATH, or `OPENSCAD=/path/to/openscad`. Each machine is staged before publication. The repository does not install OpenSCAD automatically. For source export without an engine check, omit `--check`. Standard builds export CAD source; add `--check-cad` to run the engine before publishing. Changed CAD source/parameter inputs invalidate previous checks and renders; unchanged inputs retain them during packaging cleanup.
-
-Open `output/instruments/<machine>/model/openscad/assembly.scad`. The other SCAD files are dependencies, not alternative model versions:
-
-- `assembly.scad`: entry point; choose `pose` and `part` here.
-- `parameters_native.scad`: included dimensions, in mm/degrees (fractions are dimensionless).
-- `common.scad`: reusable geometry helpers, required by all four machines.
-
-The obsolete `faceted_reference.scad` exports were removed from all current packages. `parameters_native.json` records parameter evidence; STL files and review PNGs are generated results.
-
-## Shared-definition workflow for all four
-
-Authoritative editable values are `output/instruments/<machine>/model/parameters.json` → `design_parameters`. Each machine recipe defines parts, datum relationships and joints once. Native SCAD uses primitives, Boolean openings and profile extrusion; simulation retains separate convex pieces around openings. Both use the same parameters and joint hierarchy. Curves can have different tessellation densities.
-
-Either edit `design_parameters` and run a normal build, or edit the numeric assignments in `openscad/parameters_native.scad` and import them:
-
-```bash
-.venv/bin/python -m src.instruments build --model c16361 --from-cad-parameters --check-cad
-.venv/bin/python -m src.instruments share
-```
-
-Replace `c16361` with any machine ID, or omit `--model` for all four. The first command imports parameter edits, validates geometry, and regenerates CAD, textured visual GLBs, convex collision meshes, URDF, dimension PNGs and previews. `--check-cad` needs the OpenSCAD executable; omit it for a build with only the mesh/URDF checks. Imported changed values are labeled unverified authoring edits until their measurement evidence is supplied. Photo material patches are reapplied; photographed identity labels follow their associated housing panel dimensions. This preserves approximate photo texturing, not calibrated photogrammetry.
-
-Only finite numeric assignments with recognized names are accepted from the parameter include. **Arbitrary edits to `assembly.scad` are not imported**; its topology is generated, so change the shared Python part recipe instead. Normal `cad` or `build` commands without `--from-cad-parameters` overwrite unimported SCAD parameter edits from the canonical JSON.
-
-`validation/latest/review/openscad/csg_validation.json` (with `--keep-validation`) includes an edited-dimension experiment: each native CAD part versus its simulation pieces, actual textured GLB and URDF exports, joint transforms/limits, and a sampled PyBullet motion sweep. `csg_shared_parameters.png` illustrates the experiment; its test dimensions are not published as the current machine dimensions. The reusable integration checker is `shared_validation.py` (Cary retains its original checker in `cad_checks.py`).
-
-The definitions use native solids, Boolean openings and 2D profile extrusion. QY's estimated curved front is a short editable 2D profile, not a frozen 3D triangulation. Assertions reject selected impossible combinations; they are not a complete CAD constraint solver. Some local construction offsets remain fixed estimates in the shared recipes. Small internal overlaps avoid edge-only or coincident-plane export defects.
-
-| Machine | Editable relationships | Engine checks |
-| --- | --- | --- |
-| Cary 60 | Cover slides +Y inside body; receiver follows cover/body depth; socket cutout and holder share a datum | Closed/open envelope, 230 mm and 200 mm travel, changed body depth, true socket opening volume |
-| C16361 | Chamber, centered hole/grip, lid and hinge follow dimensions | Closed/open envelope, changed floor width/hole/depth and overall height |
-| C13472 | Cover slides +X; stage opening stays centered; side motor and mount follow inner wall | Closed/open envelope, cover displacement, wider body and attached motor solid, changed holder hole |
-| C13534 | Flush tapered strip follows door width; nested handle/door motion; paired pins and lower room stay centered | Five poses, edited recess/room dimensions, pin spacing and diameters, flush seam, selector stroke |
-
-CAD STLs have no textures or articulation. Use textured GLBs and separate convex collision meshes/URDFs for simulation. Parameter import rebuilds these consistently for every machine. QY `reports/assembly_controls.json` and `reports/door_configuration.json` are derived export metadata, not independent geometry inputs.
-
-Successful checks always retain `model/reports/cad_summary.json`. Detailed JSON, comparison PNGs and native STL snapshots go to `validation/latest/` with `--keep-validation`, or remain in `model/openscad/` with `--extras`. All four passed OpenSCAD 2021.01 checks: Cary 40 cases, Tau 37, C13472 57 and QY 99. The three migrated machines also passed edited-parameter sweeps of 21, 21 and 83 positions respectively. Straight geometry uses tight numerical comparisons; smooth CAD and coarse collision curves have explicit tessellation tolerances. Edited-pose envelope tolerances are 0.03 mm for Cary/C13472, 0.2 mm for Tau and 1 mm for QY. Joint-transform checks are separate from these surface approximations.
-
-These checks establish export consistency and sampled modeled motion, not physical contact accuracy. Small overlaps repair CAD connectivity; QY's upper dish/tray join uses a 0.01 mm overlap. Unmeasured interior dimensions, clearance, forces and inertia remain provisional. Refresh the sharing ZIP with `share` after changes.
+Run `.venv/bin/python -m pytest tests/instruments -q` for repository regressions.
+Some tests cover retired geometry exporters; current geometry checks are in
+`native_build.py` and are run by `build --check-cad`.

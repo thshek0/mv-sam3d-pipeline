@@ -1,0 +1,68 @@
+{
+  "spoon_daiso_pink": {
+    "width_mm": 100,
+    "bowl_length_mm": 117,
+    "rim_height_mm": 38,
+    "floor_height_mm": 5.5,
+    "crown_depth_mm": 2.5,
+    "radial_sections": 64,
+    "angular_sections": 160,
+    "collision_angular_sections": 16,
+    "collision_rings": [
+      0,
+      0.35,
+      0.6,
+      0.82,
+      1
+    ],
+    "rgba": [
+      226,
+      137,
+      160,
+      255
+    ],
+    "mass_kg": 0.035,
+    "evidence": "Daiso 4550480456553 lists complete scoop 10 x 26 x 4 cm. User photos IMG_9956-9960 show detached head with short socket, not the full handle. Width uses nominal 100 mm; head length/profile/thickness/relief and mass are photo-based estimates. Bowl must be concave inside, convex outside, with recessed inner crown and raised outer crown. Wall revised to nominal 3 mm across the sloping material, with a 2 mm outward rounded lip and flattened rim transition. Thickness and edge profile are authored estimates responding to user review, not measurements. Socket blend and local smoothing are photo-informed estimates for the handle-to-bowl transition.",
+    "source_url": "https://jp.daisonet.com/products/4550480456553",
+    "wall_normal_mm": 3,
+    "rim_round_mm": 2,
+    "rim_flat_start": 0.9,
+    "socket_blend_y_mm": [
+      -64,
+      -36
+    ],
+    "socket_flare_halfwidth_mm": 16,
+    "neck_blend_y_mm": [
+      -65,
+      -36
+    ],
+    "neck_halfwidth_mm": 24,
+    "neck_smoothing_iterations": 24,
+    "neck_fairing_method": "average"
+  },
+  "spoon_home_black": {
+    "support_center_y_mm": 112.5,
+    "support_width_mm": 30,
+    "support_thickness_mm": 3,
+    "support_bottom_z_mm": 0,
+    "patch_half_width_mm": 13,
+    "patch_half_length_mm": 12,
+    "collision_angular_sections": 16,
+    "collision_rings": [
+      0,
+      0.35,
+      0.6,
+      0.82,
+      1
+    ],
+    "mass_kg": 0.075,
+    "evidence": "User-preferred previous Codex geometry restored after rejection of a thinner independent loft. Build sources are the accepted visual/collision GLBs in the dataset; historically SAM3D-derived, no SAM3D directory or software required.",
+    "neck_blend_y_mm": [
+      5,
+      90
+    ],
+    "neck_smoothing_iterations": 80,
+    "boolean_cleanup_tolerance_mm": 0.001,
+    "authoring": "accepted_mesh"
+  }
+}

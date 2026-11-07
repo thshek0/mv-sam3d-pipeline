@@ -23,7 +23,8 @@ def check(dest,render,values):
  p=json.loads((dest.parent/'parameters.json').read_text());name=p['model'];changes=changed_values(name,values);edited=dict(values,**changes)
  # QY's portable exporter records source hashes relative to the workspace.
  with workspace('edited_parameters') as tmp:
-  work=Path(tmp);(work/'meshes').mkdir();(work/'evidence').symlink_to((ROOT/'dataset/instruments'/p['model']/'references/model_evidence').resolve(),target_is_directory=True)
+  from .inputs import stage_evidence
+  work=Path(tmp);(work/'meshes').mkdir();stage_evidence(p['model'],work)
   include=work/'edited_parameters.scad';include.write_text('\n'.join(f'{k} = {v};' for k,v in edited.items()))
   p['design_parameters']=read_parameter_include(include,values)
   if name=='c13534':
@@ -38,6 +39,7 @@ def check(dest,render,values):
   definition=design.module(name).definition(edited)
   for part in definition.parts:
    native=render('shared_'+part.name,part=part.name,**changes)
+   if part.kind=='subtract':assert len(native.split())==1,(part.name,'Disconnected Boolean solid')
    group=[q for n,q in parts.items() if n==part.name or n.startswith(part.name+'__')]
    combined=trimesh.util.concatenate(group)
    error=float(np.max(abs(native.bounds-combined.bounds*1000)))

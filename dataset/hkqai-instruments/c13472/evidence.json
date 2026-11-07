@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "model": "c13472",
+  "geometry_sources": [
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9891.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9892.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9893.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9898.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9900.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9901.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9904.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9930.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9935.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9936.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9938.png",
+    "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9939.png"
+  ],
+  "materials": {
+    "white": {
+      "review_image": "IMG_9892.jpg",
+      "original": "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9892.png",
+      "crop_pixels": [
+        400,
+        210,
+        600,
+        260
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "dark": {
+      "review_image": "exterior.jpg",
+      "original": "dataset/hkqai-instruments/c13472/online_sources/exterior_annotated/raw/0.jpg",
+      "crop_pixels": [
+        160,
+        105,
+        230,
+        140
+      ],
+      "review_size": [
+        380,
+        285
+      ]
+    },
+    "black": {
+      "review_image": "IMG_9939.jpg",
+      "original": "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9939.png",
+      "crop_pixels": [
+        30,
+        350,
+        140,
+        550
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    },
+    "metal": {
+      "review_image": "IMG_9901.jpg",
+      "original": "dataset/hkqai-instruments/c13472/user_captures/2026-11-02/raw/IMG_9901.png",
+      "crop_pixels": [
+        400,
+        170,
+        600,
+        250
+      ],
+      "review_size": [
+        1125,
+        1500
+      ]
+    }
+  },
+  "markings": {
+    "source": "dataset/hkqai-instruments/c13472/online_sources/exterior_annotated/raw/0.jpg",
+    "review_size": [
+      1000,
+      750
+    ],
+    "items": [
+      {
+        "name": "front_identity",
+        "corners_tl_tr_br_bl": [
+          [
+            310,
+            548
+          ],
+          [
+            534,
+            520
+          ],
+          [
+            534,
+            555
+          ],
+          [
+            310,
+            589
+          ]
+        ],
+        "target_xxz_z_m": [
+          0.02,
+          0.235,
+          0.05,
+          0.082
+        ],
+        "target_y_m": 0
+      }
+    ]
+  },
+  "package_references": {},
+  "geometry_policy": {
+    "primary": "Manufacturer specification diagrams and dimension tables for the exact model and installed variant govern geometry wherever available.",
+    "workflow": "Use the original PDF and its dimensioned views to establish envelope, datums, profiles and feature positions before interpreting perspective photos. Cropped diagrams are navigation aids; preserve PDF vector detail.",
+    "user_captures": "Confirm installed accessory, visible details and movement; physical measurements fill undocumented dimensions with endpoints, units and uncertainty.",
+    "online_photos": "Support appearance and details absent from specification drawings; do not override dimensioned geometry from perspective appearance.",
+    "conflicts": "Record the source values and affected feature, check variant and measurement endpoints, and resolve the discrepancy explicitly before adopting a deviation. Do not silently override or average.",
+    "unknowns": "Label photo-derived and undocumented dimensions as estimates; do not invent missing engineering detail."
+  },
+  "specification_sources": [],
+  "specification_status": "missing_local_specification_pdf",
+  "specification_page_numbering": "1-based PDF page index, not printed page labels"
+}
