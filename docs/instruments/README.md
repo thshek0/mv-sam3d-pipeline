@@ -42,7 +42,7 @@ For a colleague's SCAD edits, copy the reviewed files back into the correspondin
 `src/instruments/native/<model>/` directory before rebuilding. Shared helper edits
 belong in `native/common.scad`. The former `--from-cad-parameters` import is retired
 and gives an explicit migration message. A build never reads geometry back from
-`products/parameters.json`; that file is an evaluated snapshot of native parameters.
+the current output `parameters.json`; that file is an evaluated snapshot of native parameters.
 
 ## Viewing and simplification
 
@@ -70,7 +70,7 @@ For one solid STL in mm:
 .venv/bin/python -m src.instruments stl --model cary60 --part socket_shell
 ```
 
-Explicit STLs go to `codex/intermediate/printing/`, keeping the normal delivery slim.
+Explicit STLs go to `work/hkqai-instruments/<model>/codex/printing/`, keeping the normal delivery slim.
 Simulation geometry must be derived from native part exports; any later conversion
 to metres, convex decomposition or articulation requires its own validation.
 The older Python recipes/exporters remain for historical regression tests and are
@@ -103,7 +103,7 @@ certify a continuous collision-free sweep. Moving Boolean shells are evaluated
 before transforms to avoid F5 phantom faces.
 
 `--keep-validation` retains meshes, engine logs and intermediate motion PNGs under
-`codex/intermediate/validation/native_latest/`. `--extras` also retains these
+`work/hkqai-instruments/<model>/codex/validation/native_latest/`. `--extras` also retains these
 private diagnostics. Failed work remains in `.native_build/` for inspection; a
 failed build does not replace the published package.
 
@@ -117,7 +117,7 @@ dataset/hkqai-instruments/<model>/
   user_captures/                         dated originals and annotations
   online_sources/                       PDFs, downloads, retained PDF images
 
-output/objects/hkqai-instruments/<model>/codex/products/
+output/hkqai-instruments/<model>/
   openscad/assembly.scad, parameters_native.scad, common.scad
   assembly.png                          native closed/open views
   overview.png                          native orthographic views and dimensions

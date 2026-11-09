@@ -7,9 +7,9 @@ from . import geometry as base
 from .paths import ROOT
 
 def save(path,obj):path.write_text(json.dumps(obj,indent=2)+'\n')
-def current_model_dir(model):return ROOT/'output/objects/hkqai-instruments'/model/'codex/products'
+def current_model_dir(model):return ROOT/'output/hkqai-instruments'/model
 def setup(model):
- out=ROOT/'output/objects/hkqai-instruments'/model/'codex/intermediate/.build_work'
+ out=ROOT/'work/hkqai-instruments'/model/'codex/.build_work'
  if out.exists():
   import tempfile
   failures=out.parent/'validation/failures';failures.mkdir(parents=True,exist_ok=True)
@@ -67,7 +67,7 @@ def _legacy_build(models,from_cad_parameters=False,check_cad=False,keep_validati
  """Retired exporter retained for historical regressions; not current authoring."""
  from .storage.diagnostics import session
  for model in models:
-  with session(current_model_dir(model).parent/'intermediate',keep=keep_validation):
+  with session(ROOT/'work/hkqai-instruments'/model/'codex',keep=keep_validation):
    _build_one(model,from_cad_parameters,check_cad,extras)
 
 

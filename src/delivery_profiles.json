@@ -4,7 +4,7 @@
     "hkqai-instruments": {
       "format": "scad",
       "method": "codex",
-      "thumbnails": ["products/assembly.png", "products/overview.png"],
+      "thumbnails": ["assembly.png", "overview.png"],
       "objects": {
         "c13472": {"variants": ["c13472"]},
         "c13534": {"variants": ["c13534"]},
@@ -21,7 +21,7 @@
         "hestia_bowl_v1": {"variants": ["bowl"]},
         "spoon_home_black": {"variants": ["spoon_home_black"]},
         "spoon_daiso_pink": {"variants": ["spoon_daiso_pink"]},
-        "plate_harmynta_white_22cm": {"variants": ["plate_harmynta_white_22cm_rl"]},
+        "plate_harmynta_white_22cm": {"variants": ["plate_harmynta_white_22cm_rl"], "manifest": "output/hestia-rl/plate_harmynta_white_22cm/simulation/asset.json"},
         "plate_maehata_pop_blue_23cm": {"variants": ["plate_maehata_pop_blue_23cm_rl"]},
         "plate_paradisisk_off_white_20cm": {"variants": ["plate_paradisisk_off_white_20cm_rl"]},
         "plate_strimmig_pale_grey_green_21cm": {"variants": ["plate_strimmig_pale_grey_green_21cm_rl"]},

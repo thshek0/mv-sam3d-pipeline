@@ -18,11 +18,11 @@ from scipy.optimize import least_squares
 from scipy.spatial import cKDTree
 
 ROOT = Path(__file__).resolve().parents[2]
-ASSET = ROOT/'output/objects/hestia-rl/plate_harmynta_white_22cm/codex'
-WORK = ASSET/'intermediate/curvature_refit_20261107'
+ASSET = ROOT/'work/hestia-rl/plate_harmynta_white_22cm/codex'
+WORK = ASSET/'curvature_refit_20261107'
 INPUT = ROOT/'src/plates/inputs/plate_harmynta_white_22cm.json'
 EDGES = ROOT/'src/plates/inputs/plate_harmynta_white_22cm_photo_edges.json'
-REFERENCES = ASSET/'intermediate/print_fit_review_20261107'
+REFERENCES = ROOT/'dataset/hestia-rl/plate_harmynta_white_22cm/images'
 KNOTS = np.array([51.25,60,70,80,90,100,106,110])
 ANGLES = np.linspace(0,2*np.pi,2048,endpoint=False)
 
@@ -150,7 +150,7 @@ def make_input(before,curve,report,write):
         'original floor and lip. Central recess remains the earlier 1.99 mm depth estimate. '
         'Gold-print photos support a fit mismatch but do not calibrate the shape or prove a corrected physical fit.')
     p['geometry_evidence_files']=list(dict.fromkeys(p.get('geometry_evidence_files',[])+[
-        'dataset/hestia-rl/plate_harmynta_white_22cm/More plate-20261107T052054Z-1-001.zip',
+        'dataset/hestia-rl/plate_harmynta_white_22cm/raw/More plate-20261107T052054Z-1-001.zip',
         str(Path(__file__).relative_to(ROOT)),str(EDGES.relative_to(ROOT)),
         str((WORK/'photo_fit_report.json').relative_to(ROOT)),str((WORK/'before/input.json').relative_to(ROOT))]))
     (WORK/'candidate_input.json').write_text(json.dumps(p,indent=2)+'\n')
@@ -222,7 +222,7 @@ def run(write=False):
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     fig,axs=plt.subplots(1,2,figsize=(13,4.6),layout='constrained')
-    original=np.array(json.loads((ASSET/'intermediate/refit_20261107/before/input.json').read_text())['profile_radius_top_bottom_mm'])
+    original=np.array(json.loads((ASSET/'refit_20261107/before/input.json').read_text())['profile_radius_top_bottom_mm'])
     for pr,label,color in [(original,'Original','#969696'),(prior,'Previous revision','#d88922'),(candidate,'New photo fit','#1674b8')]:
         x=np.r_[-pr[:0:-1,0],pr[:,0]]
         t=np.r_[pr[:0:-1,1],pr[:,1]];b=np.r_[pr[:0:-1,2],pr[:,2]]

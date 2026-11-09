@@ -102,10 +102,17 @@ def test_missing_source_does_not_publish_partial_collection(tmp_path):
     assert not list(tmp_path.glob('.delivery_*'))
 
 
-def test_scad_delivery_checks_snapshot_and_preserves_source(tmp_path):
+@pytest.mark.parametrize('explicit_manifest', [False, True])
+def test_scad_delivery_checks_snapshot_and_preserves_source(tmp_path, explicit_manifest):
     workspace = tmp_path/'workspace'
-    folder = workspace/'output/objects/hkqai-instruments/cary60/codex'
-    product = folder/'products'; product.mkdir(parents=True)
+    folder = workspace/'output/hkqai-instruments/cary60'
+    profile = PROFILE
+    if explicit_manifest:
+        folder = workspace/'output/cary60'
+        config = json.loads(PROFILE.read_text())
+        config['families']['hkqai-instruments']['objects']['cary60']['manifest'] = 'output/cary60/asset.json'
+        profile = tmp_path/'profile.json';profile.write_text(json.dumps(config))
+    product = folder; product.mkdir(parents=True)
     sources = {}
     for name, code in {'assembly.scad': 'include <parameters_native.scad>\ncube(size);',
                        'parameters_native.scad': 'size=10;'}.items():
@@ -119,7 +126,7 @@ def test_scad_delivery_checks_snapshot_and_preserves_source(tmp_path):
         published[name] = {'sha256': sha256(product/name)}
     (product/'manifest.json').write_text(json.dumps({'files': published}))
     destination = tmp_path/'delivery'
-    build(workspace, destination, only=['cary60'])
+    build(workspace, destination, profile=profile, only=['cary60'])
     obj = destination/'hkqai-instruments/cary60'
     assert (obj/'openscad/assembly.scad').read_bytes() == sources['assembly.scad'].read_bytes()
     assert (obj/'thumbnails/1.png').is_file() and (obj/'thumbnails/2.png').is_file()
@@ -133,5 +140,5 @@ def test_scad_delivery_checks_snapshot_and_preserves_source(tmp_path):
     # A changed preview is rejected even when the authoring sources still match.
     Image.new('RGB', (32, 32), 'red').save(product/'assembly.png')
     with pytest.raises(ValueError, match='Stale preview'):
-        build(workspace, tmp_path/'bad_delivery', only=['cary60'])
+        build(workspace, tmp_path/'bad_delivery', profile=profile, only=['cary60'])
     assert not (tmp_path/'bad_delivery').exists()

@@ -110,8 +110,10 @@ def resolve_input_scene(src: Path, masks_name: str) -> tuple[Path, str]:
     nested = src / "scene"
     if (nested / "images").is_dir() and (nested / masks_name).is_dir():
         return nested, dataset_name_from_input(src)
-    for relative in ('intermediate/scene', 'sam3d/intermediate/scene', 'tsdf/intermediate/scene', 'codex/intermediate/scene'):
-        nested = src / relative
+    from output_layout import intermediate_dir
+    name = dataset_name_from_input(src)
+    for method in ('sam3d', 'tsdf', 'codex'):
+        nested = intermediate_dir(src, name, method)/'scene'
         if (nested/'images').is_dir() and (nested/masks_name).is_dir():
             return nested, dataset_name_from_input(nested)
     raise RuntimeError(

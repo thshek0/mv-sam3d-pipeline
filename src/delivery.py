@@ -226,7 +226,7 @@ def validate_relocated(folder, format, entrypoint, *, bounds=None, thumbnails=Tr
 
 def copy_scad_previews(manifest, data, config, destination):
     """Use the published previews only when their source snapshot still matches."""
-    product = manifest.parent/'products'
+    product = manifest.parent
     published = json.loads((product/'manifest.json').read_text())['files']
     for name, ref in data['native_files'].items():
         if published[f'openscad/{name}']['sha256'] != ref['sha256']:
@@ -388,7 +388,8 @@ def build(workspace, destination, profile=PROFILE, only=None):
         stage = Path(tmp)/'models'; stage.mkdir()
         entries = []
         for family, name, variant, relative, settings in selected:
-            manifest = workspace/'output/objects'/family/name/settings['method']/'asset.json'
+            manifest = (local_file(workspace, settings['manifest']) if 'manifest' in settings
+                        else workspace/'output'/family/name/('' if settings['method']=='codex' else settings['method'])/'asset.json')
             print(f'{name} / {variant} -> {settings["format"]}', flush=True)
             data = build_one(manifest, variant, settings, stage/relative, relative.name)
             entries.append((relative, data))

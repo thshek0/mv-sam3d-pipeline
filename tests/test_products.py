@@ -46,3 +46,45 @@ def test_bowl_raised_foot_and_rounded_heel(designs):
     profile = np.array(designs['bowl']['profile_z_outer_inner_mm'])
     slope = np.diff(profile[:5, 1])/np.diff(profile[:5, 0])
     assert np.all(np.diff(slope)<0)
+
+
+@pytest.mark.parametrize('name', [
+    'plate_maehata_pop_blue_23cm', 'plate_strimmig_pale_grey_green_21cm',
+    'plate_paradisisk_off_white_20cm',
+])
+def test_plate_rebuild_uses_tracked_inputs_and_exports_without_output_recipes(name, tmp_path, monkeypatch):
+    from src.plates import rebuild
+    from src.assets import export_asset
+    from src.collision import plate_parts, validate_parts, source_digest
+    from src.export import sha256
+    import trimesh
+
+    # No pre-existing product folder, parameter snapshots or profile CSVs.
+    monkeypatch.setattr(rebuild, 'OUT', tmp_path/'output')
+    report=rebuild.build(name)
+    folder=tmp_path/'output'/name
+    visual=folder/(name+'_m.glb')
+    assert not (folder/'parameters.json').exists()
+    assert not (folder/'dimensions.json').exists()
+    assert not list(folder.glob('*.csv'))
+    assert report['mesh_checks']['watertight']
+    dimensions=report['dimensions']
+    np.testing.assert_allclose(trimesh.load(visual,force='mesh').extents*1000,
+                              [dimensions['outer_diameter_mm']]*2+[dimensions['overall_height_mm']],atol=.0001)
+    parts,check=plate_parts(visual)
+    validate_parts(parts)
+    assert check['visual_collision_volume_relative_error'] < 1e-5
+    assert check['central_cavity_probes_free'] > 0
+    manifest=folder/'asset.json'
+    export_asset(manifest,tmp_path/'delivery',['mujoco'],name)
+    metadata=json.loads(manifest.read_text())
+    assert name+'_rl' in metadata['variants']
+    assert metadata['variants'][name]['collision_recipe']['sha256']==sha256(rebuild.INPUTS)
+    # A changed tracked profile invalidates the collision cache.
+    original=source_digest(visual)
+    changed=tmp_path/'designs.json'
+    designs=json.loads(rebuild.INPUTS.read_text())
+    designs[name]['dimensions']['overall_height_mm'] += 1
+    changed.write_text(json.dumps(designs))
+    monkeypatch.setattr(rebuild,'INPUTS',changed)
+    assert source_digest(visual) != original

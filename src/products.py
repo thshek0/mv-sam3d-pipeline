@@ -282,7 +282,7 @@ def build(model, params, output, parameter_source=None):
     write_json(output/'parameters.json', params)
     write_json(output/'input_manifest.json', manifest(model))
     if model=='bowl':
-        measurement = ROOT/'output/objects/hestia-rl/hestia_bowl_v1/codex/intermediate/references/bowl_measurement.json'
+        measurement = ROOT/'work/hestia-rl/hestia_bowl_v1/codex/references/bowl_measurement.json'
         if measurement.exists():
             write_json(output/'measurement.json', json.loads(measurement.read_text()))
     for name, (visual, collision) in variants.items():
@@ -350,7 +350,7 @@ def build(model, params, output, parameter_source=None):
             for suffix in ['.glb', '_collision.glb', '_preview.png', '_collision_preview.png']:
                 (output/(stem+suffix)).unlink(missing_ok=True)
     from .assets import save_manifest
-    save_manifest(output.parent/'asset.json', kind='recipe',
+    save_manifest(output/'asset.json', kind='recipe',
                   sources=[Path(__file__), parameter_source or output/'parameters.json'],
                   variants={name: {'visual': output/f'{name}.glb',
                                    'collision': output/f'{name}_collision.glb',
@@ -382,8 +382,8 @@ def main():
     parser.add_argument('--parameters', type=Path, default=INPUTS/'designs.json')
     args = parser.parse_args()
     params = json.loads(args.parameters.read_text())
-    destinations = {'container': ROOT/'output/objects/hestia-rl/sand_container/codex/products', 'scale': ROOT/'output/objects/hestia-rl/electronic_balance/codex/products',
-                    'bowl': ROOT/'output/objects/hestia-rl/hestia_bowl_v1/codex/products'}
+    destinations = {'container': ROOT/'output/hestia-rl/sand_container', 'scale': ROOT/'output/hestia-rl/electronic_balance',
+                    'bowl': ROOT/'output/hestia-rl/hestia_bowl_v1'}
     names = list(destinations) if args.model=='all' else [args.model]
     for model in names:
         report = build(model, params[model], destinations[model], parameter_source=args.parameters)

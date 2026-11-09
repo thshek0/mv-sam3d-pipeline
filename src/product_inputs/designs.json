@@ -1,10 +1,6 @@
 {
   "container": {
-    "outer_mm": [
-      325,
-      265,
-      200
-    ],
+    "outer_mm": [325, 265, 200],
     "opening_mm": [
       300,
       235
@@ -20,11 +16,7 @@
     "evidence": "Outer dimensions: selected variant in dataset/hestia-rl/sand_container/New Text Document.txt. Opening: matching 2/1 row in selected size-table image. Taper, thickness and corner radii are image-based estimates. Open container only; lid omitted at user request."
   },
   "scale": {
-    "body_mm": [
-      192.5,
-      280,
-      80
-    ],
+    "body_mm": [192.5, 280, 80],
     "square_pan_mm": [
       185,
       168
@@ -49,44 +41,349 @@
     "foot_outer_radius_mm": 38,
     "foot_inner_radius_mm": 35.7,
     "profile_z_outer_inner_mm": [
-      [
-        4.2,
-        40.5,
-        36.5
-      ],
-      [
-        6,
-        43,
-        40.5
-      ],
-      [
-        11,
-        46,
-        44.8
-      ],
-      [
-        18,
-        47.5,
-        46.3
-      ],
-      [
-        58.5,
-        54,
-        52.8
-      ],
-      [
-        59.2,
-        60,
-        58.8
-      ],
-      [
-        60,
-        60,
-        58.8
-      ]
+      [4.2, 40.5, 36.5],
+      [6, 43, 40.5],
+      [11, 46, 44.8],
+      [18, 47.5, 46.3],
+      [58.5, 54, 52.8],
+      [59.2, 60, 58.8],
+      [60, 60, 58.8]
     ],
     "sections": 48,
     "collision_sections": 24,
     "evidence": "Approximate 120 x 60 mm envelope from RealSense frame 20261013_153506_636313. Revised against side frame 20261013_153452_094806 and interior frame 20261013_153433_495185: curved heel, narrow raised foot, thin wall and flared pale rim. Profile and thickness are visual estimates, not measured. Envelope uncertainty remains about +/-10 mm. Visual uses 48 radial sectors; collision uses 24 with maximum circular chord deviation 0.514 mm."
+  },
+  "plate_maehata_pop_blue_23cm": {
+    "parameters": {
+      "angular_sections": 32,
+      "profile_tolerance_mm": 0.35,
+      "rgba": [
+        238,
+        234,
+        214,
+        255
+      ],
+      "source_detailed_triangles": 31744,
+      "source_detailed_stl_sha256": "c200d03fe9de93034a8d40259070f2f9c67635f1d3b7808ee91afd6300f4ca09",
+      "purpose": "Single closed simplified plate surface; printed pattern retained as a visual texture; no decorative relief.",
+      "appearance_recipe": "dataset/hestia-rl/plate_maehata_pop_blue_23cm/appearance/pattern.json"
+    },
+    "dimensions": {
+      "outer_diameter_mm": 230,
+      "overall_height_mm": 37,
+      "status": "USER_LABEL_APPROXIMATE_DIMENSIONS",
+      "source": "User supplied approximate product dimensions 23 cm diameter x 3.7 cm height. Both are adopted as nominal model targets.",
+      "physical_measurement_confirmed": false,
+      "capture_statistics": {
+        "accepted_views": 8,
+        "total_views": 8,
+        "status": "CAPTURE_DERIVED_ESTIMATE_NOT_VERIFIED_PHYSICAL_MEASUREMENT",
+        "method": "Fit measured rim/table planes, intersect silhouette rays with rim plane, then robust circle fit. Independent of generated mesh scale.",
+        "limitations": [
+          "Rim plane uses a band inside the outer edge and can underestimate true lip height.",
+          "Masked silhouette can miss a thin sidewall. Glossy depth, calibration and plane-fit error remain.",
+          "No supplied caliper measurements or certified dimensional tolerance.",
+          "Median/range across views are repeatability diagnostics, not absolute accuracy bounds."
+        ],
+        "median_diameter_mm": 234.05260091510735,
+        "diameter_p10_p90_mm": [
+          233.03919290642693,
+          234.58288580216853
+        ],
+        "median_rim_height_mm": 31.51994468079739,
+        "rim_height_p10_p90_mm": [
+          31.223901593164822,
+          31.802571154812124
+        ]
+      },
+      "reference_table_plane": {
+        "normal": [-0.0330156122277198, -0.802613043938518, -0.5955856538307276],
+        "offset_m": 0.23970562218419064
+      },
+      "product_identity": {
+        "brand": "Maehata Co., Ltd.",
+        "product": "Pop (blue) large plate"
+      },
+      "product_reference_authoritative_path": "dataset/hestia-rl/plate_maehata_pop_blue_23cm/product_reference.json",
+      "dimension_sources": {
+        "outer_diameter_mm": {
+          "kind": "user_label_approximate",
+          "value_mm": 230,
+          "source": {
+            "type": "user_transcribed_product_label",
+            "received_date": "2026-11-03",
+            "independently_verified_online": false
+          }
+        },
+        "overall_height_mm": {
+          "kind": "user_label_approximate",
+          "value_mm": 37,
+          "source": {
+            "type": "user_transcribed_product_label",
+            "received_date": "2026-11-03",
+            "independently_verified_online": false
+          }
+        }
+      },
+      "status_label": "Approximate product-label dimensions",
+      "dimension_note": "Diameter and height use the approximate product-label values supplied by the user: 230 x 37 mm. They are nominal model targets, not caliper measurements of this specimen.",
+      "updated_date": "2026-11-03"
+    },
+    "profile_radius_top_bottom_mm": [
+      [0.0, 9.533870158031391, 3.3236531175165362],
+      [3.709677419354839, 9.533870158031391, 3.3315382931841833],
+      [7.419354838709678, 9.533870158031391, 3.3429873648520716],
+      [11.129032258064516, 9.533870158031391, 3.3353469824004587],
+      [14.838709677419356, 9.533870158031391, 3.322630858704968],
+      [18.548387096774196, 9.533870158031391, 3.2778599530070998],
+      [22.258064516129032, 9.533870158031391, 3.268777690685037],
+      [25.967741935483872, 9.533870158031391, 3.275757664490033],
+      [29.67741935483871, 9.533870158031391, 3.2646140339571423],
+      [33.38709677419355, 9.533870158031391, 3.241312627748862],
+      [37.09677419354839, 9.533870158031391, 3.2105751232759956],
+      [40.80645161290323, 9.533870158031391, 3.1541051717744693],
+      [44.516129032258064, 9.533870158031391, 3.035202149959175],
+      [48.225806451612904, 9.533870158031391, 2.884415942051824],
+      [51.935483870967744, 9.533870158031391, 2.7061725262902048],
+      [55.645161290322584, 9.533870158031391, 1.5356413809176466],
+      [59.35483870967742, 9.534857575168278, 0.0],
+      [63.06451612903226, 9.744479724519579, 2.1921843025670276],
+      [66.7741935483871, 10.482955905446111, 4.406606914026259],
+      [70.48387096774194, 11.461014027674041, 5.983113487182974],
+      [74.19354838709678, 12.741366504602532, 7.542282715488643],
+      [77.90322580645162, 14.470496776431572, 9.133938061599679],
+      [81.61290322580646, 16.5340631881719, 11.04517242568761],
+      [85.3225806451613, 18.740622651403253, 13.118147879324866],
+      [89.03225806451613, 21.090727086116093, 15.422113708536793],
+      [92.74193548387098, 23.496118577735828, 17.703530513798814],
+      [96.45161290322581, 25.87482140824033, 20.041621552690902],
+      [100.16129032258065, 28.48023091138736, 22.75609025297805],
+      [103.87096774193549, 31.155492228512948, 25.649210846827955],
+      [107.58064516129033, 33.6577392912189, 28.749582767997566],
+      [111.29032258064517, 36.11513897733703, 32.25108706730192],
+      [115.0, 37.0, 33.94181789626784]
+    ]
+  },
+  "plate_paradisisk_off_white_20cm": {
+    "parameters": {
+      "angular_sections": 32,
+      "profile_tolerance_mm": 0.35,
+      "rgba": [
+        240,
+        238,
+        231,
+        255
+      ],
+      "source_detailed_triangles": 641280,
+      "source_detailed_stl_sha256": "9d187ed5beca9fb211dfa14dce41c325bcb4f0f803c8aa6caf7a30e08f28940c",
+      "purpose": "Single closed simplified plate surface with reference-derived rim texture; no physical decorative relief.",
+      "appearance_recipe": "dataset/hestia-rl/plate_paradisisk_off_white_20cm/appearance/pattern.json"
+    },
+    "dimensions": {
+      "outer_diameter_mm": 200,
+      "overall_height_mm": 20.7,
+      "status": "PRODUCT_DIAMETER_CAPTURE_HEIGHT",
+      "source": "The product is sold as a four-pack. Packaging height and weight describe the package, not a single plate. Single-plate height is not inferred by dividing stack height by four.",
+      "physical_measurement_confirmed": false,
+      "capture_statistics": {
+        "accepted_views": 10,
+        "total_views": 10,
+        "status": "CAPTURE_DERIVED_ESTIMATE_NOT_VERIFIED_PHYSICAL_MEASUREMENT",
+        "method": "Fit measured rim/table planes, intersect silhouette rays with rim plane, then robust circle fit. Independent of generated mesh scale.",
+        "limitations": [
+          "Rim plane uses a band inside the outer edge and can underestimate true lip height.",
+          "Masked silhouette can miss a thin sidewall. Glossy depth, calibration and plane-fit error remain.",
+          "No supplied caliper measurements or certified dimensional tolerance.",
+          "Median/range across views are repeatability diagnostics, not absolute accuracy bounds."
+        ],
+        "median_diameter_mm": 200.32513650999013,
+        "diameter_p10_p90_mm": [
+          200.2207578479231,
+          200.52139687250138
+        ],
+        "median_rim_height_mm": 20.65461784828922,
+        "rim_height_p10_p90_mm": [
+          20.423259623963272,
+          20.793437804695554
+        ]
+      },
+      "reference_table_plane": {
+        "normal": [-0.19008906696754366, -0.1781306012868302, -0.9654717165741317],
+        "offset_m": 0.2677401943339515
+      },
+      "product_identity": {
+        "brand": "IKEA",
+        "product": "PARADISISK side plate"
+      },
+      "product_reference_authoritative_path": "dataset/hestia-rl/plate_paradisisk_off_white_20cm/product_reference.json",
+      "dimension_sources": {
+        "outer_diameter_mm": {
+          "kind": "manufacturer_nominal",
+          "value_mm": 200,
+          "source": {
+            "type": "manufacturer_product_page",
+            "url": "https://www.ikea.com/eg/en/p/paradisisk-side-plate-off-white-00483461/",
+            "checked_date": "2026-11-03",
+            "identified_by": "user"
+          }
+        },
+        "overall_height_mm": {
+          "kind": "capture_estimate",
+          "value_mm": 20.7,
+          "source": {
+            "type": "calibrated_depth_rim_to_table_fit",
+            "evidence": "capture_statistics"
+          }
+        }
+      },
+      "status_label": "Product diameter; estimated height",
+      "dimension_note": "Diameter uses IKEA's nominal 200 mm product measurement. Single-plate height remains the 20.7 mm capture estimate; the packaging height is not treated as the plate height.",
+      "updated_date": "2026-11-03"
+    },
+    "profile_radius_top_bottom_mm": [
+      [0.0, 6.1150774734289755, 3.0117248633175704],
+      [3.2258064516129035, 6.1150774734289755, 3.0225831178084293],
+      [6.451612903225807, 6.1150774734289755, 3.0392762918150322],
+      [9.677419354838712, 6.1150774734289755, 3.053662414589047],
+      [12.903225806451614, 6.1150774734289755, 3.053812304994259],
+      [16.12903225806452, 6.1150774734289755, 3.0358923352961202],
+      [19.354838709677423, 6.1150774734289755, 3.0058741136857665],
+      [22.580645161290324, 6.1150774734289755, 2.9739533559842988],
+      [25.806451612903228, 6.1150774734289755, 2.9415341021940447],
+      [29.03225806451613, 6.1150774734289755, 2.920845848274875],
+      [32.25806451612904, 6.1150774734289755, 2.905977642145838],
+      [35.48387096774194, 6.1150774734289755, 2.8935205344661563],
+      [38.70967741935485, 6.1150774734289755, 2.8749863656682573],
+      [41.93548387096775, 6.1150774734289755, 2.839765554036375],
+      [45.16129032258065, 6.1150774734289755, 2.781461275395405],
+      [48.38709677419355, 6.1150774734289755, 2.6850712203570164],
+      [51.612903225806456, 6.1150774734289755, 1.9447008520058262],
+      [54.83870967741936, 6.13780200115848, 0.0],
+      [58.06451612903226, 7.397181753246417, 1.8253023186454822],
+      [61.29032258064517, 10.485698053763864, 5.35739265060025],
+      [64.51612903225808, 13.707950709774947, 8.903085546507748],
+      [67.74193548387098, 15.658631781198102, 11.773850681095965],
+      [70.96774193548389, 16.458017207482023, 12.964543126880256],
+      [74.19354838709678, 16.936463963252, 13.705481266896843],
+      [77.4193548387097, 17.45425354726278, 14.272698081139652],
+      [80.64516129032259, 18.061956642730582, 14.788716350959783],
+      [83.8709677419355, 18.596561813168073, 15.317169610294435],
+      [87.0967741935484, 19.125761258920498, 15.843208057418344],
+      [90.3225806451613, 19.598154758205084, 16.332560592247525],
+      [93.54838709677419, 20.05892730452204, 16.90039521127338],
+      [96.7741935483871, 20.50454910834725, 17.589791020538932],
+      [100.0, 20.7, 18.195415302632867]
+    ]
+  },
+  "plate_strimmig_pale_grey_green_21cm": {
+    "parameters": {
+      "angular_sections": 32,
+      "profile_tolerance_mm": 0.35,
+      "rgba": [
+        163,
+        178,
+        148,
+        255
+      ],
+      "source_detailed_triangles": 1073088,
+      "source_detailed_stl_sha256": "ecffb24677fbb5fd692a1cfacbb579f43d41dcfd9b6e3110bbd78b4b607f450c",
+      "purpose": "Single closed simplified plate surface with reference-derived rim texture; no physical decorative relief.",
+      "appearance_recipe": "dataset/hestia-rl/plate_strimmig_pale_grey_green_21cm/appearance/pattern.json"
+    },
+    "dimensions": {
+      "outer_diameter_mm": 210,
+      "overall_height_mm": 24.5,
+      "status": "PRODUCT_DIAMETER_CAPTURE_HEIGHT",
+      "source": "Manufacturer confirms nominal product diameter only. The 30 mm height and 0.43 kg weight are listed under Packaging and are not adopted as exact plate height or mass.",
+      "physical_measurement_confirmed": false,
+      "capture_statistics": {
+        "accepted_views": 9,
+        "total_views": 11,
+        "status": "CAPTURE_DERIVED_ESTIMATE_NOT_VERIFIED_PHYSICAL_MEASUREMENT",
+        "method": "Fit measured rim/table planes, intersect silhouette rays with rim plane, then robust circle fit. Independent of generated mesh scale.",
+        "limitations": [
+          "Rim plane uses a band inside the outer edge and can underestimate true lip height.",
+          "Masked silhouette can miss a thin sidewall. Glossy depth, calibration and plane-fit error remain.",
+          "No supplied caliper measurements or certified dimensional tolerance.",
+          "Median/range across views are repeatability diagnostics, not absolute accuracy bounds."
+        ],
+        "median_diameter_mm": 210.85170058935506,
+        "diameter_p10_p90_mm": [
+          210.10196497747867,
+          214.17361347297566
+        ],
+        "median_rim_height_mm": 24.47045890472166,
+        "rim_height_p10_p90_mm": [
+          24.318215701802703,
+          25.119279949281115
+        ]
+      },
+      "reference_table_plane": {
+        "normal": [-0.06168214897577272, -0.6286631710860946, -0.7752276632175261],
+        "offset_m": 0.27770924903915345
+      },
+      "product_identity": {
+        "brand": "IKEA",
+        "product": "STRIMMIG side plate"
+      },
+      "product_reference_authoritative_path": "dataset/hestia-rl/plate_strimmig_pale_grey_green_21cm/product_reference.json",
+      "dimension_sources": {
+        "outer_diameter_mm": {
+          "kind": "manufacturer_nominal",
+          "value_mm": 210,
+          "source": {
+            "type": "manufacturer_product_page",
+            "url": "https://www.ikea.com/jp/en/p/strimmig-side-plate-stoneware-pale-grey-green-00631490/",
+            "checked_date": "2026-11-03",
+            "identified_by": "user"
+          }
+        },
+        "overall_height_mm": {
+          "kind": "capture_estimate",
+          "value_mm": 24.5,
+          "source": {
+            "type": "calibrated_depth_rim_to_table_fit",
+            "evidence": "capture_statistics"
+          }
+        }
+      },
+      "status_label": "Product diameter; estimated height",
+      "dimension_note": "Diameter uses IKEA's nominal 210 mm product measurement. Single-plate height remains the 24.5 mm capture estimate; the packaging height is not treated as the plate height.",
+      "updated_date": "2026-11-03"
+    },
+    "profile_radius_top_bottom_mm": [
+      [0.0, 5.163532147629751, 1.7603199630873771],
+      [3.387096774193548, 5.163532147629751, 1.7540860400922826],
+      [6.774193548387096, 5.163532147629751, 1.7404666345617263],
+      [10.161290322580644, 5.163532147629751, 1.7237088590997507],
+      [13.548387096774192, 5.163532147629751, 1.7104349050373426],
+      [16.93548387096774, 5.163532147629751, 1.689813571551961],
+      [20.32258064516129, 5.163532147629751, 1.6621516322824923],
+      [23.709677419354836, 5.163532147629751, 1.6335127730323893],
+      [27.096774193548384, 5.163532147629751, 1.60503873091369],
+      [30.483870967741932, 5.163532147629751, 1.5760688611561724],
+      [33.87096774193548, 5.163532147629751, 1.546864883824605],
+      [37.25806451612903, 5.163532147629751, 1.5240979272653563],
+      [40.64516129032258, 5.163532147629751, 1.5069801795697648],
+      [44.03225806451612, 5.163532147629751, 1.5071700527693739],
+      [47.41935483870967, 5.163532147629751, 1.5271382712162074],
+      [50.806451612903224, 5.163532147629751, 1.5549894755220144],
+      [54.19354838709677, 5.163532838342453, 1.5534289816889],
+      [57.58064516129031, 5.180548539231922, 0.3506610678326209],
+      [60.967741935483865, 5.887311321639892, 0.0],
+      [64.35483870967742, 8.878064781545516, 4.290381122981263],
+      [67.74193548387096, 12.706131890243357, 7.809410396883912],
+      [71.12903225806451, 15.165089563472714, 9.010808627515503],
+      [74.51612903225806, 16.717469394544825, 10.013166148498794],
+      [77.90322580645162, 17.633365770970656, 11.087522593528155],
+      [81.29032258064515, 18.425451412210425, 12.231948185384882],
+      [84.6774193548387, 19.25030917938425, 13.38102411238084],
+      [88.06451612903224, 20.149664061678862, 14.495237375284498],
+      [91.45161290322581, 21.14352070615448, 15.659940449690172],
+      [94.83870967741935, 22.167400227850607, 16.857870741323353],
+      [98.2258064516129, 23.250284730762996, 18.078786202303068],
+      [101.61290322580645, 24.347445286967353, 19.600256065615575],
+      [105.0, 24.5, 20.93874522431065]
+    ]
   }
 }

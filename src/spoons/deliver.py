@@ -19,7 +19,7 @@ NAMES=('spoon_daiso_pink','spoon_home_black')
 def deliver():
     reports={}
     for name in NAMES:
-        root=ROOT/'output/objects/hestia-rl'/name/'codex';products=root/'products';dest=root/'exports/mujoco_rl'
+        root=ROOT/'output/hestia-rl'/name;products=root;dest=ROOT/'work/hestia-rl'/name/'codex/exports/mujoco_rl'
         dest.parent.mkdir(parents=True,exist_ok=True)
         p=json.loads((products/'parameters.json').read_text())
         with tempfile.TemporaryDirectory(prefix='.spoon_delivery_',dir=dest.parent) as temp:
@@ -57,16 +57,17 @@ def deliver():
             if name not in reports:continue
             if filename=='runtime_validation.json':entry.update(reports[name])
             else:
-                v=json.loads((ROOT/'output/objects/hestia-rl'/name/'codex/products/validation.json').read_text())
+                v=json.loads((ROOT/'output/hestia-rl'/name/'validation.json').read_text())
                 entry.update(parts=v['collision_parts'],triangles=v['collision_triangles'],action='Current accepted spoon and validated convex collision assembly')
         json_write(path,entries)
     package=ROOT/'output/packages/spoons_mujoco_rl.zip';temporary=package.with_suffix('.tmp.zip');hashes={}
     with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('README.txt','Two authored spoon assets in metres. Load <object>/mujoco/collision/scene.xml or integrate model.xml. Keep hulls separate. Dynamic and cavity tests passed. No SAM3D experimental folder or inference is required. Black uses permanent accepted mesh sources. Mass, dimensions and friction remain estimates.\n')
         for name in NAMES:
-            root=ROOT/'output/objects/hestia-rl'/name/'codex'
-            files=[(f,f'{name}/{f.relative_to(root/"exports/mujoco_rl")}') for f in sorted((root/'exports/mujoco_rl').rglob('*')) if f.is_file()]
-            for f in (root/'products').iterdir():
+            root=ROOT/'output/hestia-rl'/name
+            delivery=ROOT/'work/hestia-rl'/name/'codex/exports/mujoco_rl'
+            files=[(f,f'{name}/{f.relative_to(delivery)}') for f in sorted(delivery.rglob('*')) if f.is_file()]
+            for f in root.iterdir():
                 if f.suffix in ('.glb','.png','.json','.txt'):files.append((f,f'{name}/products/{f.name}'))
             for source,destination in files:z.write(source,destination);hashes[destination]=sha256(source)
         z.writestr('manifest.json',json.dumps({'units':'m','files':hashes,'mujoco_version':mujoco.__version__,'cavity_tests_passed':True},indent=2)+'\n')

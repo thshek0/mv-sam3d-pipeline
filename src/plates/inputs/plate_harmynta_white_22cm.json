@@ -805,19 +805,19 @@
       "IMG_9974",
       "IMG_9978"
     ],
-    "report": "output/objects/hestia-rl/plate_harmynta_white_22cm/codex/intermediate/curvature_refit_20261107/photo_fit_report.json"
+    "report": "work/hestia-rl/plate_harmynta_white_22cm/codex/curvature_refit_20261107/photo_fit_report.json"
   },
   "status_label": "Photo-fitted underside curvature; measured foot ring",
   "generate_rl_variant": true,
   "geometry_evidence_files": [
-    "dataset/hestia-rl/plate_harmynta_white_22cm/captures_20261107_1213_plate.zip",
+    "dataset/hestia-rl/plate_harmynta_white_22cm/raw/captures_20261107_1213_plate.zip",
     "src/plates/fit_harmynta.py",
-    "output/objects/hestia-rl/plate_harmynta_white_22cm/codex/intermediate/refit_20261107/fit_report.json",
-    "output/objects/hestia-rl/plate_harmynta_white_22cm/codex/intermediate/refit_20261107/before/input.json",
-    "dataset/hestia-rl/plate_harmynta_white_22cm/More plate-20261107T052054Z-1-001.zip",
+    "work/hestia-rl/plate_harmynta_white_22cm/codex/refit_20261107/fit_report.json",
+    "work/hestia-rl/plate_harmynta_white_22cm/codex/refit_20261107/before/input.json",
+    "dataset/hestia-rl/plate_harmynta_white_22cm/raw/More plate-20261107T052054Z-1-001.zip",
     "src/plates/fit_harmynta_photos.py",
     "src/plates/inputs/plate_harmynta_white_22cm_photo_edges.json",
-    "output/objects/hestia-rl/plate_harmynta_white_22cm/codex/intermediate/curvature_refit_20261107/photo_fit_report.json",
-    "output/objects/hestia-rl/plate_harmynta_white_22cm/codex/intermediate/curvature_refit_20261107/before/input.json"
+    "work/hestia-rl/plate_harmynta_white_22cm/codex/curvature_refit_20261107/photo_fit_report.json",
+    "work/hestia-rl/plate_harmynta_white_22cm/codex/curvature_refit_20261107/before/input.json"
   ]
 }

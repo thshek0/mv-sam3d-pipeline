@@ -1,6 +1,6 @@
 """Generate compact RL collision alternatives, retaining original visuals/compounds.
 
-python -m src.rl_collision --root output/objects/hestia-rl
+python -m src.rl_collision --root output/hestia-rl
 Only expensive plate/bird compounds are replaced by an explicitly named RL variant.
 """
 from pathlib import Path
@@ -25,9 +25,14 @@ def scene_write(parts,path):
 
 
 def coarse_plate(source):
-    from src.plates.rebuild import keep_profile
-    folder=source.parent;p=json.loads((folder/'parameters.json').read_text());d=json.loads((folder/'dimensions.json').read_text())
-    r,t,b=np.loadtxt(folder/p['profile_csv'],delimiter=',',skiprows=1).T
+    from src.plates.rebuild import keep_profile, read_profile, NAMES
+    name=source.stem.removesuffix('_m')
+    if name in NAMES:
+        p,d,profile=read_profile(name)
+    else:
+        folder=source.parent;p=json.loads((folder/'parameters.json').read_text());d=json.loads((folder/'dimensions.json').read_text())
+        profile=np.loadtxt(folder/p['profile_csv'],delimiter=',',skiprows=1)
+    r,t,b=profile.T
     r*=d['outer_diameter_mm']/(2*r[-1]);factor=d['overall_height_mm']/t.max();t*=factor;b*=factor
     ti,_=keep_profile(r,t,.7);bi,_=keep_profile(r,b,.7);knots=np.unique(np.r_[r[ti],r[bi]])
     top=np.interp(knots,r,t);bottom=np.interp(knots,r,b)
@@ -64,15 +69,16 @@ def surface_error(source,parts):
 
 def build(root):
     inventory=[]
-    for manifest in sorted(root.glob('*/codex/asset.json')):
-        d=json.loads(manifest.read_text());name=manifest.parent.parent.name
+    for manifest in sorted([*root.glob('*/asset.json'), *root.glob('*/simulation/asset.json')]):
+        d=json.loads(manifest.read_text());name=manifest.parent.parent.name if manifest.parent.name=='simulation' else manifest.parent.name
         for variant,entry in list(d['variants'].items()):
             if variant.endswith('_rl'):continue
+            if 'visual' not in entry:continue
             source=(manifest.parent/entry['visual']['path']).resolve()
             if name.startswith('plate_'):
                 parts,report=coarse_plate(source)
                 old_count=len(load_parts(manifest.parent/entry['collision']['path'])) if 'collision' in entry else None
-                out=manifest.parent/'products/rl_collision';out.mkdir(exist_ok=True)
+                out=manifest.parent/'rl_collision';out.mkdir(exist_ok=True)
                 collision=out/(variant+'_rl.glb');scene_write(parts,collision);validate_parts(parts)
                 report.update(parts=len(parts),triangles=sum(len(m.faces) for m in parts.values()),previous_parts=old_count,surface_check=surface_error(source,parts),source_sha256=sha256(source))
                 save(out/(variant+'_validation.json'),report)
@@ -87,9 +93,9 @@ def build(root):
                 inventory.append({'object':name,'variant':variant,'action':'Reused existing convex assembly','parts':len(parts),'triangles':sum(len(m.faces) for m in parts.values())})
         manifest.write_text(json.dumps(d,indent=2)+'\n')
     for folder in sorted(root.glob('bird*/sam3d')):
-        source=folder/'products/hybrid_sam3d_mesh.glb'
+        source=folder/'hybrid_sam3d_mesh.glb'
         if not source.exists():continue
-        out=folder/'products/rl_collision';out.mkdir(exist_ok=True);collision=out/'bird_rl.glb'
+        out=folder/'rl_collision';out.mkdir(exist_ok=True);collision=out/'bird_rl.glb'
         report_path=out/'validation.json'
         if report_path.exists() and json.loads(report_path.read_text()).get('source_sha256')==sha256(source):
             parts=load_parts(collision);report=json.loads(report_path.read_text())
@@ -101,7 +107,7 @@ def build(root):
         save_manifest(source_manifest,kind='reconstruction_with_rl_colliders',sources=[source,Path(__file__),report_path],variants={folder.parent.name+'_rl':{'visual':source,'collision':collision}},units='source_units',frame='Original reconstruction coordinates; physical scale uncalibrated',rebuild=['python','-m','src.rl_collision','--root',str(root)])
         inventory.append({'object':folder.parent.name,'action':'Created simplified RL alternative',**report})
         print(folder.parent.name,report['parts'],'pieces',flush=True)
-    out=root.parent.parent/'comparisons/hestia_rl_collision';out.mkdir(parents=True,exist_ok=True);save(out/'inventory.json',inventory)
+    out=root.parent/'comparisons/hestia_rl_collision';out.mkdir(parents=True,exist_ok=True);save(out/'inventory.json',inventory)
     print('Inventory:',out/'inventory.json',flush=True)
 
 if __name__=='__main__':

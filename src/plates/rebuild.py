@@ -1,5 +1,5 @@
 """Rebuild the current simplified plates. No simulator or image generator required.
-Edit each model's parameters.json, dimensions.json and *_profile_mm.csv first.
+Edit the plate entry in src/product_inputs/designs.json.
 """
 from pathlib import Path
 import argparse,json,os,sys
@@ -12,8 +12,13 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 from src.plates.appearance import apply_appearance
 from src.output_layout import canonical_name
-OUT=ROOT/'output/objects/hestia-rl'
+OUT=ROOT/'output/hestia-rl'
+INPUTS=ROOT/'src/product_inputs/designs.json'
 NAMES=('plate_maehata_pop_blue_23cm','plate_strimmig_pale_grey_green_21cm','plate_paradisisk_off_white_20cm')
+
+def read_profile(name, source=None):
+    data=json.loads((source or INPUTS).read_text())[canonical_name(name)]
+    return data['parameters'],data['dimensions'],np.array(data['profile_radius_top_bottom_mm'],dtype=float)
 
 def keep_profile(r,z,tolerance):
     selected={0,len(r)-1,int(np.argmin(z)),int(np.argmax(z))}
@@ -36,9 +41,8 @@ def audit(mesh):
 
 def build(name,destination=None):
     name=canonical_name(name)
-    source=OUT/name/'codex/products';dest=Path(destination) if destination else source;dest.mkdir(parents=True,exist_ok=True)
-    params=json.loads((source/'parameters.json').read_text());dims=json.loads((source/'dimensions.json').read_text())
-    profile=np.loadtxt(source/params['profile_csv'],delimiter=',',skiprows=1)
+    dest=Path(destination) if destination else OUT/name;dest.mkdir(parents=True,exist_ok=True)
+    params,dims,profile=read_profile(name)
     r,top,bottom=profile.T
     r=r*(dims['outer_diameter_mm']/(2*r[-1]));scale=dims['overall_height_mm']/top.max();top=top*scale;bottom=bottom*scale
     sections=params['angular_sections'];assert sections>=12 and sections%4==0
@@ -78,7 +82,7 @@ def build(name,destination=None):
         'profile_mm':{'radius':r.tolist(),'top':top.tolist(),'bottom':bottom.tolist()},
         'dimensions':dims,'dimension_sources':dims['dimension_sources'],
         'appearance_check':appearance,
-        'units':{'glb':'m','profile_csv':'mm'},
+        'units':{'glb':'m','source_profile':'mm'},
         'origin':'Centre in XY, support plane Z=0, Z up',
         'limitations':['Single concave mesh; MuJoCo uses a convex hull for one mesh collider, filling the cavity. Decompose for inside-dish contact.',
             'Geometry checked; no simulation or performance benchmark run.',
@@ -88,12 +92,21 @@ def build(name,destination=None):
     (dest/'validation.json').write_text(json.dumps(report,indent=2)+'\n')
     from src.assets import save_manifest
     inputs=[Path(__file__),Path(__file__).with_name('appearance.py'),
-            source/'parameters.json',source/'dimensions.json',source/params['profile_csv']]
+            ROOT/'src/rl_collision.py',INPUTS]
     if params.get('appearance_recipe'):inputs.append(ROOT/params['appearance_recipe'])
-    save_manifest(dest.parent/'asset.json' if destination is None else dest/'asset.json',
+    # Refresh the configured RL variant with the same profile as the visual.
+    from src.rl_collision import coarse_plate, scene_write
+    from src.collision import validate_parts
+    coarse,coarse_report=coarse_plate(dest/f'{name}_m.glb');validate_parts(coarse)
+    coarse_out=dest/'rl_collision';coarse_out.mkdir(exist_ok=True)
+    coarse_path=coarse_out/(name+'_rl.glb');scene_write(coarse,coarse_path)
+    (coarse_out/(name+'_validation.json')).write_text(json.dumps(coarse_report,indent=2)+'\n')
+    save_manifest(dest/'asset.json',
                   kind='radial_profile',sources=inputs,
                   variants={name:{'visual':dest/f'{name}_m.glb',
-                                  'collision_recipe':source/'parameters.json'}},units='m',
+                                  'collision_recipe':INPUTS},
+                            name+'_rl':{'visual':dest/f'{name}_m.glb','collision':coarse_path,
+                                        'contact_settings':ROOT/'src/product_inputs/rl_contacts.json'}},units='m',
                   frame='XY centre, Z up; support Z=0',
                   rebuild=['python','-m','src.plates.rebuild',name])
     print(name,len(mesh.faces),'triangles, watertight, dimensions verified',flush=True)

@@ -28,7 +28,7 @@ def selected_sources(root, model):
     dataset = root/'dataset/hkqai-instruments'/model
     config = json.loads((dataset/'evidence.json').read_text())
     metadata = [config, json.loads((dataset/'measurements.json').read_text()),
-                json.loads((root/'output/objects/hkqai-instruments'/model/'codex/products/parameters.json').read_text())]
+                json.loads((root/'output/hkqai-instruments'/model/'parameters.json').read_text())]
     images = set()
     for value in strings(metadata):
         if Path(value).suffix.lower() not in IMAGE_SUFFIXES:

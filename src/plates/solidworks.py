@@ -35,11 +35,11 @@ from OCC.Core.BRepClass3d import BRepClass3d_SolidClassifier
 from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
 
 ROOT=Path(__file__).resolve().parents[2]
-ASSET=ROOT/'output/objects/hestia-rl/plate_harmynta_white_22cm/codex'
+ASSET=ROOT/'output/hestia-rl/plate_harmynta_white_22cm'
 INPUT=ROOT/'src/plates/inputs/plate_harmynta_white_22cm.json'
 FIT_REPORT=INPUT.with_name('plate_harmynta_white_22cm_photo_fit.json')
-AUDIT=ASSET/'intermediate/solidworks_20261107'
-STEP=ASSET/'products/HARMYNTA_220mm.step'
+AUDIT=ROOT/'work/hestia-rl/plate_harmynta_white_22cm/codex/solidworks_20261107'
+STEP=ASSET/'HARMYNTA_220mm.step'
 
 
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -191,10 +191,10 @@ def build():
         'rebuild':[sys.executable,'-m','src.plates.solidworks'],
         'variants':{'HARMYNTA_220mm':{'step':reference(STEP)}},
         'native_files':{},'export_directory':'exports',
-        'policy':'One current STEP under products; explicit deliveries only.',
+        'policy':'One current STEP at the object output root; explicit deliveries only.',
         'dependency_policy':{'experimental_method_inputs_allowed':False,
                              'registered_paths_checked_after_resolving_symlinks':True}}
-    (ASSET/'solidworks_asset.json').write_text(json.dumps(registry,indent=2)+'\n')
+    (ASSET/'asset.json').write_text(json.dumps(registry,indent=2)+'\n')
     print(json.dumps(report,indent=2),flush=True)
 
 

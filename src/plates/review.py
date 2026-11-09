@@ -15,7 +15,7 @@ def run():
     files={};summaries=[];links=[]
     board=Image.new('RGB',(1600,1500),'white');draw=ImageDraw.Draw(board)
     for i,name in enumerate(NAMES):
-        folder=ROOT/'output/objects/hestia-rl'/name/'codex/products'
+        folder=ROOT/'output/hestia-rl'/name
         report=json.loads((folder/'validation.json').read_text());check=report['mesh_checks']
         summaries.append({'name':name,'triangles':check['triangles'],'extents_mm':check['extents_mm'],
                           'appearance':report['appearance_check'],
@@ -31,7 +31,7 @@ def run():
               'units':{'glb':'metres','obj':'metres','stl':'millimetres','scad':'millimetres'},
               'files':{name:hashlib.sha256(p.read_bytes()).hexdigest() for name,p in files.items()}}
     (review/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-    readme='Current simplified plate products. Open index.html. Local GLB/OBJ use metres; local STL/SCAD/CSV use millimetres. The family download uses metres for both OBJ and STL plate files, with separate convex collision pieces and textured MuJoCo XML. All three plate decorations are reconstructed from reference photographs; see each validation.json for provenance and approximation limits. Rim relief on the green and off-white plates is represented by baked colour, not physical embossing. Rebuild with src/plates/rebuild.py, then render.py and review.py. ZIP downloads are snapshots and are not rebuilt by this review command. Parameters and profile CSVs remain editable inputs; pattern recipes are in dataset/hestia-rl/<plate>/appearance/.\n'
+    readme='Current simplified plate products. Open index.html. Local GLB/OBJ use metres; local STL/SCAD use millimetres. The family download uses metres for both OBJ and STL plate files, with separate convex collision pieces and textured MuJoCo XML. All three plate decorations are reconstructed from reference photographs; see each validation.json for provenance and approximation limits. Rim relief on the green and off-white plates is represented by baked colour, not physical embossing. Rebuild with src/plates/rebuild.py, then render.py and review.py. ZIP downloads are snapshots and are not rebuilt by this review command. Edit parameters, dimension evidence and profiles in src/product_inputs/designs.json; pattern recipes are in dataset/hestia-rl/<plate>/appearance/.\n'
     (review/'README.txt').write_text(readme)
     page='<!doctype html><meta charset="utf-8"><title>Plate products</title><h1>Plate products</h1><ul>'+''.join(links)+'</ul><a href="../../packages/">Exported ZIP snapshots</a><p><img style="max-width:100%" src="preview.png"></p>'
     (review/'index.html').write_text(page)

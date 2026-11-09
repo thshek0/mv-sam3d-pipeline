@@ -30,7 +30,7 @@ from post import load_triangle_mesh, preview_mesh
 from vis import visualize_depth
 
 DEFAULT_SCENE = REPO / "examples/gripper/processed"
-DEFAULT_GRIPPER_OUT = REPO / "output/objects/hkqai-trial/gripper/sam3d/intermediate/benchmarks/gripper_timed"
+DEFAULT_GRIPPER_OUT = REPO / "work/hkqai-trial/gripper/sam3d/benchmarks/gripper_timed"
 
 
 def default_out_dir(src: Path) -> Path:
@@ -222,7 +222,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--masks", default="object", help="Mask folder name (gripper example uses object/)")
     parser.add_argument("--n", type=int, default=10)
-    parser.add_argument("--out", type=Path, default=None, help="Repeat folder (default: output/objects/<family>/<object>/sam3d/intermediate/benchmarks/<scene>_timed for known families)")
+    parser.add_argument("--out", type=Path, default=None, help="Repeat folder (default: work/<family>/<object>/sam3d/benchmarks/<scene>_timed for known families)")
     parser.add_argument(
         "--keep-runs", action=argparse.BooleanOptionalAction, default=True,
         help="Keep run_*/ meshes and npzs (default). --no-keep-runs leaves summary.json and sheets only",

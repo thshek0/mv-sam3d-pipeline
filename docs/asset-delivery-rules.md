@@ -14,7 +14,7 @@ absolute paths, reconstruction environments, or files outside that folder.
 | QAI instruments (`hkqai-instruments`) | Native OpenSCAD, required SCAD dependencies, previews and instructions | `openscad/assembly.scad` |
 | Hestia (`hestia-rl`), except birds | MuJoCo MJCF, visual mesh, individual convex collision meshes, required textures and previews | `model.xml` |
 | Both birds (`bird_swallow`, `bird_mahjong`) | STL and geometry previews | `<object>.stl` in a slicer |
-| HKQAI trial | Leave its existing workflow and outputs alone | Existing products |
+| HKQAI trial | Exclude from collection deliveries; preserve capture identities | Existing products |
 
 The birds have uncalibrated physical scale. The user explicitly chose to preserve
 their existing coordinates and **set the size in the slicer**. Do not silently

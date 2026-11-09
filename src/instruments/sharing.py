@@ -15,7 +15,7 @@ def main():
   models.mkdir();sheets.mkdir();work.mkdir()
   page='<!doctype html><meta charset="utf-8"><title>Instrument OpenSCAD models</title><style>body{font:17px/1.5 system-ui;max-width:1100px;margin:30px auto}img{max-width:100%}</style><h1>Instrument OpenSCAD models</h1>'
   for model in MODELS:
-   product=ROOT/'output/objects/hkqai-instruments'/model/'codex/products'
+   product=ROOT/'output/hkqai-instruments'/model
    manifest=json.loads((product/'manifest.json').read_text())
    selected=['openscad/assembly.scad','openscad/parameters_native.scad','openscad/common.scad',
              'assembly.png','overview.png']
@@ -89,7 +89,7 @@ def project():
  for path in sorted((ROOT/'dataset/hkqai-instruments').rglob('*')):
   if path.is_file():files[str(path.relative_to(ROOT))]=path
  for model in MODELS:
-  parameters=ROOT/'output/objects/hkqai-instruments'/model/'codex/products/parameters.json'
+  parameters=ROOT/'output/hkqai-instruments'/model/'parameters.json'
   if parameters.exists():files[str(parameters.relative_to(ROOT))]=parameters
  if not any(name.startswith('dataset/hkqai-instruments/') for name in files):
   raise FileNotFoundError('Instrument datasets are required for the project archive')

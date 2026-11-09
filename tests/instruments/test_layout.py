@@ -10,19 +10,19 @@ from helpers import (dataset_root, dataset_scene_dir, dataset_depth_npz,
 @pytest.mark.parametrize('model', ['cary60', 'c13472', 'c16361', 'c13534'])
 def test_instrument_paths_and_explicit_machine_root(tmp_path: Path, model: str):
     name = model + '_photo_closed'
-    expected = tmp_path / 'objects/hkqai-instruments' / model / 'sam3d/intermediate' / name
-    assert dataset_root(tmp_path, name) == expected
-    assert dataset_root(tmp_path / 'objects/hkqai-instruments' / model, name) == expected
-    assert dataset_root(tmp_path / 'objects/hkqai-instruments', name) == expected
-    assert dataset_scene_dir(tmp_path, name) == expected / 'scene'
-    assert dataset_depth_npz(tmp_path, name, 'rs') == expected / 'depth/rs.npz'
-    assert dataset_meshes_dir(tmp_path, name) == tmp_path / 'objects/hkqai-instruments' / model / 'sam3d/products' / name
+    expected = tmp_path / 'work/hkqai-instruments' / model / 'sam3d' / name
+    assert dataset_root(tmp_path / "output", name) == expected
+    assert dataset_root(tmp_path / 'output/hkqai-instruments' / model, name) == expected
+    assert dataset_root(tmp_path / 'output/hkqai-instruments', name) == expected
+    assert dataset_scene_dir(tmp_path / "output", name) == expected / 'scene'
+    assert dataset_depth_npz(tmp_path / 'output', name, 'rs') == expected / 'depth/rs.npz'
+    assert dataset_meshes_dir(tmp_path / "output", name) == tmp_path / 'output/hkqai-instruments' / model / 'sam3d' / name
     assert dataset_name_from_input(expected / 'scene') == name
 
 
 @pytest.mark.parametrize('name', ['gripper_fixture', 'c134720_photo_closed'])
 def test_other_names_use_misc_output_family(tmp_path: Path, name: str):
-    assert dataset_root(tmp_path, name) == tmp_path / "objects/misc" / name / "sam3d/intermediate"
+    assert dataset_root(tmp_path / "output", name) == tmp_path / "work/misc" / name / "sam3d"
 
 
 def test_grouped_batch_identity_and_mixed_state_rejection(tmp_path: Path):
@@ -91,7 +91,7 @@ def test_split_share_keeps_models_portable_and_sources_image_only(tmp_path, monk
 
     monkeypatch.setattr(sharing, 'ROOT', tmp_path)
     monkeypatch.setattr(sharing, 'MODELS', ('cary60',))
-    product = tmp_path/'output/objects/hkqai-instruments/cary60/codex/products'
+    product = tmp_path/'output/hkqai-instruments/cary60'
     (product/'openscad').mkdir(parents=True)
     (product/'openscad/assembly.scad').write_text('include <parameters_native.scad>\nuse <common.scad>\ncube(width);')
     (product/'openscad/parameters_native.scad').write_text('width=10;')
@@ -126,3 +126,27 @@ def test_split_share_keeps_models_portable_and_sources_image_only(tmp_path, monk
     (product/'openscad/common.scad').unlink()
     with pytest.raises((AssertionError, FileNotFoundError)):
         sharing.main()
+
+
+def test_republish_preserves_registry_and_separate_reconstruction(tmp_path, monkeypatch):
+    import json
+    from PIL import Image
+    from src.instruments import publish
+    from src.instruments.validation import check_cad_package
+    monkeypatch.setattr(publish, 'ROOT', tmp_path)
+    folder=tmp_path/'output/hkqai-instruments/cary60'
+    (folder/'openscad').mkdir(parents=True)
+    for name in ('assembly.scad','parameters_native.scad','common.scad'):
+        (folder/'openscad'/name).write_text('// native source')
+    for name in ('assembly.png','overview.png'):Image.new('RGB',(8,8)).save(folder/name)
+    (folder/'parameters.json').write_text('{}')
+    (folder/'asset.json').write_text('{"registered": true}')
+    run=folder/'sam3d/cary60_open';run.mkdir(parents=True)
+    (run/'mesh.glb').write_bytes(b'independent reconstruction')
+    (tmp_path/'dataset/hkqai-instruments/cary60').mkdir(parents=True)
+    publish.publish('cary60')
+    assert json.loads((folder/'asset.json').read_text())=={'registered':True}
+    assert (run/'mesh.glb').read_bytes()==b'independent reconstruction'
+    assert check_cad_package(folder)['package_hashes']
+    assert not (folder/'products').exists()
+    assert not (tmp_path/'output/objects').exists()

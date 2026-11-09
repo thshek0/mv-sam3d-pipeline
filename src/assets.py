@@ -1,7 +1,7 @@
 """Canonical asset manifests and explicit, on-demand delivery exports.
 
-python -m src.assets inspect path/to/codex/asset.json
-python -m src.assets export path/to/codex/asset.json --format obj --output /tmp/object
+python -m src.assets inspect path/to/object/asset.json
+python -m src.assets export path/to/object/asset.json --format obj --output /tmp/object
 
 Manifests reference existing authoring files; they never replace them with meshes.
 Export destinations must be new or empty, so stale files cannot enter a delivery.
@@ -18,11 +18,12 @@ from .export import export_visual, sha256
 
 SCHEMA = 1
 FORMATS = ('glb', 'obj', 'stl', 'scad', 'step', 'mujoco')
+AUTHORED_KINDS = frozenset(('recipe', 'openscad', 'radial_profile', 'radial_profile_cad', 'accepted_mesh_spoon', 'parametric_spoon'))
 
 
-def check_codex_dependencies(manifest, sources):
+def check_codex_dependencies(manifest, sources, kind=None):
     """Codex assets must not depend on another method's disposable outputs."""
-    if Path(manifest).parent.name != 'codex':
+    if Path(manifest).parent.name != 'codex' and kind not in AUTHORED_KINDS:
         return
     for source in sources:
         resolved = Path(source).resolve()
@@ -40,7 +41,7 @@ def save_manifest(path, *, kind, sources, variants, units, frame, rebuild,
     path = Path(path).resolve()
     sources = list(sources)
     check_codex_dependencies(path, sources + list((native_files or {}).values()) +
-                             [value for entry in variants.values() for key, value in entry.items() if key != 'physics_key'])
+                             [value for entry in variants.values() for key, value in entry.items() if key != 'physics_key'], kind)
 
     def reference(source):
         source = Path(source).resolve()
@@ -54,7 +55,7 @@ def save_manifest(path, *, kind, sources, variants, units, frame, rebuild,
                 native_files={name: reference(p) for name, p in (native_files or {}).items()},
                 export_directory='exports',
                 policy='Preserve authoring sources; generate only requested delivery formats.')
-    if path.parent.name == 'codex':
+    if path.parent.name == 'codex' or kind in AUTHORED_KINDS:
         data['dependency_policy'] = {'experimental_method_inputs_allowed': False,
                                      'registered_paths_checked_after_resolving_symlinks': True}
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,7 +96,7 @@ def export_asset(manifest, destination, formats, variant=None):
     sources = [resolve(path, reference) for reference in data['sources']]
     assets = {key: resolve(path, value) for key, value in entry.items() if key != 'physics_key'}
     native = {name: resolve(path, value) for name, value in data['native_files'].items()}
-    check_codex_dependencies(path, sources + list(assets.values()) + list(native.values()))
+    check_codex_dependencies(path, sources + list(assets.values()) + list(native.values()), data['source_kind'])
     if any(Path(name).name != name or name in ('', '.', '..') for name in native):
         raise ValueError('Native source names must be filenames')
     if 'scad' in formats and not native:
@@ -172,7 +173,7 @@ def export_mujoco(assets, physics_key, destination, variant):
         parts = load_parts(assets['collision'])
     else:
         from .collision import plate_parts
-        parts, construction = plate_parts(assets['visual'], assets['collision_recipe'].parent)
+        parts, construction = plate_parts(assets['visual'], assets['collision_recipe'])
     report = export_collision(assets['visual'], destination/'collision',
                               destination/f'{variant}.obj', appearance,
                               parts=parts, formats=('obj',))

@@ -273,7 +273,7 @@ def preview(mesh,parts,out,name):
 
 
 def build(name):
-    p=json.loads(PARAMETERS.read_text())[name];root=ROOT/'output/objects/hestia-rl'/name/'codex';out=root/'products';out.mkdir(parents=True,exist_ok=True)
+    p=json.loads(PARAMETERS.read_text())[name];root=ROOT/'output/hestia-rl'/name;out=root;out.mkdir(parents=True,exist_ok=True)
     mesh,parts,report=build_pink(p) if name=='spoon_daiso_pink' else build_black(p)
     shift=np.array([0,0,-mesh.bounds[0,2]]);mesh.apply_translation(shift)
     for m in parts.values():m.apply_translation(shift)

@@ -13,8 +13,8 @@ from .storage.diagnostics import session, workspace, command_log
 def export(model, part, pose='closed', keep_validation=False):
     import trimesh
     from .design import parameters, module
-    machine = ROOT / 'output/objects/hkqai-instruments' / model
-    current = machine / 'codex/products'
+    machine = ROOT / 'output/hkqai-instruments' / model
+    current = machine
     params = json.loads((current / 'parameters.json').read_text())
     values, _ = parameters(params)
     names = {p.name for p in module(model).definition(values).parts}
@@ -23,7 +23,7 @@ def export(model, part, pose='closed', keep_validation=False):
     executable = os.environ.get('OPENSCAD') or shutil.which('openscad')
     if not executable:
         raise RuntimeError('Set OPENSCAD or install OpenSCAD to export a native STL.')
-    with session(machine / 'codex/intermediate', keep=keep_validation):
+    with session(ROOT/'work/hkqai-instruments'/model/'codex', keep=keep_validation):
         with workspace('printing') as folder:
             work = Path(folder)
             # Regenerate from authoritative parameters, not potentially edited/stale SCAD.

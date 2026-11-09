@@ -16,7 +16,7 @@ def main():
         sub = commands.add_parser(name, help=help_text)
         sub.add_argument('--model', choices=MODELS, help='Default: all four instruments')
         sub.add_argument('--keep-validation', action='store_true',
-                         help='Keep diagnostics in <machine>/codex/intermediate/validation/latest; failures are always retained')
+                         help='Keep diagnostics in work/hkqai-instruments/<machine>/codex/validation/latest; failures are always retained')
         if name in ('build', 'publish', 'cad'):
             sub.add_argument('--extras', action='store_true',
                              help='Retain private native render/mesh diagnostics')
@@ -52,7 +52,8 @@ def main():
         from .builder import current_model_dir
         for model in models:
             current = current_model_dir(model)
-            with session(current.parent / 'intermediate', keep=args.keep_validation):
+            from .paths import ROOT
+            with session(ROOT/'work/hkqai-instruments'/model/'codex', keep=args.keep_validation):
                 publish(model, extras=args.extras)
         overview()
     else:

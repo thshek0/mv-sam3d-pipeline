@@ -34,6 +34,11 @@ def test_migrate_dataset_layout_moves_scene_depth_meshes(tmp_path: Path) -> None
     assert (tmp_path / "scene" / "images" / "0.png").is_file()
     assert (tmp_path / "scene" / "masks" / "0.png").is_file()
     assert (tmp_path / "depth" / "da3.npz").is_file()
+
+    current = tmp_path / 'work/hestia-rl/bird_swallow/sam3d'
+    current.mkdir(parents=True)
+    assert migrate_dataset_layout(current) == []
+    assert not list(current.iterdir())
     assert (tmp_path / "depth" / "da3_depthmap.png").is_file()
     assert (tmp_path / "depth" / "rs_valid.png").is_file()
     assert (tmp_path / "meshes" / "hybrid_sam3d_mesh.glb").is_file()

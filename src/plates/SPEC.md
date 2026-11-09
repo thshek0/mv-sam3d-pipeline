@@ -11,13 +11,14 @@ Follow the spec-before-implementation workflow in [AGENTS.md](../../AGENTS.md).
 
 The shape is defined by [the profile JSON](inputs/plate_harmynta_white_22cm.json)
 and [the CAD builder](solidworks.py), not by the dimension table alone.
-Original evidence remains in `dataset/hestia-rl/plate_harmynta_white_22cm/`.
-The object root is `output/objects/hestia-rl/plate_harmynta_white_22cm/codex/`:
+Accepted images and the evidence inventory live in `dataset/hestia-rl/plate_harmynta_white_22cm/`.
+Unreplaced originals remain in its `raw/` folder. The output root is
+`output/hestia-rl/plate_harmynta_white_22cm/`:
 
-- `products/HARMYNTA_220mm.step`: the **single current SolidWorks file**.
-- `solidworks_asset.json`: CAD source/output hashes, millimetres and rebuild command.
-- `asset.json` and existing GLBs: separate simulation assets in metres.
-- `intermediate/`: existing evidence, previous revisions and verification records.
+- `HARMYNTA_220mm.step`: the **single current SolidWorks file**.
+- `preview.png` and `asset.json`: preview, CAD source/output hashes and millimetre units.
+- `simulation/`: metre-scale GLBs, physics and their separate `asset.json`.
+- History and verification records: `work/hestia-rl/plate_harmynta_white_22cm/codex/`.
 
 Do not keep an identical STEP in an extra delivery directory. On request, portable
 collection handoffs still follow [the delivery rules](../../docs/asset-delivery-rules.md).
@@ -30,9 +31,9 @@ collection handoffs still follow [the delivery rules](../../docs/asset-delivery-
 | H02 | User-measured ring: outer diameter 102.5 mm, inner diameter 87.7 mm, external ring height 5 mm. Lowest contact is Z=0; outer wall attachment is Z=5. | Re-imported radial boundary checks. |
 | H03 | Separate width reading 7.82 mm conflicts with the diameters, which imply 7.40 mm. | Retain both. Current modeling decision prioritizes diameters; resolution is not user-confirmed. |
 | H04 | Rotational symmetry and simple geometry. | CAD: full revolution, one valid solid/shell, currently 10 faces; simulation: 64 sectors, at most 5,000 triangles (current 4,864). |
-| H05 | Improve underside curvature from added photos and compare cross-sections. | Existing `intermediate/curvature_refit_20261107/` contains old/new sections and held-out image checks. |
+| H05 | Improve underside curvature from added photos and compare cross-sections. | `work/hestia-rl/plate_harmynta_white_22cm/codex/curvature_refit_20261107/` contains old/new sections and held-out image checks. |
 | H06 | Reproduce one millimetre STEP directly from saved profile/code. | Isolated rebuild, valid STEP re-import, identical geometry DATA section to current STEP under the recorded environment. Timestamps may differ. |
-| H07 | Keep one current CAD file within the existing object hierarchy. | No application-specific output root or duplicate current STEP delivery. Verify hashes before removing duplicates; record relocation under existing `intermediate/`. |
+| H07 | Keep one current CAD file directly under the object's shallow output folder. | No duplicate old object directory or current STEP delivery. Verify migration hashes, rebuild and simulation delivery; keep one relocation ledger under `output/maintenance/`. |
 | H08 | Do not claim verified physical fit. | Gold-support fit test and actual SolidWorks session remain pending. |
 
 ## Rebuild
@@ -46,7 +47,7 @@ python -m src.plates.solidworks
 
 Use an interpreter with the dependencies above; no DualBRep model output is
 used. The builder must write the canonical STEP and verification records and
-refresh `solidworks_asset.json` so a rebuild does not leave stale hashes.
+refresh `asset.json` so a rebuild does not leave stale hashes.
 The source-controlled `inputs/plate_harmynta_white_22cm_photo_fit.json` is also
 required: the builder checks it against the profile and hashes it as provenance.
 Update this accepted snapshot when accepting a new fit. Historical paths in the
@@ -69,7 +70,7 @@ A fresh environment installation and a fresh photo refit are outside this check.
   was logged. The user's subsequent preference is one canonical CAD file, so
   remove the verified duplicate and retain its manifest as historical evidence.
 - This simplification must preserve geometry. Rebuild comparison and layout/hash
-  checks are recorded in `intermediate/solidworks_20261107/reproduction.json`.
+  checks are recorded in `work/hestia-rl/plate_harmynta_white_22cm/codex/solidworks_20261107/reproduction.json`.
 - **Verified 2026-11-07:** An isolated workspace containing only the three listed
   inputs rebuilt exactly the same STEP geometry DATA section as the previous
   delivery. The canonical rebuild matches too; only export metadata differs.

@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "object": "plate_harmynta_white_22cm",
+  "family": "hestia-rl",
+  "authoritative_profile": "src/plates/inputs/plate_harmynta_white_22cm.json",
+  "units": "mm",
+  "measurements": {
+    "outer_diameter": 102.5,
+    "inner_diameter": 87.7,
+    "height": 5,
+    "direct_width": 7.82,
+    "diameter_derived_width": 7.4,
+    "width_discrepancy": 0.42,
+    "source": "User caliper measurements supplied 2026-11-07; diameters and ring height are hard constraints.",
+    "height_datum": "External foot ring from contact z=0 to outer wall attachment z=5 mm.",
+    "edge_treatment": "0.35 mm radial edge transitions lie within the nominal ring envelope; contact land is narrower.",
+    "central_recess_depth_estimate": 1.99
+  },
+  "nominal_dimensions": {
+    "diameter": 220,
+    "height": 40
+  },
+  "images": [
+    {
+      "path": "images/IMG_9944.png",
+      "sha256": "8da3cbde8ae67810305e275cb68feed10f38a6bbe557eecf4937547a310a2c8a",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9945.png",
+      "sha256": "58379709060b9bbe7182e91afbe221c159be66b4d13e2793f60b98b033de335e",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9946.png",
+      "sha256": "349e5ddaba7cfa7fcb79fea5e6a290e2dda247213ff1ab10b635dffafeb2cb36",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9947.png",
+      "sha256": "ccc74fcd99e690b639ac83b898803ef689d068e8553fdacb4256e9eac4790c09",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9948.png",
+      "sha256": "09794fa24849e8fa9369331c56f6c3e961436c11ab160fb223ea8daa5a0a7e0b",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9970.jpg",
+      "sha256": "04b18877f969b86e9fb74888bf75f54ab10c3a317f94e21bdcca54858b087019",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9971.jpg",
+      "sha256": "1c7e01856a6d24c0059bbfb7b980fe6ac590c33927cc9bb61670f25013996f2b",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9972.jpg",
+      "sha256": "c036b9ab0fced6aca976c600e6d327ee11281f6480a239f4e9b5d8379c315e31",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9973.jpg",
+      "sha256": "099e4628fe265c84e7a3d7ab8fcaef69c41a1c3df095981696116d579427f379",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9974.jpg",
+      "sha256": "ca17825037a75bf25e54481ae02eb8ab748844b8e512aae5b3c2ceb9aee71192",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9975.jpg",
+      "sha256": "88468006cbe42af2cc2d584f1cf88c8c7976f0b0e6bb5ece011007b7cc1a24ad",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9976.jpg",
+      "sha256": "d43f17df70e543b7138cf50d2e6918a99ecd9990f578958d02c55aed6b39353e",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9977.jpg",
+      "sha256": "1aa38e8d04d14bf9e883943c0d90a47cd9846590e1be63aa6b0edf7cd15c169c",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9978.jpg",
+      "sha256": "6ed3d8fd7b0eb49a11f7ce5a3c3eb087f4c161200fba046e3eb35f3eca76a5c0",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9986.jpg",
+      "sha256": "5b1902711717075993e21f47f873f3737ce9e7014a51c8f319c07ec10d1d0d5a",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9987.jpg",
+      "sha256": "654833099e6584085b3f53a03ac341575f38405df5b9d9f91ce58ca4ef1eb305",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9988.jpg",
+      "sha256": "f817442111a9efed9a86fdba0ce4d0064f76af4549003ba1dad6f4b0cf4b6f53",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9989.jpg",
+      "sha256": "79044baf0e70505d28389518091fe4e5c53c8d383b19334ed4855e9b0c60e55a",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9990.jpg",
+      "sha256": "448315a53c7c577b67207209adf77975e1edbf959236cd710fb69bf981017729",
+      "role": "accepted reference; processing may differ from original"
+    },
+    {
+      "path": "images/IMG_9991.jpg",
+      "sha256": "188d8659de6aa5df397188e071cffff1ba9038e3f7a6174db729b3e475a58105",
+      "role": "accepted reference; processing may differ from original"
+    }
+  ],
+  "originals": [
+    {
+      "path": "raw/IMG_9944.HEIC",
+      "sha256": "45948e74260c351a3219b6481bf2c9855dd4688e32e4f81bdda5a5b809a77a8f"
+    },
+    {
+      "path": "raw/IMG_9945.HEIC",
+      "sha256": "d0b02ac95c5900e2ac049645c6b7e7395a8232fce1a7a23c040e11e934e500bd"
+    },
+    {
+      "path": "raw/IMG_9946.HEIC",
+      "sha256": "0008349e05a36a4e62e55751cc17ca3e37786a748bf78041291c1aede6e44a7b"
+    },
+    {
+      "path": "raw/IMG_9947.HEIC",
+      "sha256": "f01a7a38b94505ae5d0ae33b7ac3523e1ad116c8f0679d518e1e21979bfaae28"
+    },
+    {
+      "path": "raw/IMG_9948.HEIC",
+      "sha256": "b2394cc4854b34073b1b082f5e85bca4e97bffd184d80758b7f1da89e8bfb133"
+    },
+    {
+      "path": "raw/More plate-20261107T052054Z-1-001.zip",
+      "sha256": "d7a457c25288aab20c73ee07af7c0d9f30cc1ff6850ec2580cbc1ba35150179b"
+    },
+    {
+      "path": "raw/captures_20261107_1213_plate.zip",
+      "sha256": "3b578c82d7dc42c40a5664ece2e7ca1f67f3c78ee61335a92cd6c0be7ada9436"
+    }
+  ],
+  "limitations": [
+    "Physical fit unverified.",
+    "Original archives retained because all capture metadata/original images have not been proven replaceable."
+  ],
+  "rebuild_inputs": "CAD uses source profile and accepted fit JSON; textured mesh also uses IMG_9944.png and IMG_9945.png."
+}

@@ -9,7 +9,9 @@ files are included in Git. Other raw datasets, accepted meshes, weights and
 generated outputs are not. Obtain required model data separately from
 the project owner, preserving the paths and checking available registry hashes;
 no public download location is currently recorded. A code checkout alone does
-not reproduce every model. HARMYNTA STEP geometry uses only `src/plates/solidworks.py`
+not reproduce every model. The three older plates rebuild from tracked
+`src/product_inputs/designs.json` and their pattern JSONs, without raw photos or
+previous outputs. HARMYNTA STEP geometry uses only `src/plates/solidworks.py`
 and the profile/accepted-fit JSON files in `src/plates/inputs/`; see its
 [rebuild requirements](src/plates/SPEC.md#rebuild). `LOCAL.md` is optional,
 machine-specific and Git-ignored.
@@ -111,7 +113,7 @@ Full freeze: [`env/rembg-pip.txt`](env/rembg-pip.txt). Python that ran: 3.11.16 
 Only for this repo’s CLI, `--seal` / `--coacd`, and tests (Open3D 0.19.0, CoACD 1.0.14, trimesh). Import Open3D **before** CoACD (`preprocess_mode="on"`; `auto` segfaulted).
 
 ```bash
-uv venv .venv
+uv venv --python 3.11 .venv
 uv pip install -r env/pipeline-venv.txt
 ```
 
@@ -146,14 +148,14 @@ Or pass `--da3-python` / `--mvsam-python`. `DA3_PYTHON` / `MVSAM_PYTHON` overrid
 
 ## 8. Smoke test
 
-Processed scene in `examples/gripper/processed` (`images/` + `object/`). Results go under `output/objects/hkqai-trial/gripper/sam3d/`:
+Processed scene in `examples/gripper/processed` (`images/` + `object/`). Results go under `output/hkqai-trial/gripper/sam3d/`:
 
 ```bash
 source .venv/bin/activate
 python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/objects/hkqai-trial/gripper/sam3d/products/da3_sam3d_mesh.glb` and `da3_sam3d_mesh.png`. Missing DA3/npz raises; it does not skip.
+Needs `SAM3D_PYTHON` (or `--da3-npz` plus `--mvsam-python`). Success: `output/hkqai-trial/gripper/sam3d/da3_sam3d_mesh.glb` and `da3_sam3d_mesh.png`. Missing DA3/npz raises; it does not skip.
 
 Optional closed solid + convex parts (CoACD `t=0.05`):
 
@@ -161,7 +163,7 @@ Optional closed solid + convex parts (CoACD `t=0.05`):
 python src/pipeline.py -i examples/gripper/processed --masks object --seal --coacd
 ```
 
-`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Ingest helpers live in `helpers`; depth/mesh recipes in `methods`. New dumps: `src/run_dataset.py NAME --depth DEPTH --mesh MESH` (`--tags` when the dump has AprilTags), or `--all --rs --tags`. Existing depth and mesh files are kept unless `--refresh`. Summaries are written once at the end. `src/pipeline.py --method` is `da3` (default), `da3_posed`, `rs`, or `hybrid`; `--mesh` is `sam3d` or `tsdf` (TSDF refused on unposed RS/hybrid). Results land in `output/<name>/{scene,depth,meshes}/`. `src/time_run.py` times `da3` → SAM3D. Thin CLIs: `tags`, `tsdf`, `da3_posed`, `capture_realsense`. Live tag detect needs OpenCV in `SAM3D_PYTHON`.
+`--seal` writes `sealed.stl`. `--coacd` writes `convex_parts/` hulls. Ingest helpers live in `helpers`; depth/mesh recipes in `methods`. New dumps: `src/run_dataset.py NAME --depth DEPTH --mesh MESH` (`--tags` when the dump has AprilTags), or `--all --rs --tags`. Existing depth and mesh files are kept unless `--refresh`. Summaries are written once at the end. `src/pipeline.py --method` is `da3` (default), `da3_posed`, `rs`, or `hybrid`; `--mesh` is `sam3d` or `tsdf` (TSDF refused on unposed RS/hybrid). Meshes land in `output/<family>/<object>/<method>/`; scenes and depth live in `work/<family>/<object>/<method>/`. `src/time_run.py` times `da3` → SAM3D. Thin CLIs: `tags`, `tsdf`, `da3_posed`, `capture_realsense`. Live tag detect needs OpenCV in `SAM3D_PYTHON`.
 
 D415 capture needs `pyrealsense2` on the camera machine (not the repo `.venv`):
 
@@ -173,11 +175,23 @@ SPACE writes `{stem}_rgb.png` / `{stem}_depth.png` / `{stem}.json` under `datase
 
 ## 9. Tests
 
+For the complete Python suite, install both dependency lists in the Python 3.11
+driver environment. OpenSCAD and Poppler enable additional native/PDF checks;
+tests report skips when those executables are absent. No OpenAI API key is needed.
+
 ```bash
-python -m pytest tests
+uv pip install -r env/pipeline-venv.txt -r env/instruments-requirements.txt
+env -u SAM3D_PYTHON -u DA3_PYTHON -u MVSAM_PYTHON -u REMBG_PYTHON \
+  OPENBLAS_NUM_THREADS=4 OMP_NUM_THREADS=4 .venv/bin/python -m pytest tests -q
 ```
 
-`pythonpath = src` is set in `pytest.ini`. Unset `SAM3D_PYTHON` / `DA3_PYTHON` / `MVSAM_PYTHON` if those point at a real reconstruct (tests must stay offline).
+`pythonpath = src` is set in `pytest.ini`. This is the shared manual verification
+command; no CI configuration or wrapper script is required. On 2026-11-09,
+installation into a new Python 3.11.16 environment on Ubuntu 24.04 succeeded and
+all 247 tests passed in a source-only copy. OpenSCAD 2026.11.01 and Poppler 24.02
+were already installed system tools. Dependency lists are direct pins, not complete
+platform lockfiles; other platforms and the optional GPU/CAD environments need
+their own checks.
 
 ## 10. Versions that ran
 

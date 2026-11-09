@@ -110,10 +110,12 @@ def tsdf_from_da3_npz(
         stem = mesh_path.name[: -len("_mesh.glb")] if mesh_path.name.endswith("_mesh.glb") else None
         vis_name = f"{stem}_depth_visibility_preview.png" if stem else "depth_visibility_preview.png"
         diagnostics = mesh_path.parent
-        if diagnostics.name == 'products':
-            diagnostics = diagnostics.parent / 'intermediate/diagnostics'
-        elif diagnostics.parent.name == 'products':
-            diagnostics = diagnostics.parent.parent / 'intermediate' / diagnostics.name / 'diagnostics'
+        from output_layout import intermediate_dir, METHODS
+        for parent in (diagnostics, *diagnostics.parents):
+            if parent.name in METHODS:
+                run = diagnostics.name if diagnostics != parent else parent.parent.name
+                diagnostics = intermediate_dir(parent, run, parent.name)/'diagnostics'
+                break
         diagnostics.mkdir(parents=True, exist_ok=True)
         write_depth_visibility_preview(depth, images, mask_dir, diagnostics / vis_name)
     mesh = volume.extract_triangle_mesh()

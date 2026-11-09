@@ -22,6 +22,7 @@ intermediate/
 /dataset/hestia-rl/*
 !/dataset/hestia-rl/*/
 /dataset/hestia-rl/*/*
+!/dataset/hestia-rl/plate_harmynta_white_22cm/evidence.json
 !/dataset/hestia-rl/plate_*/appearance/
 /dataset/hestia-rl/plate_*/appearance/*
 !/dataset/hestia-rl/plate_*/appearance/pattern.json
@@ -40,4 +41,9 @@ LOCAL.md
 /:memory:.ses
 /.aws/
 /.codex/
-/.agents/
+/.agents/*
+!/.agents/skills/
+# Credentials stay local; an explicitly sanitized template can be shared.
+.env
+.env.*
+!.env.example

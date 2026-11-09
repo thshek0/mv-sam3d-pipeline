@@ -22,7 +22,7 @@ import trimesh
 from .urdf import xml_fk
 
 from ..paths import ROOT
-OUT = ROOT / 'output/objects/hkqai-instruments/c13534/codex/intermediate/.build_work'
+OUT = ROOT / 'work/hkqai-instruments/c13534/codex/.build_work'
 PACKAGE = OUT / 'urdf'
 DEST = OUT / 'dimensions'
 DRAWING = ROOT / 'dataset/hkqai-instruments/c13534/online_sources/pdf_images/qy_dimension_drawing.png'

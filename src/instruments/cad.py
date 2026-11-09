@@ -31,7 +31,8 @@ def export(out):
 
 def check(dest,executable=None,keep_validation=False):
  from .storage.diagnostics import session, capture
- with session(dest.parent.parent / 'intermediate' if dest.parent.name == 'products' else dest.parent.parent, keep=keep_validation):
+ model=json.loads((dest.parent/'parameters.json').read_text())['model']
+ with session(ROOT/'work/hkqai-instruments'/model/'codex', keep=keep_validation):
   for name in ('parameters.json', 'openscad/assembly.scad', 'openscad/parameters_native.scad', 'openscad/common.scad'):
    capture(dest.parent/name, 'inputs_and_reports/'+name)
   report=_check(dest,executable)

@@ -129,15 +129,18 @@ def test_mujoco_rejects_uncalibrated_units_and_rolls_back_bad_physics(tmp_path):
     assert not list(tmp_path.glob('.asset_export_*'))
 
 
-def test_codex_registration_rejects_experimental_source_and_symlink(tmp_path):
+@pytest.mark.parametrize('relative,kind', [('object/codex/asset.json','recipe'),
+                                          ('object/asset.json','radial_profile_cad'),
+                                          ('object/simulation/asset.json','radial_profile')])
+def test_codex_registration_rejects_experimental_source_and_symlink(tmp_path, relative, kind):
     source=tmp_path/'object/sam3d/products/source.glb'
     source.parent.mkdir(parents=True);source.write_bytes(b'source')
     stable=tmp_path/'inputs/source.glb';stable.parent.mkdir();stable.symlink_to(source)
-    manifest=tmp_path/'object/codex/asset.json'
+    manifest=tmp_path/relative
     for candidate in [source,stable]:
         with pytest.raises(ValueError,match='stable authoring input'):
-            save_manifest(manifest,kind='recipe',sources=[candidate],variants={},units='m',frame='Z up',rebuild=[])
+            save_manifest(manifest,kind=kind,sources=[candidate],variants={},units='m',frame='Z up',rebuild=[])
     assert not manifest.exists()
     stable.unlink();stable.write_bytes(b'independent source')
-    data=save_manifest(manifest,kind='recipe',sources=[stable],variants={},units='m',frame='Z up',rebuild=[])
+    data=save_manifest(manifest,kind=kind,sources=[stable],variants={},units='m',frame='Z up',rebuild=[])
     assert data['dependency_policy']['experimental_method_inputs_allowed'] is False

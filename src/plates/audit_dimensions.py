@@ -22,7 +22,7 @@ def fitplane(pts):
 
 results={}
 for name in ['plate_maehata_pop_blue_23cm','plate_strimmig_pale_grey_green_21cm','plate_paradisisk_off_white_20cm']:
- out=ROOT/'output/objects/hestia-rl'/name/'codex/intermediate';data=np.load(out/'depth/sensor.npz');records=[]
+ out=ROOT/'work/hestia-rl'/name/'codex';data=np.load(out/'depth/sensor.npz');records=[]
  for i,z in enumerate(data['depth']):
   rgb=np.array(Image.open(out/'scene/images'/f'{i}.png'));mask=np.array(Image.open(out/'scene/masks'/f'{i}.png'))[:,:,3]>0;k=data['intrinsics'][i]
   inside=cv2.distanceTransform(mask.astype('uint8'),cv2.DIST_L2,5);outside=cv2.distanceTransform((~mask).astype('uint8'),cv2.DIST_L2,5)

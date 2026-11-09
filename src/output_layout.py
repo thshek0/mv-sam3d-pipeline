@@ -1,9 +1,10 @@
-"""Output contract: objects / family / object / method / products | intermediate.
+"""Current outputs: family / object; diagnostics: work / family / object / method.
 
 Hestia RL inputs share the same family while retaining each object's identity.
 """
 from pathlib import Path
 import html
+import json
 import re
 
 METHODS = frozenset(('codex', 'sam3d', 'tsdf', 'dualbrep'))
@@ -61,27 +62,31 @@ def identity(name):
 
 def object_dir(root, name):
     root = Path(root); family, obj = identity(name)
-    if root.name in ('products', 'intermediate'): root = root.parent
-    if root.name in METHODS: root = root.parent
-    if root.name == obj and root.parent.name == family: return root
-    if root.name == family: return root/obj
-    return (root if root.name == 'objects' else root/'objects')/family/obj
+    # Accept explicit object/method roots and legacy CLI arguments, but only
+    # return the current layout. This creates no compatibility directories.
+    for parent in (root, *root.parents):
+        if parent.name == obj and parent.parent.name == family:
+            base = parent.parent.parent
+            break
+    else:
+        base = root.parent if root.name == family else root
+    if base.name == 'objects': base = base.parent
+    if base.name == 'work': base = base.parent/'output'
+    return base/family/obj
 
 
 def output_root(root, name):
-    """Find the output browser root from an explicit object or method path."""
-    parent = object_dir(root, name).parent.parent
-    return parent.parent if parent.name == 'objects' else parent
+    return object_dir(root, name).parent.parent
 
 
 def method_dir(root, name, method):
     if method not in METHODS: raise ValueError(f'Unknown output method: {method}')
-    return object_dir(root, name)/method
+    obj = object_dir(root, name)
+    return obj if method == 'codex' else obj/method
 
 
 def products_dir(root, name, method):
-    directory = method_dir(root, name, method)/'products'
-    # Instrument reconstruction IDs identify independent capture/state runs.
+    directory = method_dir(root, name, method)
     _, obj = identity(name)
     if obj in INSTRUMENTS and name != obj: directory /= name
     return directory
@@ -89,11 +94,15 @@ def products_dir(root, name, method):
 
 def intermediate_dir(root, name, method='sam3d'):
     root = Path(root)
-    if root.name in ('products', 'intermediate'): root = root.parent
-    if root.name in METHODS: method = root.name
-    directory = method_dir(root, name, method)/'intermediate'
-    _, obj = identity(name)
-    if obj in INSTRUMENTS and name != obj: directory /= name
+    for parent in (root, *root.parents):
+        if parent.name in METHODS:
+            method = parent.name
+            break
+    obj = object_dir(root, name)
+    base = obj.parent.parent
+    work = base.parent/'work'
+    directory = work/obj.parent.name/obj.name/method
+    if obj.name in INSTRUMENTS and name != obj.name: directory /= name
     return directory
 
 
@@ -108,7 +117,6 @@ def navigation(root):
     """
     root = Path(root)
     if root.name == 'objects': root = root.parent
-    objects_root = root/'objects'
     root.mkdir(parents=True, exist_ok=True)
     sections = []
     def section(title, entries):
@@ -117,24 +125,33 @@ def navigation(root):
             sections.append('<h2>'+html.escape(title)+'</h2><ul>'+items+'</ul>')
     def target(path):
         return path.relative_to(root).as_posix() + ('/' if path.is_dir() else '')
-    for family in sorted(objects_root.iterdir()) if objects_root.is_dir() else []:
-        if not family.is_dir(): continue
-        objects = []
+    for family in sorted(root.iterdir()):
+        if not family.is_dir() or family.name in ('packages', 'comparisons', 'maintenance'): continue
+        entries = []
         for obj in sorted(family.iterdir()):
             if not obj.is_dir(): continue
-            for method in sorted(obj.iterdir()):
-                if not method.is_dir() or method.name not in METHODS: continue
-                folder = method/'products'
-                if folder.is_dir():
-                    review = folder/'index.html'
-                    current = review.read_text() if review.is_file() else ''
-                    generated_title = '<title>'+html.escape(f'{obj.name} / {method.name} / products')+'</title>'
-                    authored = current and 'data-output-navigation' not in current and generated_title not in current
-                    objects.append((f'{obj.name} / {method.name}', target(review if authored else folder)))
-                if (method/'intermediate').is_dir():
-                    objects.append((f'{obj.name} / {method.name} supporting files',
-                                    target(method/'intermediate')))
-        section(family.name, objects)
+            for folder in [obj, *[obj/m for m in sorted(METHODS-{'codex'}) if (obj/m).is_dir()]]:
+                label = obj.name + ('' if folder == obj else ' / '+folder.name)
+                review = folder/'index.html'
+                page = review.read_text() if review.is_file() else ''
+                if page and 'data-output-navigation' not in page:
+                    entries.append((label, target(review)))
+                manifest = folder/'asset.json'
+                data = json.loads(manifest.read_text()) if manifest.is_file() else {}
+                assets = set()
+                for variant in data.get('variants', {}).values():
+                    for kind in ('step', 'visual'):
+                        if kind in variant:
+                            path = folder/variant[kind]['path']
+                            if path.is_file(): assets.add(path)
+                if not assets:
+                    assets.update(folder.glob('*.glb'))
+                for path in sorted(assets): entries.append((label+' / '+path.name, target(path)))
+                preview = folder/'preview.png'
+                if preview.is_file(): entries.append((label+' / preview',target(preview)))
+                if folder != obj and not assets and not page:
+                    entries.append((label,target(folder)))
+        section(family.name, entries)
     comparisons = root/'comparisons'
     if comparisons.is_dir():
         section('Comparisons', [(p.name, target(p/'index.html' if (p/'index.html').is_file() else p))

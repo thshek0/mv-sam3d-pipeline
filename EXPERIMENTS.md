@@ -761,3 +761,153 @@ temporary files were preserved. Paths/hashes are recorded in
 object's `intermediate/solidworks_20261107/git_rebuild.json`. Temporary checkout
 verification copies were removed afterward. Existing source, documentation and
 tests are included in the Git snapshot without restructuring them.
+
+## HARMYNTA shallow layout (2026-11-07; P02, P04, P06, P08–P11; H07)
+
+Applied the approved shallow layout to HARMYNTA first, updating root SPEC before
+implementation. Accepted images and their tracked inventory now live under
+`dataset/plate_harmynta_white_22cm/`; one current STEP, preview and CAD registry
+live directly under `output/plate_harmynta_white_22cm/`, with metre-scale assets
+in `simulation/`. History and diagnostics moved to `work/plate_harmynta_white_22cm/`.
+Rebuild commands, dataset aliases, navigation and configured delivery paths were
+updated. Other objects retain their existing layout. No redirects were added.
+
+All relocated files were hash checked; old object roots are gone. All 20 accepted
+images and seven original files match their inventory hashes. Original HEICs and
+ZIPs remain in `raw/` because equivalent pixels and metadata have not been proven;
+no source files were deleted. The relocation ledger and checks are in
+`output/maintenance/harmynta_flat_layout_20261107.json`.
+
+Validation: rebuilt with `src.plates.authored` and `src.plates.solidworks`; visual
+GLB bytes and STEP geometry are unchanged. An isolated three-source-file CAD
+rebuild reproduced the entire STEP DATA section exactly in the previously recorded
+environment. The first comparison script omitted the baseline hash's whitespace
+normalization; correcting that check and comparing the complete DATA strings
+confirmed equality. Both registries validate, the regenerated preview was inspected,
+and a temporary configured `src.delivery` MuJoCo package passed export validation.
+All 242 offline tests passed both locally and in a temporary tracked-source checkout
+without ignored inputs or outputs. `git diff --check` passed. Detailed command logs
+are beside the relocation ledger. These checks preserve the accepted model; physical
+fit and an actual SolidWorks session remain unverified.
+
+## Family-preserving layout across objects (2026-11-07; P02, P04, P06, P08–P11)
+
+The user corrected the HARMYNTA-only scope and removal of its family grouping.
+Updated root SPEC first, then migrated all 27 object identities: authored assets
+now live in `output/<family>/<object>/`, competing reconstructions retain method
+folders, and working/history files live in `work/<family>/<object>/<method>/`.
+HARMYNTA inputs are again under `dataset/hestia-rl/`. Other capture/state layouts
+and all unique originals remain intact. No compatibility folders were created.
+
+The ledger `output/maintenance/family_layout_20261107.json` records 90 moves,
+15,432 regular-file hash checks, 14 repaired shared-input links, and metadata
+changes. Asset bytes were preserved. Rebased all 16 current registries and active
+page links. Before refreshing source hashes, verified their prior versions against
+Git HEAD or the previous HARMYNTA path strings; no unexplained stale source was
+accepted. Historical reports and delivered snapshots retain their original contents.
+
+Updated builders, pipeline routing, previews, exports and active instructions.
+Instrument republishing preserves the adjacent registry and independent reconstruction
+runs; a regression exercises both. Six initial failures were assertions for the
+superseded instrument paths; updated them to the specified family/work locations.
+The complete suite passes in an isolated tracked-source checkout: **244 tests**,
+without ignored datasets or outputs. Python syntax and `git diff --check` pass.
+
+Every configured collection variant exported and passed relocated-package checks
+in a temporary delivery; all four current instrument CAD packages validated.
+All 16 registry hashes resolve, and 13 current/review HTML pages have no broken
+local links. An isolated three-file HARMYNTA CAD rebuild exactly reproduced the
+current STEP DATA section and its previous geometry hash. Installed dependencies
+were reused; no fresh inference, whole-project geometry rebuild, physical-fit test
+or SolidWorks session is claimed. Logs accompany the relocation ledger. Source
+changes are local and have not been pushed.
+
+## Codex portability and public-repository review (2026-11-09; P01, P06, P09–P12)
+
+Verdict: useful research/source repository, not yet a verified fresh-install,
+fully reproducible public release. MIT license, setup instructions, tracked native
+sources and offline tests exist. Review scope was current instructions, Git contents,
+builder input paths and setup; it did not certify third-party rights or Git history.
+
+Updated P12 before editing. Fixed the instrument prompt's mandatory ignored
+LOCAL.md dependency, missing root-spec entry point, assumed optional libraries,
+and unconditional archive refresh. Added output/acceptance fields, referenced
+existing delivery rules, and corrected stale commands/links. AGENTS leads to the
+shared portable workflow; README contains one generic task brief and contribution
+entry point. There are no project-specific skills to migrate. Required behavior
+stays in SPEC; optional future `.agents/skills/` sources can now be tracked while
+personal config and credential files stay ignored. No duplicate skill was added.
+
+OpenAI documentation checked: [AGENTS discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+and [skill discovery](https://learn.chatgpt.com/docs/build-skills). Local CLI reports
+0.166.0. Global instructions/settings can differ across installations; a credential
+change is not an agent reproducibility test. No second agent or API call was run.
+
+Verification: 244 tests passed in a temporary copy of tracked working-tree sources
+plus the pending HARMYNTA evidence inventory, with OpenAI/Codex environment settings
+removed and no LOCAL.md, .agents or .codex directory. Existing Python/system
+dependencies were reused. Checked 79 local Markdown paths/anchors, ignore rules,
+and `git diff --check`. A limited current-text scan found no credential literals
+or private-key markers; it is not a full secret/history audit. Log:
+`output/maintenance/codex_portability_tests_20261109.log`.
+
+Remaining findings, in priority order:
+
+- **P06/P09:** `src/plates/rebuild.py` still reads the three older plates' editable
+  parameters, dimensions and profile CSVs from ignored output folders. Promote
+  these small accepted inputs into tracked source and verify equivalent rebuilds.
+  HARMYNTA uses tracked CAD inputs; the black spoon separately needs its documented
+  accepted-mesh data bundle, which has no public download location.
+- **P10/P11:** No CI workflow or verified fresh dependency installation. Add one
+  minimal clean-checkout test job after confirming its dependencies and native-tool
+  skip policy; current passing tests do not prove public-runner setup.
+- **P12:** Layout and instruction corrections remain uncommitted/unpushed. A clone
+  of the current remote cannot inherit them. Publish only after reviewing the
+  combined changes; preserve the unrelated pre-existing editor-settings deletion.
+
+No geometry, API credentials, global skills or personal Codex settings changed.
+
+## Portable inputs and clean-install verification (2026-11-09; P06, P09–P12)
+
+Accepted the minimal follow-up in SPEC before implementation. Reused
+`src/product_inputs/designs.json` for the three older plates' parameters, dimension
+evidence and profiles; retained their tracked pattern recipes. Builders now refresh
+visual and compact RL variants without existing outputs. Full collision exports
+and cache invalidation use the same tracked inputs. Removed nine superseded
+parameter/dimension/CSV files after checking hashes and replacement equivalence;
+updated existing registries and review links. No new skill, CI file or wrapper.
+
+Old and promoted input readers produce byte-identical visual GLBs, textures and RL
+GLBs in the same environment. All full-collision vertices/faces also match exactly.
+The first comparison against older accepted GLBs failed byte equality: legacy
+material names and at most 5.96e-8 UV rounding differ. Vertices, faces, normals and
+texture pixels match exactly; existing accepted visual/RL GLB bytes were retained.
+No dimensions, curvature or physical-fit acceptance changed. Registry source hashes
+were refreshed only after verifying the prior source versions and unchanged numeric
+inputs; all 16 registries resolve. All 16 configured collection variants and the
+three base plate MuJoCo exports passed. A temporary logging script tried to JSON
+serialize the returned delivery Path after a successful build; corrected the logging
+and repeated exports after retiring the old inputs.
+
+Fresh setup: `uv venv --python 3.11 /tmp/mvsam-clean-20261109`, then
+`uv pip install --python /tmp/mvsam-clean-20261109/bin/python -r env/pipeline-venv.txt -r env/instruments-requirements.txt`.
+Python 3.11.16 on Ubuntu 24.04.5; 94 packages installed, `uv pip check` compatible.
+The source-only suite passed **247 tests, no skips**, with API/inference environment
+settings removed. Existing OpenSCAD 2026.11.01 and Poppler 24.02 enabled native checks;
+those system tools were not freshly installed. Three Pillow deprecation warnings
+remain. Optional GPU/pythonocc environments, other platforms and cross-account
+agent behavior were not evaluated. Verification stays the manual SETUP command.
+
+Final diff review also caught a wrong return type in the legacy layout migration's
+canonical-work no-op; corrected it and extended the existing migration test.
+Detailed comparisons, retired-file hashes and logs are in the existing
+`output/maintenance/codex_portability_review_20261109.json` and
+`codex_portability_tests_20261109.log`. The earlier review findings are historical;
+the source-input and fresh-install gaps are resolved for this tested scope. Large
+ignored data still needs separate distribution as documented in SETUP. Publish this
+reviewed cleanup together with the prior family-layout changes; exclude the unrelated
+`.vscode/settings.json` deletion.
+
+Final staged-source check: 247 passed again (12.35 s), no skips. All 85 local
+Markdown link paths and 28 current HTML pages resolve; Python parsing and
+`git diff --cached --check` pass. Only the unrelated editor deletion is unstaged.

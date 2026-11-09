@@ -1,8 +1,9 @@
 # Instrument modeling brief
 
-Build or refine the instrument, then render, validate and publish it. Read LOCAL.md
-and docs/instruments/README.md. Complete the requested rebuild; a re-export of an
-unchanged recipe is not a geometry correction.
+Read [the project specification](../../SPEC.md) and [the instrument guide](README.md).
+Apply the shared workflow before editing. `LOCAL.md` is optional tool setup only.
+Build or refine the requested geometry, render and validate it; re-exporting an
+unchanged recipe does not verify a geometry correction.
 
 - Instrument and installed accessory: <model / variant>
 - Evidence: <existing dataset, PDFs, captures and measurements>
@@ -10,10 +11,12 @@ unchanged recipe is not a geometry correction.
 - Corrections: <component, observation, source image>
 - Motion: <moving assemblies, direction, measured or estimated limits>
 - Measurements: <value, units, endpoints, uncertainty; leave unknowns explicit>
+- Requested outputs: <current model / explicitly requested delivery formats>
+- Acceptance: <affected views/sections, dimensions, topology, motion and tolerances>
 
 ## Evidence and geometry
 
-Use dataset/hkqai-instruments/<model>/ as the source of truth. Separate user_captures
+Use dataset/hkqai-instruments/<model>/ for authoritative evidence. Separate user_captures
 from downloaded online_sources. Preserve capture dates and annotations beside
 their originals. Use all relevant earlier evidence, not only the latest photo.
 Do not add history, preview or duplicate source folders to the dataset.
@@ -51,8 +54,8 @@ transforms when needed to prevent OpenCSG phantom faces.
 Provide details and fillets controls plus a simplified preset. Cosmetic rounding
 and fasteners must be removable without deleting functional holes, recesses,
 chambers or motion datums. Functional curves (bores, grips, bearings) retain their
-geometry. BOSL2 is available but optional; use it only when it improves the model
-and document/package any required dependency. Keep the delivery easy to edit.
+geometry. Do not assume optional libraries such as BOSL2 are installed. If needed,
+document and package the dependency. Keep the delivery easy to edit.
 
 ## Review and completion
 
@@ -64,13 +67,11 @@ Report unmeasured clearances and unresolved issues honestly. No physical-fit cla
 from software checks alone. Any simulation mesh must be exported from this same
 native source, with explicit mm-to-m conversion and documented simplification.
 
-Run .venv/bin/python -m src.instruments build [--model <model>] --check-cad,
-then validate and share. Publish three SCAD files, assembly.png and overview.png
-at the model root, a small validation report and the full evidence snapshot.
-No URDF, GLB, duplicate preview/dimension folders or unused assets in the handoff.
-Share two ZIPs: a small model/preview ZIP and image-only source sheets separated
-by user/online origin. Source sheets omit annotations, depth and video; retain
-native photo pixels and render cited PDF pages at adequate resolution.
-
-Refresh all affected previews, dimension sheets, evidence metadata, manifests and
-archives. Report what changed, what was checked and what still needs measurement.
+Run `.venv/bin/python -m src.instruments build --model <model> --check-cad`,
+then `.venv/bin/python -m src.instruments validate --model <model>`.
+Current model contents and optional sharing commands are defined in
+[the instrument guide](README.md#validation-and-outputs); delivery requirements
+are in [the delivery contract](../asset-delivery-rules.md).
+Refresh affected current previews, evidence metadata and manifests. Generate
+archives only when requested, preserving existing recipient snapshots (P08).
+Record changes, checks and unresolved measurements in the existing development log.

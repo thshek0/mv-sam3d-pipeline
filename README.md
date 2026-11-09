@@ -7,6 +7,35 @@ This repository reconstructs a textured 3D mesh of a single object from multi-vi
 
 It is based on [MV-SAM3D](https://github.com/devinli123/MV-SAM3D) and [SAM 3D Objects](https://github.com/facebookresearch/sam-3d-objects). [Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3) (depth and cameras) and object masks from [LabelMe](https://github.com/labelmeai/labelme) (e.g. [SAM 2](https://github.com/facebookresearch/sam2)) or [rembg](https://github.com/danielgatis/rembg) are optional when those inputs are already available. `--seal` writes a watertight solid.
 
+## Contributing and using Codex
+
+Use [SETUP.md](SETUP.md) for dependencies and tests, and
+[SPEC.md](SPEC.md#development-contract) for the contribution workflow. Include
+the requirement, focused change, verification and remaining limits in a PR.
+Project code is covered by [LICENSE](LICENSE); upstream code, model weights and
+reference datasets retain their respective terms and availability requirements.
+
+Start Codex at the repository root. [AGENTS.md](AGENTS.md) points it to the
+[portable workflow](SPEC.md#portable-agent-workflow-p01-p09-p12). No custom skill
+or previous chat is required. Codex supports
+[repository instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+and optional [repository skills](https://learn.chatgpt.com/docs/build-skills).
+Keep mandatory project rules in SPEC, rather than depending on an optional skill.
+
+A task can start with:
+
+```text
+Read AGENTS.md and SPEC.md. Task: <change and scope>. Evidence: <paths/measurements>.
+Requested outputs: <formats>. Acceptance: <dimensions, symmetry, complexity,
+motion or behavior, with tolerances>. Identify missing inputs before implementation.
+```
+
+For instruments, use [the domain brief](docs/instruments/prompt.md). When changing
+accounts, retain the same source revision, accepted inputs and checks; record
+model/tool differences under P12. Credentials are not modeling inputs. A new
+agent's design is not guaranteed to be identical. Verification is the manual
+command in [SETUP.md](SETUP.md#9-tests); no CI workflow or custom skill is required.
+
 ## Paper
 
 - [MV-SAM3D](https://arxiv.org/abs/2603.11633) — arXiv:2603.11633
@@ -47,51 +76,23 @@ flowchart LR
 
 ![Reconstructed gripper](examples/gripper/output/mesh.png)
 
-[`examples/gripper/output/mesh.glb`](examples/gripper/output/mesh.glb) is a checked-in result. The CLI writes `output/objects/<family>/<object>/<mesh>/products/{depth}_{mesh}_mesh.glb`.
+[`examples/gripper/output/mesh.glb`](examples/gripper/output/mesh.glb) is a checked-in result. The CLI writes `output/<family>/<object>/<mesh>/{depth}_{mesh}_mesh.glb`.
 
 ## Data Format
 
-Object outputs use **objects → family → object → method → products / intermediate**.
-The output root contains only `objects/`, `comparisons/`, `maintenance/`, `packages/`,
-and `index.html`.
-Methods are `codex`, `sam3d`, `tsdf`, and retained `dualbrep` experiments. Codex
-covers both authored instruments/products and simplified plate profiles. There is
-no extra `model/` directory. Bowls, plates, birds, scales and containers share the
-`hestia-rl` output family. Distinct captures retain their names (for example `heater_v3`, `heater_v5`).
-Where SAM3D and TSDF reuse identical scene/depth inputs, TSDF intermediate folders
-use relative links to the SAM3D data; arrays are not duplicated. The checked-in
-`examples/gripper/` remains unchanged. HTML is limited to the output/family
-overviews, product entry points and substantive review pages. Link directly to
-products and files; do not generate object/method redirects, intermediate or
-experiment directory listings, or HTML copies in migration backups. Keep
-migration records in JSON and existing documentation. Regenerate overviews and product indexes with
-`.venv/bin/python -m src.output_layout`.
+Layout rules are defined once in [SPEC.md](SPEC.md#storage-contract-p04).
+All objects retain their family: `hestia-rl`, `hkqai-instruments`, `hkqai-trial`,
+or `misc`. Current authored models are in `output/<family>/<object>/`;
+reconstruction results use its `sam3d/` or `tsdf/` folder. Diagnostics and history
+are in `work/<family>/<object>/<method>/`. Inputs remain in
+`dataset/<family>/<object>/`, preserving capture groups and states.
 
-The latest naming ledger is `output/maintenance/plate_details_instruments_20261105/`; it records
-old/new paths, hashes, reference updates and validation. Historical experiment
-notes and older migration ledgers retain their original paths. The earlier method
-reorganizations are recorded in `output/maintenance/method_layout_20261103/` and
-`output/maintenance/objects_layer_20261103/`. The Hestia output-family merge is
-recorded in `output/maintenance/hestia_rl_20261103/`.
+Open [the output overview](output/index.html) for direct model links; regenerate
+it with `.venv/bin/python -m src.output_layout`. The complete checked-in
+`examples/gripper/` stays in place. Migration hashes and paths are recorded in
+`output/maintenance/family_layout_20261107.json`; older logs retain historical paths.
 
-```text
-dataset/<family>/<object>/   # raw capture/reference images + annotations; preserve originals
-  # hkqai-trial additionally preserves capture groups such as heater/heater_v5/
-examples/gripper/
-  raw/                       # 00.png + 00.json, …
-  processed/
-    images/0.png …           # RGB (stems 0, 1, 2, …)
-    object/0.png …           # RGBA masks (example keeps this name)
-  output/                    # checked-in stills + mesh.glb
-output/objects/<family>/<object>/<method>/
-  products/                  # current meshes, previews and required runtime assets
-  intermediate/              # scene/, depth/, logs, trials, detailed validation
-output/comparisons/          # cross-object and cross-method reviews
-output/packages/             # portable delivery folders and ZIP snapshots
-output/maintenance/          # audit records and historical relocation maps
-```
-
-`-i` is a processed scene: one RGB per view in `images/`, one RGBA mask per view in `masks/` (or `--masks object` for the gripper example). Same filename, same count. Alpha must have some foreground. The dataset name is that folder’s name (`…/processed` uses the parent name; canonical generated scenes retain the object/run identity). You can also pass an object directory, method directory, or `intermediate/scene/` after staging. `raw/00.png` becomes `images/0.png` after ingest.
+`-i` is a processed scene: one RGB per view in `images/`, one RGBA mask per view in `masks/` (or `--masks object` for the gripper example). Same filename, same count. Alpha must have some foreground. The dataset name is that folder’s name (`…/processed` uses the parent name; canonical generated scenes retain the object/run identity). You can also pass an object directory, method directory, or `work/<family>/<object>/<method>/scene/` after staging. `raw/00.png` becomes `images/0.png` after ingest.
 
 ## Asset storage and on-demand exports
 
@@ -166,20 +167,15 @@ only when requested. There is no universal lossless conversion between CAD,
 textured meshes and physics models. Do not replace editable CAD with a GLB or
 claim that mesh-to-STEP conversion recovers precise surfaces or design history.
 
-The existing object/method hierarchy stays in place:
-
-```text
-output/objects/<family>/<object>/codex/
-  asset.json                  # common source/variant registry with hashes and units
-  products/                   # current canonical assets, previews and reports
-  exports/<delivery-name>/    # only explicitly requested delivery formats
-  intermediate/               # reconstruction, evidence processing and diagnostics
-```
+Each current object has an `asset.json` beside its assets. Separate CAD and
+simulation registries are used when their units differ. Requested collection
+handoffs live under `output/packages/`; previous object exports are preserved in
+that object's work folder.
 
 `asset.json` references authoring files in their existing locations rather than
 copying them into another source folder. References are relative to the manifest.
-Native instrument SCAD remains in `src/instruments/native/`; recipe code, JSON,
-profile CSVs, texture recipes and source photographs remain editable inputs.
+Native instrument SCAD remains in `src/instruments/native/`; recipe code, JSON
+profiles, texture recipes and required source photographs remain authoring inputs.
 The per-delivery `manifest.json` is separate from this source registry. These are
 workspace manifests, not self-contained archives: a portable source bundle must
 include all referenced files, preserving their relative layout.
@@ -260,21 +256,21 @@ they have no Codex replacement. Earlier audits are historical snapshots.
 Inspect an object's registered sources, variants and rebuild command:
 
 ```bash
-.venv/bin/python -m src.assets inspect output/objects/hestia-rl/sand_container/codex/asset.json
+.venv/bin/python -m src.assets inspect output/hestia-rl/sand_container/asset.json
 ```
 
 Request just the formats needed, using a new or empty output directory:
 
 ```bash
-.venv/bin/python -m src.assets export output/objects/hestia-rl/sand_container/codex/asset.json \
-  --format obj --output output/objects/hestia-rl/sand_container/codex/exports/obj_delivery
+.venv/bin/python -m src.assets export output/hestia-rl/sand_container/asset.json \
+  --format obj --output output/packages/sand_container_obj_delivery
 
-.venv/bin/python -m src.assets export output/objects/hestia-rl/electronic_balance/codex/asset.json \
+.venv/bin/python -m src.assets export output/hestia-rl/electronic_balance/asset.json \
   --variant electronic_balance_round --format mujoco \
-  --output output/objects/hestia-rl/electronic_balance/codex/exports/round_mujoco
+  --output output/packages/electronic_balance_round_mujoco
 
-.venv/bin/python -m src.assets export output/objects/hkqai-instruments/cary60/codex/asset.json \
-  --format scad --output output/objects/hkqai-instruments/cary60/codex/exports/cad_delivery
+.venv/bin/python -m src.assets export output/hkqai-instruments/cary60/asset.json \
+  --format scad --output output/packages/cary60_cad_delivery
 ```
 
 Multiple formats can be explicitly selected, e.g. `--format glb obj stl`.
@@ -290,7 +286,7 @@ informational and is never executed by the exporter.
 | `obj` | Mesh plus required MTL/PNG; preserves supported base-colour textures/UVs, not all PBR properties or scene semantics. |
 | `stl` | Geometry only, in the recorded source units. Native SCAD assemblies are tessellated through OpenSCAD, in mm. |
 | `scad` | Copy the registered native SCAD source and dependencies. Mesh/recipe variants without registered SCAD are refused. |
-| `step` | Copy a registered solid STEP asset. Unsupported mesh/CAD conversions are refused. No current Codex object has a registered STEP source. |
+| `step` | Copy a registered solid STEP asset, including HARMYNTA's millimetre CAD registry. Unsupported mesh/CAD conversions are refused. |
 | `mujoco` | OBJ/PNG visual plus separate convex OBJ colliders and MJCF. Requires metre units and explicit collision data or the supported radial-profile recipe. Uses recorded physics when available; otherwise exports a static body with placeholder contact settings. |
 
 The generic native-SCAD path supports SCAD and whole-assembly STL only. For a
@@ -329,7 +325,7 @@ Input and output families group related runs:
 
 Trial inputs preserve their capture groups: for example,
 `dataset/hkqai-trial/heater/heater_v5/`. Outputs preserve the existing run/method
-layout: `output/objects/hkqai-trial/heater_v5/<method>/`. The original videos live
+layout: `output/hkqai-trial/heater_v5/<method>/`. The original videos live
 at `dataset/hkqai-trial/coffee/coffee.mp4`, `dataset/hkqai-trial/pc/pc.mp4`, and
 `dataset/hkqai-trial/heater/heater.mp4`. `hkqai-trial` identifies provenance; it is
 not a deletion or retention status. Public `examples/gripper/` stays unchanged.
@@ -359,8 +355,8 @@ navigation page. Link directly to product reviews, assets and directories;
 do not create family, method, package or maintenance listing pages.
 
 Historical sources are recovered under their corresponding `dataset/` captures.
-Selected experiment results and timing runs live under each method’s
-`intermediate/experiments/` and `intermediate/benchmarks/`, and cross-object reviews under
+Selected experiment results and timing runs live in each run's work folder under
+`experiments/` and `benchmarks/`, and cross-object reviews under
 `output/comparisons/`. Local migration ledgers live under `output/maintenance/`.
 See [the retention policy](docs/maintenance/archive-retirement.md) and
 [the local relocation ledger](output/maintenance/archive_retirement/path_map.json).
@@ -369,7 +365,7 @@ Historical logs retain recorded paths; the ledger resolves retired locations.
 The gripper public example remains `examples/gripper/`. Its 12-view capture set
 corresponds to `dataset/hkqai-trial/gripper/gripper_v2/`. The older six-view capture is under
 `dataset/hkqai-trial/gripper/captures/legacy_6view/`; keep its poses separate from twelve-view
-images. Future example runs write `output/objects/hkqai-trial/gripper/sam3d/`.
+images. Future example runs write `output/hkqai-trial/gripper/sam3d/`.
 
 The four instruments each have one raw-data root: `dataset/hkqai-instruments/{cary60,c13472,c16361,c13534}/`.
 Inside it, `user_captures/<date>[_rgbd_<state>][_annotated]/` groups your dated source
@@ -401,12 +397,14 @@ processed-scene input infer a unique run ID instead of using generic names such
 as `raw` or `scene`. Mixed/unreviewed batches are rejected: first review their
 state/component labels and stage one consistent selection. State indexes are
 reference lists, not executable reconstruction recipes. Reconstruction runs are grouped
-as `output/objects/hkqai-instruments/<model>/<method>/{products,intermediate}/<run>/`, with `output/objects/hkqai-instruments/<model>/codex/products/` the current authored delivery
+as `output/hkqai-instruments/<model>/<method>/<run>/` and
+`work/hkqai-instruments/<model>/<method>/<run>/`, with `output/hkqai-instruments/<model>/` the current authored delivery
 package. Unclassified output objects use the `misc` family; input dataset paths stay unchanged.
 
 A `raw/` folder is either LabelMe (every still has a `.json`) or rembg (no JSON). Build `images/` + masks with the converters in `helpers` (`convert_stills_to_images`, `convert_video_to_frames`, `convert_labelme_to_masks`, `convert_rembg_to_masks`, `crop_views_to_masks`).
 
-`intermediate/depth/` holds `{source}.npz` plus full-frame `*_depthmap.png` / `*_valid.png` / `hybrid_source_map.png`. Summaries (`depth_summary.png`, `mesh_summary.png`) stay in `intermediate/`. Meshes are flat under `products/` as `{depth}_{mesh}_mesh.glb` + `{depth}_{mesh}_mesh.png` (e.g. `da3_sam3d_mesh.glb`).
+The run's work folder holds `depth/`, `scene/`, logs and summary images. Its output
+method folder holds `{depth}_{mesh}_mesh.glb` and the corresponding mesh preview.
 
 `src/capture_realsense.py` writes `dataset/captures_*` (SPACE to save). With tags: `convert_realsense_dump` → `tags.convert_apriltag_to_da3_npz` → crop. Without tags: `--rs-dump` builds an unposed RS npz. `src/tsdf.py` fuses metric depth (optional masks). `src/da3_posed.py` runs DA3 with known `w2c` + `K`. Download `mesh.glb`; `mesh.png` is the three-view still.
 
@@ -416,27 +414,20 @@ For dimension-constrained instrument collision models, see [the reusable workflo
 
 To start another instrument from a short brief, copy [the instrument-model prompt template](docs/instruments/prompt.md), fill its eight fields and point it at your existing photos/video. The [minimal input guide](EXPERIMENTS.md#starting-an-instrument-with-one-prompt) explains which few views are useful and how to leave unknown measurements explicit.
 
-Each instrument has one current **`output/objects/hkqai-instruments/<modelname>/codex/products/`** package. Their obsolete SAM3D experiments have been removed; native CAD and dataset references are retained.
+Each instrument has one current **`output/hkqai-instruments/<modelname>/`** package. Their obsolete SAM3D experiments have been removed; native CAD and dataset references are retained.
 
-```text
-output/objects/hkqai-instruments/<modelname>/codex/
-  products/                  # current GLBs, URDF, SCAD, parameters and previews
-    meshes/, urdf/, openscad/, previews/, dimensions/, reports/, textures/
-    evidence/                # relative link to dataset reference images
-  intermediate/
-    validation/              # optional diagnostics and retained failures
-    .build_work/             # temporary builder workspace
-  current_model.json         # points to products/
+The current package contains native `openscad/`, parameters, previews, reports
+and a portable evidence snapshot. Build diagnostics are kept separately in
+`work/hkqai-instruments/<modelname>/codex/`.
 
-dataset/hkqai-instruments/<modelname>/          # original captures, annotations, references and recovered source images
-src/instruments/inputs/       # bootstrap design defaults with measurement/estimate evidence
-```
+Rebuild with `.venv/bin/python -m src.instruments build --model cary60` (or
+`c16361`, `c13472`, `c13534`). The builder stages and validates the package before
+publishing it. Use `publish` to repackage existing assets, `validate` to check them,
+and `share` to create the sharing ZIP.
 
-Rebuild with `.venv/bin/python -m src.instruments build --model cary60` (or `c16361`, `c13472`, `c13534`). The builder uses a temporary `codex/intermediate/.build_work/` folder, validates exports, replaces `products/`, and removes temporary outputs. It does not accumulate dated builds or backups. Repackage without changing geometry with `.venv/bin/python -m src.instruments publish --model cary60`. Use the same CLI for validation (`validate`) and the sharing ZIP (`share`).
+Builds keep compact outputs by default. Use `build --extras` for additional reviews/states, `build --check-cad --keep-validation` for detailed CAD diagnostics, and `stl --model cary60 --part socket_shell` for an explicit printing export. Successful validation scratch is removed by default; failures are retained. See [the output policy](docs/instruments/README.md#validation-and-outputs).
 
-Builds keep compact outputs by default. Use `build --extras` for additional reviews/states, `build --check-cad --keep-validation` for detailed CAD diagnostics, and `stl --model cary60 --part socket_left` for an explicit printing export. Successful validation scratch is removed by default; failures are retained. See [the output policy](docs/instruments/README.md#compact-outputs-and-optional-diagnostics).
-
-The sharing ZIP contains regular files and loads independently; the local evidence directory links into the dataset to avoid duplicate source images. All models use metres, X right / Y rear / Z up and fixed-base loading. Contact accuracy and physical dynamics remain unverified. Tau's total height is user-confirmed 253.3 mm; C13472's envelope is approximately 645 × 440 × 385 mm.
+The sharing ZIP contains regular files and loads independently; the current native CAD package includes its evidence snapshot. Native CAD uses millimetres; simulation assets declare their own units and frames. Contact accuracy and physical dynamics remain unverified. Tau's total height is user-confirmed 253.3 mm; C13472's envelope is approximately 645 × 440 × 385 mm.
 
 Start at [the output overview](output/index.html) or [the four-machine review image](output/comparisons/hkqai-instruments/current_review.png). Historical commands and paths in EXPERIMENTS.md document the development history; they are not current rebuild instructions. The cleanup ledger is `output/maintenance/instruments/instrument_cleanup_20261102/audit.json`.
 
@@ -463,7 +454,7 @@ open body only. The electronic balance includes square and round
 pan variants. The bowl is approximately Ø120 × 60 mm from local RGB-D evidence;
 its dimensions remain provisional (about ±10 mm), and wall thicknesses are estimates.
 
-Working products remain under each object's `codex/products/`. For sharing, use
+Current products remain directly under each object's output folder. For sharing, use
 the [delivery gallery](output/packages/delivery/index.html): the container, bowl
 and both electronic balance variants each have an independent MuJoCo folder with thumbnails.
 Regenerate through `src.delivery` as described above. Edit assumed mass and contact
@@ -471,7 +462,7 @@ settings in `src/product_inputs/mujoco_physics.json`, rebuild/refresh the asset
 registry, then re-export. Mass, inertia and friction are uncalibrated; the electronic balance
 is a rigid prop without a weighing sensor.
 
-`src.products_mujoco` and any older `codex/products/mujoco/` folders belong to the
+`src.products_mujoco` and any older `mujoco/` folders belong to the
 earlier product-specific exporter. They are not the default handoff and may be
 stale. The new deliveries have actual relocated MuJoCo compilation/smoke checks;
 older offline reports do not imply runtime validation.
@@ -523,7 +514,7 @@ flowchart LR
 
 One command names the depth and the mesh. It builds only the depth files that pair needs, skips a depth npz or mesh glb that is already on disk, and writes the summary boards once at the end. `--refresh` rebuilds those files. `--tags` means the RealSense dump has AprilTags. Without it, `rs` or `hybrid` with `tsdf` is refused, and `da3_posed` is refused.
 
-`sam3d` is MV-SAM3D (`sam3d/products/{depth}_sam3d_mesh.glb`). `tsdf` is Open3D multi-view fusion on the same npz. TSDF needs real extrinsics.
+`sam3d` is MV-SAM3D (`sam3d/{depth}_sam3d_mesh.glb`). `tsdf` is Open3D multi-view fusion on the same npz. TSDF needs real extrinsics.
 
 | You want | Command |
 |---|---|
@@ -555,7 +546,7 @@ export SAM3D_PYTHON=/path/to/sam3d-objects/bin/python
 python src/pipeline.py -i examples/gripper/processed --masks object
 ```
 
-Writes `output/objects/hkqai-trial/gripper/sam3d/` (`intermediate/scene/images/`, `intermediate/scene/object/` or `intermediate/scene/masks/`, `intermediate/depth/da3.npz`, `products/da3_sam3d_mesh.glb`). New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
+Writes the mesh to `output/hkqai-trial/gripper/sam3d/` and staged `scene/` and `depth/` to `work/hkqai-trial/gripper/sam3d/`. New scenes use `masks/` by default; the checked-in gripper example still uses `object/`. If you already have DA3’s npz (depth, `K`, poses), pass `--da3-npz` and DA3 is not run.
 
 ```bash
 python -m pytest tests
@@ -573,7 +564,7 @@ python src/run_dataset.py my_capture --depth da3 --mesh sam3d
 python src/run_dataset.py my_capture --all --rs --tags
 ```
 
-A second run leaves existing `intermediate/depth/*.npz` and `products/*_mesh.glb` files in place and redraws the boards. `--refresh` rebuilds them after masks, tags, or views change.
+A second run leaves existing work-folder `depth/*.npz` and output-folder `*_mesh.glb` files in place and redraws the boards. `--refresh` rebuilds them after masks, tags, or views change.
 
 Steps, when one board is wrong: `ingest`, `depth da3|da3_posed|rs|hybrid`, `mesh DEPTH MESH`, `summarize`. `depth rs` is unposed unless you pass `--tags`. These steps do not skip existing files. `summarize` only redraws boards.
 
@@ -583,7 +574,7 @@ Steps, when one board is wrong: `ingest`, `depth da3|da3_posed|rs|hybrid`, `mesh
 | `--all --rs` | `rs`, `da3`, `hybrid` | `da3` × sam3d/tsdf, `rs_sam3d`, `hybrid_sam3d` (no rs/hybrid TSDF) |
 | `--all --rs --tags` | `rs`, `da3`, `hybrid`, `da3_posed` | all × sam3d/tsdf |
 
-The command writes these boards once, under `output/objects/<family>/<object>/<method>/intermediate/`:
+The command writes these boards once, under `work/<family>/<object>/<method>/`:
 
 | File | What it shows |
 |---|---|
@@ -592,7 +583,7 @@ The command writes these boards once, under `output/objects/<family>/<object>/<m
 | `tags_preview.png` | tag poses, when RealSense was posed |
 | `depth_summary.png` | one column per depth npz on disk (`da3`, `da3_posed`, `rs`, `hybrid`) |
 | `mesh_summary.png` | 2×3 grid, columns sam3d\|tsdf, rows da3\|rs\|hybrid. The da3 row uses `da3_posed` when that mesh exists. Empty cells are pairs not built yet |
-| `../products/<depth>_<mesh>_mesh.png` | three-view still of that mesh |
+| `output/<family>/<object>/<mesh>/<depth>_<mesh>_mesh.png` | three-view still of that mesh |
 
 Mesh work uses mask-cropped `scene/images/`.
 
@@ -604,14 +595,14 @@ Mesh work uses mask-cropped `scene/images/`.
 
 ## Runtime
 
-`src/time_run.py` times `da3` → SAM3D on any processed scene. Default `-i` is the gripper example (12 views, **10 repeats**). Timings use `output/objects/<family>/<object>/sam3d/intermediate/benchmarks/<scene>_timed/`; unrecognized objects use the `misc` family (`output/objects/hkqai-trial/gripper/sam3d/intermediate/benchmarks/gripper_timed/` for that example). `--keep-runs` (default) keeps each `run_*/` mesh and npz; `--no-keep-runs` leaves `summary.json` and contact sheets only. `--no-preview` skips `depth_preview.png`.
+`src/time_run.py` times `da3` → SAM3D on any processed scene. Default `-i` is the gripper example (12 views, **10 repeats**). Timings use `work/<family>/<object>/sam3d/benchmarks/<scene>_timed/`; unrecognized objects use the `misc` family (`work/hkqai-trial/gripper/sam3d/benchmarks/gripper_timed/` for that example). `--keep-runs` (default) keeps each `run_*/` mesh and npz; `--no-keep-runs` leaves `summary.json` and contact sheets only. `--no-preview` skips `depth_preview.png`.
 
 ```bash
 python src/time_run.py -i examples/gripper
 python src/time_run.py -i path/to/processed --n 3 --no-keep-runs --no-preview
 ```
 
-Numbers below are the gripper path on NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `output/objects/hkqai-trial/gripper/sam3d/intermediate/benchmarks/gripper_timed/` (not the checked-in example).
+Numbers below are the gripper path on NVIDIA RTX PRO 6000 Blackwell. Mean ± sample sd. Repeat runs live in `work/hkqai-trial/gripper/sam3d/benchmarks/gripper_timed/` (not the checked-in example).
 
 **Result.** End to end is **138.4 ± 2.0 s** (~11.5 s/view). SAM3D is most of that (**121.5 ± 2.1 s**). DA3 is **11.1 ± 0.2 s** (~0.93 s/view). Depth is repeatable (RMSE vs run 0 ≈ **0.25 mm**). The mesh is not bitwise-identical — SAM3D is generative (~254k faces ± 1k; chamfer vs run 0 ≈ **8.6 mm ± 0.06 mm**) — but the 10 stills are the same gripper.
 
@@ -665,58 +656,37 @@ Plate rebuild commands now live in versioned source:
 .venv/bin/python src/plates/review.py
 ```
 
-Native instrument SCAD remains authoritative. The three simplified plates retain
-their editable parameters, dimensions and profile CSVs in products. For the three
-new simple products, edit `src/product_inputs/designs.json`; their output
-`parameters.json` is a generated snapshot. This migration preserves those editing
-contracts and all accepted geometry.
+Native instrument SCAD remains authoritative. The three simplified plates and
+simple products use `src/product_inputs/designs.json`. Plate entries contain
+parameters, dimension evidence and radial profile rows in millimetres; their
+pattern recipes remain in the tracked dataset JSONs. Plate rebuilds refresh the
+visual and compact RL variant from these inputs, without pre-existing outputs.
+Generated output metadata is not an authoring source.
 
-The HARMYNTA capture in `dataset/hestia-rl/plate_harmynta_white_22cm/` is reconstructed in
-`output/objects/hestia-rl/plate_harmynta_white_22cm/codex/products/`. Its editable input is
-`src/plates/inputs/plate_harmynta_white_22cm.json`; rebuild with
+HARMYNTA follows the shared layout in [SPEC.md](SPEC.md):
+
+- Inputs: `dataset/hestia-rl/plate_harmynta_white_22cm/` (`images/`, `evidence.json`, and unreplaced originals in `raw/`).
+- SolidWorks: **`output/hestia-rl/plate_harmynta_white_22cm/HARMYNTA_220mm.step`**, with `preview.png` and CAD `asset.json` beside it.
+- Simulation: `output/hestia-rl/plate_harmynta_white_22cm/simulation/`, with its own metre-scale `asset.json`.
+- History, fit comparisons and validation: `work/hestia-rl/plate_harmynta_white_22cm/codex/`.
+
+Editable inputs remain in `src/plates/inputs/`. Build CAD with
+`python -m src.plates.solidworks` in the documented pythonocc/SciPy environment;
+build the textured mesh, collision variants and preview with
 `.venv/bin/python -m src.plates.authored --parameters src/plates/inputs/plate_harmynta_white_22cm.json`.
-Decoded reference PNGs are retained in the object's `codex/intermediate/reference/`.
-The 220 × 40 mm photo-textured plate keeps metre-scale visual GLB and separate
-convex collision GLB plus physics settings. MuJoCo is an on-demand delivery; the
-previous static `model.xml` and dynamic `scene.xml` with a test ball remain in the
-historical package.
-The previous `output/packages/plate_harmynta_white_22cm_mujoco.zip` is a retained snapshot. Generate new deliveries with `src.assets export` and its `codex/asset.json`. Validation is offline only;
-profile/thickness, mass, inertia and friction remain estimates. No OpenSCAD is used.
+The standard `src.delivery --only plate_harmynta_white_22cm` selection uses the
+simulation registry's configured path. CAD reproduction needs only its tracked
+inputs; regenerating the photo-textured preview also needs the accepted images.
 
-The 2026-11-07 HARMYNTA revision uses the measured 102.5/87.7 mm foot-ring
-diameters and 5 mm external ring height. The separate 7.82 mm width reading is
-recorded; the diameters imply 7.40 mm. Its current 64-sector visual has 4,864 triangles.
-The first depth-based revision is retained under `codex/intermediate/refit_20261107/`.
-The second revision uses `src.plates.fit_harmynta_photos` to fit a smooth underside
-spline to the standalone side photos in `More plate-20261107T052054Z-1-001.zip`.
-Traced photo boundaries are in `src/plates/inputs/plate_harmynta_white_22cm_photo_edges.json`;
-fit reports, two held-out photo comparisons, the previous model, and cross-sections
-are under `codex/intermediate/curvature_refit_20261107/`. The new profile improves
-the two held-out silhouette comparisons; it has not been physically tested against
-the gold support. Central recess, inner-wall thickness, and camera calibration remain estimates.
-The authored rebuild refreshes both full and compact RL collision variants.
-
-For SolidWorks, use **`output/objects/hestia-rl/plate_harmynta_white_22cm/codex/products/HARMYNTA_220mm.step`**.
-This millimetre STEP contains one native revolved solid with 10 faces, generated
-directly from the current radial profile by `src/plates/solidworks.py`. It preserves
-continuous rotational symmetry. The separate `codex/solidworks_asset.json` records
-its source hashes and is refreshed by the builder; the simulation registry remains in metres. Rebuild the CAD with
-`python -m src.plates.solidworks`
-(requires pythonocc-core and SciPy). STEP round-trip topology, dimensions, boundary
-samples, and independent volume checks are saved under
-`codex/intermediate/solidworks_20261107/`. These are Open CASCADE checks, not an
-actual SolidWorks session or physical fit validation. Superseded November 5
-STL/OBJ exports are archived under that directory's `superseded_exports/`.
-There is one current STEP; its duplicate delivery copy was removed after checking
-hash equality. An isolated rebuild from the saved profile/code reproduced the
-entire STEP geometry DATA section exactly (export timestamps differ).
-Plate requirements, assumptions and verification results are recorded in
-[`src/plates/SPEC.md`](src/plates/SPEC.md).
-
+The 220 × 40 mm plate has a measured 102.5/87.7 mm foot ring, 5 mm external ring
+height, 10 native CAD faces and a 4,864-triangle visual mesh. Curvature is fitted
+from photos; physical fit, inner thickness and camera calibration remain provisional.
+[The plate record](src/plates/SPEC.md) contains requirements and verification.
+Older ZIP deliveries remain historical snapshots.
 
 The corrected spoon models are `spoon_daiso_pink` and `spoon_home_black`.
 Their current visuals, separate convex collision GLBs, four-view previews and
-section drawings live under `output/objects/hestia-rl/<name>/codex/products/`.
+section drawings live under `output/hestia-rl/<name>/`.
 Rebuild with `.venv/bin/python -m src.spoons.build`; editable geometry is in
 `src/spoons/inputs/designs.json`. The pink scoop has a concave inside, convex
 underside, recessed inner crown and raised outer crown. Its revised shell uses
@@ -763,16 +733,17 @@ and separate support bar. These are deliberately coarser than the
 visual meshes.
 For current spoon handoffs, open `model.xml` in the relevant folder under
 `output/packages/delivery/hestia-rl/`. Earlier validation scenes live at
-`codex/exports/mujoco_rl/mujoco/collision/scene.xml`; the retained historical
+`work/hestia-rl/<spoon>/codex/exports/mujoco_rl/mujoco/collision/scene.xml`; the retained historical
 bundle is `output/packages/spoons_mujoco_rl.zip`. MuJoCo 3.17 compiled those spoon models,
 ran 1,000 simulation steps and passed 1,500-step ball-in-cavity tests without a
 floor beneath the bowls. Mass/friction and dimensional estimates are not calibrated.
 
-`.venv/bin/python -m src.rl_collision --root output/objects/hestia-rl` adds explicit
+`.venv/bin/python -m src.rl_collision --root output/hestia-rl` adds explicit
 `_rl` collision alternatives for plates and birds while retaining original visuals
 and detailed compounds. Other suitable authored colliders are reused. The inventory
 and runtime results are in `output/comparisons/hestia_rl_collision/`.
-Metre-scale variants are exported under each object's `codex/exports/mujoco_rl/`.
+Current collection exports use `output/packages/`; previous per-object exports
+remain in the corresponding work folder.
 Bird collider coordinates remain uncalibrated: specify physical dimensions before
 using them in a metre-scale scene. MuJoCo exports deliberately refuse uncalibrated
 bird manifests. Model compile/smoke tests are not RL task validation.

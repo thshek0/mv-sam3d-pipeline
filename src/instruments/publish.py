@@ -3,6 +3,7 @@ from pathlib import Path
 import hashlib,json,shutil
 from PIL import Image,ImageDraw,ImageFont
 from .paths import ROOT, MODELS
+from ..output_layout import METHODS
 VERSION='2026-11-02_v04'
 DOCS={
  'c16361':{'url':'https://www.hamamatsu.com/content/dam/hamamatsu-photonics/sites/documents/99_SALES_LIBRARY/sys/SHSS0025E_C16361.pdf','finding':'Brochure page 5: body W450 x D500 mm, body H230.8 mm; overall H253.3 for A16362-02 or H298.3 for A16362-01. User confirms overall height 253.3 mm, matching the low box; detector suffix alone does not identify accessories.'},
@@ -36,13 +37,13 @@ def publish(model,source=None,extras=False):
  from html import escape
  from .layout import normalize, flatten_reviews
  from .storage.policy import apply
- source=Path(source) if source else ROOT/'output/objects/hkqai-instruments'/model/'codex/products'
- dest=ROOT/'output/objects/hkqai-instruments'/model/'codex/products'
- stage=dest.parent/'intermediate/model_staging'
+ source=Path(source) if source else ROOT/'output/hkqai-instruments'/model
+ dest=ROOT/'output/hkqai-instruments'/model
+ stage=ROOT/'work/hkqai-instruments'/model/'codex/model_staging'
  stage.parent.mkdir(parents=True,exist_ok=True)
  if stage.exists():raise RuntimeError(f'Unfinished staging directory: {stage}')
  # Normalize in staging, so a failed publication leaves current products intact.
- shutil.copytree(source,stage,ignore=shutil.ignore_patterns('*.zip','manifest.json','__pycache__','*.pyc','evidence'),symlinks=False)
+ shutil.copytree(source,stage,ignore=shutil.ignore_patterns('*.zip','manifest.json','__pycache__','*.pyc','evidence',*METHODS),symlinks=False)
  normalize(stage,model)
  (stage/'reports').mkdir(exist_ok=True)
  apply(stage,extras=extras)
@@ -120,16 +121,20 @@ Known limitations:
       'files':files})
  from .validation import check_cad_package
  check_cad_package(stage)
+ # The registry now sits beside the package; preserve it during republishing.
+ if (dest/'asset.json').is_file():shutil.copy2(dest/'asset.json',stage/'asset.json')
+ for method in METHODS-{'codex'}:
+  if (dest/method).is_dir():(dest/method).rename(stage/method)
  if dest.exists():shutil.rmtree(dest)
  stage.rename(dest)
- save(dest.parent/'current_model.json',{'package':'products','format':'openscad','publisher':'src/instruments/publish.py'})
+ save(dest/'current_model.json',{'package':'.','format':'openscad','publisher':'src/instruments/publish.py'})
  print(model,'published OpenSCAD and full evidence',len(files),'files',flush=True)
  return dest
 
 def overview():
  board=Image.new('RGB',(1600,1300),'white');d=ImageDraw.Draw(board);font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',25)
  for i,m in enumerate(MODELS):
-  p=ROOT/'output/objects/hkqai-instruments'/m/'codex/products/assembly.png'
+  p=ROOT/'output/hkqai-instruments'/m/'assembly.png'
   if not p.exists():continue
   im=Image.open(p).convert('RGB');im.thumbnail((780,580));x=(i%2)*800;y=(i//2)*650;d.text((x+20,y+10),m.upper()+' / current authored model',font=font,fill='black');board.paste(im,(x+10,y+50))
  (ROOT/'output/comparisons/hkqai-instruments').mkdir(parents=True,exist_ok=True)

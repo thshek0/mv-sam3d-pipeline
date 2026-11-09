@@ -15,9 +15,10 @@ from src.output_layout import ALIASES, canonical_name, identity
 def test_hestia_family_routing(tmp_path: Path, name):
     assert dataset_family(name) == 'hestia-rl'
     for base in (tmp_path, tmp_path/'hestia-rl'):
-        assert dataset_input_dir(name, base) == tmp_path/'hestia-rl'/name
-    for base in (tmp_path, tmp_path/'objects', tmp_path/'objects/hestia-rl'):
-        assert dataset_root(base, name) == tmp_path/'objects/hestia-rl'/name/'sam3d/intermediate'
+        expected = tmp_path/'hestia-rl'/name
+        assert dataset_input_dir(name, base) == expected
+    for base in (tmp_path/'output', tmp_path/'output/objects', tmp_path/'output/hestia-rl'):
+        assert dataset_root(base, name) == tmp_path/'work/hestia-rl'/name/'sam3d'
     assert dataset_name_from_input(tmp_path/'hestia-rl'/name/'scene') == name
 
 
@@ -33,8 +34,8 @@ def test_trial_captures_keep_groups_outputs_keep_run_identity(tmp_path, name, gr
     expected = folder if name == group else folder/name
     for base in (tmp_path, tmp_path/'hkqai-trial', folder):
         assert dataset_input_dir(name, base) == expected
-    for base in (tmp_path, tmp_path/'objects', tmp_path/'objects/hkqai-trial'):
-        assert dataset_root(base, name) == tmp_path/'objects/hkqai-trial'/name/'sam3d/intermediate'
+    for base in (tmp_path/'output', tmp_path/'output/objects', tmp_path/'output/hkqai-trial'):
+        assert dataset_root(base, name) == tmp_path/'work/hkqai-trial'/name/'sam3d'
     assert dataset_name_from_input(expected/'scene') == name
 
 
@@ -42,15 +43,16 @@ def test_trial_captures_keep_groups_outputs_keep_run_identity(tmp_path, name, gr
 def test_unrelated_inputs_stay_flat_outputs_use_misc(tmp_path, name):
     assert dataset_family(name) is None
     assert dataset_input_dir(name, tmp_path) == tmp_path/name
-    assert dataset_root(tmp_path, name) == tmp_path/'objects/misc'/name/'sam3d/intermediate'
+    assert dataset_root(tmp_path/'output', name) == tmp_path/'work/misc'/name/'sam3d'
 
 
 @pytest.mark.parametrize('old,new', list(ALIASES.items()))
 def test_legacy_names_resolve_to_current_folders(tmp_path, old, new):
     for base in (tmp_path, tmp_path/'hestia-rl'):
-        assert dataset_input_dir(old, base) == tmp_path/'hestia-rl'/new
-    for base in (tmp_path, tmp_path/'objects', tmp_path/'objects/hestia-rl'):
-        assert dataset_root(base, old) == tmp_path/'objects/hestia-rl'/new/'sam3d/intermediate'
+        expected = tmp_path/'hestia-rl'/new
+        assert dataset_input_dir(old, base) == expected
+    for base in (tmp_path/'output', tmp_path/'output/objects', tmp_path/'output/hestia-rl'):
+        assert dataset_root(base, old) == tmp_path/'work/hestia-rl'/new/'sam3d'
     assert dataset_name_from_input(tmp_path/'hestia-rl'/old/'scene') == new
     assert identity(old) == ('hestia-rl', new)
 

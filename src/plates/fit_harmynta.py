@@ -21,8 +21,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 ROOT=Path(__file__).resolve().parents[2]
-OUT=ROOT/'output/objects/hestia-rl/plate_harmynta_white_22cm/codex/intermediate/refit_20261107'
-ARCHIVE=ROOT/'dataset/hestia-rl/plate_harmynta_white_22cm/captures_20261107_1213_plate.zip'
+OUT=ROOT/'work/hestia-rl/plate_harmynta_white_22cm/codex/refit_20261107'
+ARCHIVE=ROOT/'dataset/hestia-rl/plate_harmynta_white_22cm/raw/captures_20261107_1213_plate.zip'
 INPUT=ROOT/'src/plates/inputs/plate_harmynta_white_22cm.json'
 
 def rays(uv,m):

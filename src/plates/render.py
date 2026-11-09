@@ -5,10 +5,10 @@ os.environ['OMP_NUM_THREADS']='4'
 sys.path.insert(0,str(Path(__file__).parent));from inspection_helpers import ROOT,ray_scene
 import open3d as o3d
 for name in sys.argv[1:]:
- out=ROOT/'output/objects/hestia-rl'/name;path=out/'codex/products'/f'{name}_m.glb'
+ flat=ROOT/'output/hestia-rl'/name;d=flat/'simulation' if (flat/'simulation/asset.json').is_file() else ROOT/'output/hestia-rl'/name;path=d/f'{name}_m.glb'
  source=trimesh.load(path,force='scene');assert len(source.graph.nodes_geometry)==1
  transform,key=source.graph[next(iter(source.graph.nodes_geometry))];m=source.geometry[key].copy();m.apply_transform(transform)
- loaded_normals=m.vertex_normals.copy();m.apply_scale(1000);m.vertex_normals=loaded_normals;scene=ray_scene(m);tint=np.array(json.loads((out/'codex/products/validation.json').read_text())['appearance_check']['rgba'][:3])
+ loaded_normals=m.vertex_normals.copy();m.apply_scale(1000);m.vertex_normals=loaded_normals;scene=ray_scene(m);tint=np.array(json.loads((d/'validation.json').read_text())['appearance_check']['rgba'][:3])
  board=Image.new('RGB',(1600,450),'white');draw=ImageDraw.Draw(board)
  for j,(title,direction) in enumerate([('Top',[0,0,1]),('Oblique',[.8,-1,1]),('Profile',[0,-1,.12]),('Underside',[.4,-.6,-1])]):
   view=np.array(direction,dtype=float);view/=np.linalg.norm(view);right=np.cross([0,1,0] if abs(view[2])>.95 else [0,0,1],view);right/=np.linalg.norm(right);up=np.cross(view,right)
@@ -25,7 +25,7 @@ for name in sys.argv[1:]:
   highlight=45*np.maximum(normals[hit]@half_vector,0)**exponent
   pixels[hit]=np.clip(shade[hit,None]*colours+highlight[:,None],0,255).astype('uint8')
   board.paste(Image.fromarray(pixels),(j*400,40));draw.text((j*400+15,15),title,fill='black')
- board.save(out/'codex/products'/'review.png')
+ board.save(flat/'preview.png' if d.parent==flat else d/'review.png')
  print(name,'rendered',flush=True)
 
 # Keep the dimension drawing synchronized with the exported profile.
@@ -33,7 +33,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 for name in sys.argv[1:]:
- d=ROOT/'output/objects/hestia-rl'/name/'codex/products';a=json.loads((d/'validation.json').read_text());p=a['profile_mm'];r=np.array(p['radius']);t=np.array(p['top']);b=np.array(p['bottom']);x=np.r_[-r[:0:-1],r];top=np.r_[t[:0:-1],t];bottom=np.r_[b[:0:-1],b];diam=a['dimensions']['outer_diameter_mm'];height=a['dimensions']['overall_height_mm']
+ flat=ROOT/'output/hestia-rl'/name;d=flat/'simulation' if (flat/'simulation/asset.json').is_file() else ROOT/'output/hestia-rl'/name;a=json.loads((d/'validation.json').read_text());p=a['profile_mm'];r=np.array(p['radius']);t=np.array(p['top']);b=np.array(p['bottom']);x=np.r_[-r[:0:-1],r];top=np.r_[t[:0:-1],t];bottom=np.r_[b[:0:-1],b];diam=a['dimensions']['outer_diameter_mm'];height=a['dimensions']['overall_height_mm']
  fig,ax=plt.subplots(figsize=(10,4));ax.fill_between(x,bottom,top,color=np.array(a['appearance_check']['rgba'][:3])/255,edgecolor='#46505d',linewidth=.8)
  ax.annotate('',xy=(-diam/2,-7),xytext=(diam/2,-7),arrowprops={'arrowstyle':'<->'});ax.text(0,-8,f'Outer diameter {diam:.1f} mm',ha='center',va='top')
  ax.annotate('',xy=(diam/2+8,0),xytext=(diam/2+8,height),arrowprops={'arrowstyle':'<->'});ax.text(diam/2+10,height/2,f'{height:.1f} mm',rotation=90,va='center');ax.axhline(0,color='gray',linestyle=':',linewidth=.6)

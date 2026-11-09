@@ -219,9 +219,9 @@ def build(models=MODELS, from_cad_parameters=False, check_cad=False, keep_valida
         raise ValueError('Native SCAD is now authoritative. Copy reviewed edits to src/instruments/native/<model>/ and run build; no Python parameter import is needed.')
     from .publish import publish, overview
     for model in models:
-        machine=ROOT/'output/objects/hkqai-instruments'/model/'codex'
+        machine=ROOT/'output/hkqai-instruments'/model
         machine.mkdir(parents=True,exist_ok=True)
-        work=machine/'intermediate/.native_build'
+        work=ROOT/'work/hkqai-instruments'/model/'codex/.native_build'
         if work.exists():
             raise RuntimeError(f'Previous build diagnostics remain at {work}; inspect and move them before retrying.')
         stage=work/'package';stage.mkdir(parents=True)
@@ -236,7 +236,7 @@ def build(models=MODELS, from_cad_parameters=False, check_cad=False, keep_valida
         (stage/'reports/cad_summary.json').write_text(json.dumps(report,indent=2)+'\n')
         defaults=json.loads((SOURCE_ROOT/'src/instruments/inputs'/model/'design_defaults.json').read_text())
         # Preserve evidence references, but retire redundant legacy geometry snapshots.
-        previous=machine/'products/parameters.json'
+        previous=machine/'parameters.json'
         old=json.loads(previous.read_text()) if previous.exists() else {}
         metadata={key:old[key] for key in ('new_photo_review','body_dimension_evidence','joint_evidence') if key in old}
         metadata.update(model=model,units='mm and degrees',frame='X right, Y rear, Z up; support Z=0',
@@ -254,7 +254,7 @@ def build(models=MODELS, from_cad_parameters=False, check_cad=False, keep_valida
                       native_files=native_files,
                       rebuild=['python', '-m', 'src.instruments', 'build', '--model', model])
         if keep_validation or extras:
-            latest=machine/'intermediate/validation/native_latest'
+            latest=ROOT/'work/hkqai-instruments'/model/'codex/validation/native_latest'
             if latest.exists():shutil.rmtree(latest)
             latest.parent.mkdir(parents=True,exist_ok=True)
             shutil.copytree(checks,latest)
@@ -270,7 +270,7 @@ def print_part(model, part, pose='closed', keep_validation=False):
         mesh=export_mesh(folder/'assembly.scad',work,'part',part=part,pose=pose)
         if len(mesh.split())!=1:
             raise ValueError('Choose one manufactured solid; this selection has multiple disconnected components.')
-        dest=ROOT/'output/objects/hkqai-instruments'/model/'codex/intermediate/printing'
+        dest=ROOT/'work/hkqai-instruments'/model/'codex/printing'
         dest.mkdir(parents=True,exist_ok=True)
         # Selection may be a user-defined string, never let it escape the destination.
         safe=re.sub(r'[^a-zA-Z0-9_-]','_',part)

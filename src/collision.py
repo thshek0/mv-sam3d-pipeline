@@ -12,11 +12,17 @@ RECIPE = 1
 
 
 def plate_parts(source, directory=None):
-    from .plates.rebuild import keep_profile
+    from .plates.rebuild import keep_profile, read_profile, NAMES
     directory = source.parent if directory is None else directory
-    params = json.loads((directory/'parameters.json').read_text())
-    dims = json.loads((directory/'dimensions.json').read_text())
-    r, top, bottom = np.loadtxt(directory/params['profile_csv'], delimiter=',', skiprows=1).T
+    name = source.stem.removesuffix('_m')
+    if name in NAMES:
+        params, dims, profile = read_profile(name, directory if directory.is_file() else None)
+    else:
+        directory = directory.parent if directory.is_file() else directory
+        params = json.loads((directory/'parameters.json').read_text())
+        dims = json.loads((directory/'dimensions.json').read_text())
+        profile = np.loadtxt(directory/params['profile_csv'], delimiter=',', skiprows=1)
+    r, top, bottom = profile.T
     r *= dims['outer_diameter_mm']/(2*r[-1])
     factor = dims['overall_height_mm']/top.max()
     top *= factor; bottom *= factor
@@ -102,10 +108,14 @@ def source_digest(source):
     digest = hashlib.sha256(source.read_bytes())
     digest.update(str(RECIPE).encode())
     if source.name.startswith('plate_'):
-        for filename in ('parameters.json', 'dimensions.json'):
-            digest.update((source.parent/filename).read_bytes())
-        params = json.loads((source.parent/'parameters.json').read_text())
-        digest.update((source.parent/params['profile_csv']).read_bytes())
+        from .plates.rebuild import INPUTS, NAMES
+        if source.stem.removesuffix('_m') in NAMES:
+            digest.update(INPUTS.read_bytes())
+        else:
+            for filename in ('parameters.json', 'dimensions.json'):
+                digest.update((source.parent/filename).read_bytes())
+            params = json.loads((source.parent/'parameters.json').read_text())
+            digest.update((source.parent/params['profile_csv']).read_bytes())
     return digest.hexdigest()
 
 

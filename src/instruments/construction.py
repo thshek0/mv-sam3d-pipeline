@@ -10,7 +10,7 @@ from .render import Renderer
 from .paths import ROOT
 
 def save(path,value):path.write_text(json.dumps(value,indent=2)+'\n')
-def outdir(model):return ROOT/'output/objects/hkqai-instruments'/model/'codex/intermediate/.build_work'
+def outdir(model):return ROOT/'work/hkqai-instruments'/model/'codex/.build_work'
 
 
 def export_scad(out):

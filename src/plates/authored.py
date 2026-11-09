@@ -1,7 +1,7 @@
 """Build a photo-textured dish from an editable radial profile, without CAD.
 
 Run: .venv/bin/python -m src.plates.authored --parameters src/plates/inputs/plate_harmynta_white_22cm.json
-Decoded source PNGs live in codex/intermediate/reference; original captures are untouched.
+Decoded source images live beside their dataset evidence inventory.
 """
 import argparse
 import json
@@ -77,9 +77,8 @@ def texture_mesh(mesh, texture, roughness):
 
 def build(parameters):
     p = json.loads(parameters.read_text()); name = p['name']; stem = name+'_m'
-    root = ROOT/'output/objects/hestia-rl'/name/'codex'
-    out = root/'products'; out.mkdir(parents=True,exist_ok=True)
-    references = root/'intermediate/reference'
+    out = ROOT/'output/hestia-rl'/name/'simulation'; out.mkdir(parents=True,exist_ok=True)
+    references = ROOT/p['source_directory']/'images'
     profile = np.array(p['profile_radius_top_bottom_mm'],dtype=float)
     r,t,b = profile.T
     assert np.all(np.diff(r)>0) and r[0]==0 and np.all(t>b) and b.min()==0
@@ -162,7 +161,7 @@ Canonical visual and separate convex collision GLBs use metres, Z up, support Z=
 Editable source: {parameters.relative_to(ROOT)}
 Mass, inertia and friction in physics.json are uncalibrated estimates.
 Geometry, UVs, texture and cavity checks are offline only; no simulation was run.
-Use ../asset.json with python -m src.assets export to request OBJ, STL or MuJoCo.
+Use asset.json with python -m src.assets export to request OBJ, STL or MuJoCo.
 Old delivery files, when present, are historical snapshots and may be stale.
 """
     (out/'README.txt').write_text(instructions)
@@ -181,7 +180,7 @@ Old delivery files, when present, are historical snapshots and may be stale.
         save_json(coarse_out/(name+'_validation.json'),coarse_report)
         variants[name+'_rl']={**variants[name],'collision':coarse_path,
                              'contact_settings':ROOT/'src/product_inputs/rl_contacts.json'}
-    save_manifest(root/'asset.json',kind='radial_profile',
+    save_manifest(out/'asset.json',kind='radial_profile',
                   sources=[Path(__file__),Path(__file__).with_name('rebuild.py'),parameters,
                            *[references/p['texture'][side]['image'] for side in ('top','bottom')],
                            *[ROOT/path for path in p.get('geometry_evidence_files',[])]],

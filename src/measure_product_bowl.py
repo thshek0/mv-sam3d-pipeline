@@ -47,7 +47,7 @@ def main():
               'circle_absolute_residual_mm_p50_p90': np.percentile(abs(fit.fun)*1000, [50, 90]).tolist(),
               'authored_diameter_height_mm': [120, 60], 'provisional_uncertainty_mm': 10,
               'limitations': 'Single usable top view; sparse reflective-surface depth and silhouette/body occlusion. Other views are visual checks, not calibrated dimension confirmations. Wall and floor thickness are not measured.'}
-    out = ROOT/'output/objects/hestia-rl/hestia_bowl_v1/codex/intermediate/references/bowl_measurement.json'; out.parent.mkdir(exist_ok=True)
+    out = ROOT/'work/hestia-rl/hestia_bowl_v1/codex/references/bowl_measurement.json'; out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(report, indent=2)+'\n'); print(json.dumps(report, indent=2))
 
 

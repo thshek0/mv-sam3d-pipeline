@@ -9,14 +9,16 @@ import xml.etree.ElementTree as ET
 from .paths import ROOT, MODELS
 from .physics import pybullet
 from .storage.diagnostics import session, workspace
+from ..output_layout import METHODS
 
 
 def check_cad_package(folder):
     """Verify the portable CAD and evidence contract without simulation dependencies."""
     manifest = json.loads((folder / 'manifest.json').read_text())
     assert manifest['format'] == 'openscad'
-    actual = {str(p.relative_to(folder)) for p in folder.rglob('*') if p.is_file()}
-    assert actual == set(manifest['files']) | {'manifest.json'}
+    actual = {str(p.relative_to(folder)) for p in folder.rglob('*')
+              if p.is_file() and p.relative_to(folder).parts[0] not in METHODS}
+    assert actual - {'asset.json', 'current_model.json'} == set(manifest['files']) | {'manifest.json'}
     for name, item in manifest['files'].items():
         assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == item['sha256'], name
     for name in ('assembly.scad', 'parameters_native.scad', 'common.scad'):
@@ -42,7 +44,7 @@ def check_cad_package(folder):
 def validate(models=MODELS, keep_validation=False):
     reports = {}
     for model in models:
-        root = ROOT / 'output/objects/hkqai-instruments' / model / 'codex/products'
+        root = ROOT / 'output/hkqai-instruments' / model
         if json.loads((root / 'manifest.json').read_text()).get('format') == 'openscad':
             with tempfile.TemporaryDirectory(prefix='standalone_cad_') as temp:
                 folder = Path(temp)
@@ -51,7 +53,7 @@ def validate(models=MODELS, keep_validation=False):
             print(model, 'standalone CAD package checked', flush=True)
             continue
         pb = pybullet()
-        with session(root.parent / 'intermediate', keep=keep_validation) as diagnostics:
+        with session(ROOT/'work/hkqai-instruments'/model/'codex', keep=keep_validation) as diagnostics:
             with workspace('standalone_package') as temp:
                 folder = Path(temp)
                 shutil.copytree(root, folder, dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.zip'))

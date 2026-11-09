@@ -51,7 +51,7 @@ def mesh_artifact_path(meshes_dir: Path, name: str, artifact: str) -> Path:
 
 
 def mesh_glb_path(out_dir: Path, dataset: str, name: str) -> Path:
-    """Return a mesh path under family/object/method/products and create its directory."""
+    """Return a mesh path under family/object/method and create its directory."""
     method = 'tsdf' if name.endswith('_tsdf') else 'sam3d'
     meshes = dataset_meshes_dir(out_dir, dataset, method)
     meshes.mkdir(parents=True, exist_ok=True)
@@ -84,7 +84,13 @@ def dataset_name_from_input(src: Path) -> str:
             if not batch.get("eligible_for_rigid_reconstruction", True):
                 raise ValueError(f"{parent} contains mixed or unreviewed states; select and stage one state first")
             return canonical_name(batch["run_id"])
-    # Canonical generated scene: <object>/<method>/intermediate[/<run>]/scene.
+    # Canonical generated scene: work/<family>/<object>/<method>[/<run>]/scene.
+    for parent in (src, *src.parents):
+        if parent.name in METHODS and parent.parent.parent.parent.name == 'work':
+            rel = src.relative_to(parent)
+            if parent.parent.name in INSTRUMENT_MODELS and rel.parts and rel.parts[0] not in ('scene', 'depth'):
+                return canonical_name(rel.parts[0])
+            return canonical_name(parent.parent.name)
     for parent in (src, *src.parents):
         if parent.name == 'intermediate' and parent.parent.name in METHODS:
             rel = src.relative_to(parent)
@@ -605,6 +611,9 @@ def mesh_scan_root(dataset_dir: Path) -> Path:
         return dataset_dir.parent.parent
     if dataset_dir.parent.name == 'intermediate' and dataset_dir.parent.parent.name in METHODS:
         return dataset_dir.parent.parent.parent
+    for parent in (dataset_dir, *dataset_dir.parents):
+        if parent.name in METHODS and parent.parent.parent.parent.name == 'work':
+            return object_dir(parent, parent.parent.name)
     meshes = dataset_dir / "meshes"
     return meshes if meshes.is_dir() else dataset_dir
 
@@ -672,9 +681,9 @@ def _mesh_summary_cell(root: Path, depth: str, mesh: str, filename: str) -> Path
     if depth == "da3":
         candidates = [f"da3_posed_{mesh}", f"da3_{mesh}"]
     for name in candidates:
-        canonical = root / mesh / 'products' / f'{name}_{filename}'
+        canonical = root / mesh / f'{name}_{filename}'
         if canonical.is_file(): return canonical
-        for canonical in sorted((root / mesh / 'products').glob(f'*/{name}_{filename}')):
+        for canonical in sorted((root / mesh).glob(f'*/{name}_{filename}')):
             if canonical.is_file(): return canonical
         flat = root / f"{name}_{filename}"
         if flat.is_file():
@@ -768,6 +777,9 @@ def migrate_dataset_layout(dataset_dir: Path) -> list[str]:
     log: list[str] = []
     scene = dataset_dir / "scene"
     depth = dataset_dir / "depth"
+    for parent in (dataset_dir, *dataset_dir.parents):
+        if parent.name in METHODS and parent.parent.parent.parent.name == 'work':
+            return log
     meshes = dataset_dir / "meshes"
 
     for name in ("images", "masks", "object", "labelme_raw"):

@@ -100,15 +100,15 @@ Choose a new destination for the first copy.
 
 ```bash
 mkdir -p "$HOME/Downloads"
-scp -r YOUR_SSH_HOST:/path/to/repository/output/objects/hkqai-instruments/cary60/codex/products/openscad \
+scp -r YOUR_SSH_HOST:/path/to/repository/output/hkqai-instruments/cary60/openscad \
   "$HOME/Downloads/cary60-openscad"
 openscad "$HOME/Downloads/cary60-openscad/assembly.scad"
 ```
 
-Alternatively, download and extract `output/packages/instruments_share.zip` if
+Alternatively, download and extract `output/packages/instruments_models.zip` if
 available. See the [instrument guide](../instruments/README.md) for creating it.
-Local edits do not automatically sync back to the server or regenerate GLB/URDF
-files; use that guide's parameter import/rebuild workflow when needed.
+Local edits do not automatically sync back to the server. Copy reviewed SCAD
+changes into the tracked native source, then rebuild as described in that guide.
 
 ## Headless use
 
@@ -117,7 +117,7 @@ No GUI is required for geometry checks and STL exports:
 
 ```bash
 openscad --version
-.venv/bin/python -m src.instruments stl --model cary60 --part socket_left
+.venv/bin/python -m src.instruments stl --model cary60 --part socket_shell
 ```
 
 Keep the selected executable installed while builds depend on it. Local server
